@@ -1,17 +1,13 @@
 import planWaldorg from '../assets/waldorg.jpg';
 import { calculerFiche } from '../rules/creation';
 import { lancer } from '../rules/des';
-import { formatMods, objet, type Objet } from '../rules/objets';
+import { objet, type Objet } from '../rules/objets';
 import {
   acheter,
-  boirePotion,
-  desequiper,
   dormir,
-  equiper,
   evMax,
   noter,
-  peutManier,
-  peutPorter,
+  passerTemps,
   prixVente,
   soigner,
   valeursCombat,
@@ -20,6 +16,7 @@ import {
 } from '../rules/partie';
 import { longueur, pointA, trajet } from '../rules/rues';
 import { LIEUX, QUETE_GOBELINS, RUMEURS_LOUCHES, RUMEURS_NORMALES, lieu, type Lieu, type TypeLieu } from '../rules/waldorg';
+import { bandeau, boutonsVitesse, lierSac, lierVitesse, ligneObjet, panneauJournal, panneauSac, vitesse } from './commun';
 import { de, echapper } from './outils';
 import { sauvegarderPartie } from './sauvegarde';
 
@@ -55,32 +52,15 @@ interface Visite {
   message?: string;
 }
 
-const VITESSES = [1, 2, 4];
-const CLE_VITESSE = 'naheulbeuk.vitesse';
-
-/** Réglage propre à chaque joueur, retenu dans son navigateur s'il le permet. */
-const lireVitesse = (): number => {
-  try {
-    const v = Number(localStorage.getItem(CLE_VITESSE));
-    return VITESSES.includes(v) ? v : 1;
-  } catch {
-    return 1;
-  }
-};
-
-const memoriserVitesse = (v: number) => {
-  try {
-    localStorage.setItem(CLE_VITESSE, String(v));
-  } catch {
-    // Pas de stockage : le réglage vaut pour cette visite seulement.
-  }
-};
-
-let vitesse = lireVitesse();
-
 let echapActif: ((e: KeyboardEvent) => void) | undefined;
 
-export const ecranVille = (app: HTMLElement, p: Partie, ouvrirFiche: () => void, retourAccueil: () => void) => {
+export const ecranVille = (
+  app: HTMLElement,
+  p: Partie,
+  ouvrirFiche: () => void,
+  retourAccueil: () => void,
+  quitterVille: () => void,
+) => {
   let visite: Visite = {};
   let vue: 'lieu' | 'sac' | 'journal' = 'lieu';
   /** La fenêtre du lieu est ouverte au-dessus du plan. */
@@ -91,27 +71,6 @@ export const ecranVille = (app: HTMLElement, p: Partie, ouvrirFiche: () => void,
 
   const sauver = () => (enregistre = sauvegarderPartie(p));
   const fiche = () => calculerFiche(p.perso);
-
-  // --- Bandeau du héros ----------------------------------------------------
-
-  const bandeau = () => {
-    const max = evMax(p);
-    return `<div class="bandeau">
-      <div><b class="nom-court">${echapper(p.perso.nom)}</b> <span class="note">${echapper(fiche().nomVersionHB ?? fiche().origine.nom)}</span></div>
-      <div class="jauges">
-        <span title="Énergie vitale">❤ <b>${p.ev}</b>/${max}</span>
-        <span title="Pièces d'or">● <b>${p.or}</b> PO</span>
-        <span title="Points de destin">✦ <b>${p.perso.destin}</b></span>
-        <span title="Jour">☼ jour <b>${p.jour}</b></span>
-      </div>
-      <div class="onglets">
-        <button class="secondaire petit ${vue === 'lieu' ? 'actif' : ''}" data-vue="lieu">Ville</button>
-        <button class="secondaire petit ${vue === 'sac' ? 'actif' : ''}" data-vue="sac">Sac et équipement</button>
-        <button class="secondaire petit ${vue === 'journal' ? 'actif' : ''}" data-vue="journal">Journal</button>
-        <button class="secondaire petit" id="fiche">Fiche</button>
-      </div>
-    </div>`;
-  };
 
   // --- Plan --------------------------------------------------------------------
 
@@ -129,34 +88,12 @@ export const ecranVille = (app: HTMLElement, p: Partie, ouvrirFiche: () => void,
     </div>
     <div class="legende">${LEGENDE.map(([t, nom]) => `<span><i class="poi-mini poi-${t}">${ICONES[t]}</i>${nom}</span>`).join('')}
       <span><i class="heros-mini"></i>${echapper(p.perso.nom)}</span>
-      <span class="vitesse" role="group" aria-label="Vitesse de marche">Vitesse ${VITESSES.map(
-        (v) => `<button class="secondaire petit ${v === vitesse ? 'actif' : ''}" data-vitesse="${v}" aria-pressed="${v === vitesse}">×${v}</button>`,
-      ).join('')}</span></div>`;
+      ${boutonsVitesse()}</div>`;
   };
 
   // --- Panneau du lieu -----------------------------------------------------------
 
   const prixAchat = (o: Objet, l: Lieu) => Math.max(1, Math.round(o.prix * (l.boutique!.prix) * (1 + (visite.marchandage ?? 0))));
-
-  const ligneObjet = (o: Objet, droite: string) => {
-    const refus = o.type === 'arme' ? peutManier(fiche(), o) : o.type === 'armure' ? peutPorter(fiche(), o) : null;
-    const details = [
-      o.degats ? `Dégâts ${o.degats}` : '',
-      o.pr ? `PR ${o.pr}` : '',
-      o.mains === 2 ? '2 mains' : '',
-      o.soin ? `Rend ${o.soin} PV` : '',
-      formatMods(o.mods),
-    ].filter(Boolean);
-    return `<div class="objet">
-      <div class="objet-texte">
-        <b>${echapper(o.nom)}</b>${o.estime ? ' <span class="pastille" title="Valeurs provisoires, en attente des tableaux officiels">(estimé)</span>' : ''}
-        ${details.length ? `<div class="pastille">${echapper(details.join(' · '))}</div>` : ''}
-        <div class="note">${echapper(o.description)}</div>
-        ${refus ? `<div class="alerte petit-texte">${echapper(refus)}</div>` : ''}
-      </div>
-      <div class="objet-action">${droite}</div>
-    </div>`;
-  };
 
   const panneauBoutique = (l: Lieu) => {
     const b = l.boutique!;
@@ -174,7 +111,7 @@ export const ecranVille = (app: HTMLElement, p: Partie, ouvrirFiche: () => void,
         .map((id) => {
           const o = objet(id);
           const prix = prixAchat(o, l);
-          return ligneObjet(o, `<button class="petit acheter" data-id="${id}" data-prix="${prix}" ${p.or < prix ? 'disabled' : ''}>${prix} PO</button>`);
+          return ligneObjet(p, o, `<button class="petit acheter" data-id="${id}" data-prix="${prix}" ${p.or < prix ? 'disabled' : ''}>${prix} PO</button>`);
         })
         .join('')}
       ${
@@ -186,7 +123,7 @@ export const ecranVille = (app: HTMLElement, p: Partie, ouvrirFiche: () => void,
                       const o = objet(id);
                       const prix = prixVente(o, b.rachat!);
                       const nb = p.sac.filter((x) => x === id).length;
-                      return ligneObjet(o, `<span class="pastille">×${nb}</span> <button class="secondaire petit vendre" data-id="${id}" data-prix="${prix}">Vendre ${prix} PO</button>`);
+                      return ligneObjet(p, o, `<span class="pastille">×${nb}</span> <button class="secondaire petit vendre" data-id="${id}" data-prix="${prix}">Vendre ${prix} PO</button>`);
                     })
                     .join('')
                 : '<p class="note">Rien dans ton sac ne l\'intéresse. (Pour vendre ton arme ou ton armure, retire-la d\'abord dans « Sac et équipement ».)</p>'
@@ -198,7 +135,7 @@ export const ecranVille = (app: HTMLElement, p: Partie, ouvrirFiche: () => void,
   const actionsLieu = (l: Lieu): string => {
     switch (l.type) {
       case 'porte':
-        return `<p><button disabled title="Arrive à la prochaine étape">Quitter Waldorg (carte du monde bientôt)</button></p>${panneauBoutique(l)}`;
+        return `<p><button id="quitter">Quitter Waldorg et partir sur les routes</button></p>${panneauBoutique(l)}`;
       case 'marche':
       case 'boutique':
         return panneauBoutique(l);
@@ -264,56 +201,6 @@ export const ecranVille = (app: HTMLElement, p: Partie, ouvrirFiche: () => void,
     </div>`;
   };
 
-  // --- Sac et équipement -------------------------------------------------------
-
-  const panneauSac = () => {
-    const v = valeursCombat(p);
-    const emplacement = (titre: string, cle: 'arme' | 'armure') => {
-      const id = p.equipe[cle];
-      return ligneObjet(
-        id ? objet(id) : { id: '', nom: 'Rien', type: 'materiel', prix: 0, description: cle === 'arme' ? 'Tu te bats à mains nues (1D-2).' : 'Aucune protection.' },
-        id ? `<button class="secondaire petit retirer" data-emplacement="${cle}">Retirer</button>` : '',
-      ).replace('<b>', `<span class="pastille">${titre}</span><br /><b>`);
-    };
-    const ids = [...new Set(p.sac)];
-    return `<div class="panneau">
-      <h2>Sac et équipement</h2>
-      <div class="valeurs">
-        <div><b>${v.at}</b><span>Attaque</span></div>
-        <div><b>${v.prd}</b><span>Parade</span></div>
-        <div><b>${echapper(v.degats)}</b><span>Dégâts</span></div>
-        <div><b>${v.pr}</b><span>Protection</span></div>
-        <div><b>${v.cha}</b><span>Charisme</span></div>
-      </div>
-      ${emplacement('Arme', 'arme')}
-      ${emplacement('Armure', 'armure')}
-      <h3 style="margin-top:16px">Dans le sac</h3>
-      ${
-        ids.length
-          ? ids
-              .map((id) => {
-                const o = objet(id);
-                const nb = p.sac.filter((x) => x === id).length;
-                const bouton =
-                  o.type === 'arme' || o.type === 'armure'
-                    ? `<button class="secondaire petit equiper" data-id="${id}">Équiper</button>`
-                    : o.type === 'potion'
-                      ? `<button class="secondaire petit boire" data-id="${id}">Boire</button>`
-                      : '';
-                return ligneObjet(o, `<span class="pastille">×${nb}</span> ${bouton}`);
-              })
-              .join('')
-          : '<p class="note">Ton sac est vide. Même pas une chaussette.</p>'
-      }
-      ${visite.message ? `<div class="recit">${visite.message}</div>` : ''}
-    </div>`;
-  };
-
-  const panneauJournal = () => `<div class="panneau">
-    <h2>Journal</h2>
-    <ul class="journal">${p.journal.map((j) => `<li>${echapper(j)}</li>`).join('')}</ul>
-  </div>`;
-
   // --- Arrivée ---------------------------------------------------------------------
 
   const ecranArrivee = () => {
@@ -350,9 +237,9 @@ export const ecranVille = (app: HTMLElement, p: Partie, ouvrirFiche: () => void,
   const render = () => {
     if (!p.arrive) return ecranArrivee();
     const ouvert = vue === 'lieu' && popup;
-    const panneau = vue === 'sac' ? panneauSac() : vue === 'journal' ? panneauJournal() : '';
+    const panneau = vue === 'sac' ? panneauSac(p, visite.message) : vue === 'journal' ? panneauJournal(p) : '';
     app.innerHTML = `<div class="page page-ville">
-      ${bandeau()}
+      ${bandeau(p, vue, 'Ville')}
       <div class="scene ${ouvert ? 'popup-ouverte' : ''}" id="scene">
         ${plan()}
         ${ouvert ? popupLieu() : ''}
@@ -387,6 +274,8 @@ export const ecranVille = (app: HTMLElement, p: Partie, ouvrirFiche: () => void,
     const duree = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : Math.max(1500, longueur(chemin) * 70);
     const arriver = () => {
       enRoute = false;
+      // Waldorg est grande : une bonne heure et demie pour la traverser de part en part.
+      passerTemps(p, longueur(chemin) / 60);
       p.lieu = id;
       visite = {};
       sauver();
@@ -405,7 +294,7 @@ export const ecranVille = (app: HTMLElement, p: Partie, ouvrirFiche: () => void,
     let avant = performance.now();
     const pas = (maintenant: number) => {
       // La vitesse peut changer en pleine marche : on avance par petits bouts.
-      avance += ((maintenant - avant) * vitesse) / duree;
+      avance += ((maintenant - avant) * vitesse()) / duree;
       avant = maintenant;
       const t = Math.min(1, avance);
       // Démarrage et arrivée en douceur.
@@ -442,16 +331,12 @@ export const ecranVille = (app: HTMLElement, p: Partie, ouvrirFiche: () => void,
     });
     sur('#fiche', () => ouvrirFiche());
     sur('#accueil', () => retourAccueil());
-    sur('[data-vitesse]', (el) => {
-      vitesse = Number(el.dataset.vitesse);
-      memoriserVitesse(vitesse);
-      // Pas de nouveau rendu : le héros est peut-être en train de marcher.
-      app.querySelectorAll<HTMLElement>('[data-vitesse]').forEach((b) => {
-        const actif = Number(b.dataset.vitesse) === vitesse;
-        b.classList.toggle('actif', actif);
-        b.setAttribute('aria-pressed', String(actif));
-      });
+    sur('#quitter', () => {
+      noter(p, 'quitte Waldorg par la porte ouest.');
+      quitterVille();
     });
+    lierVitesse(app);
+    lierSac(app, p, message);
 
     // Boutiques
     sur('#marchander', () => {
@@ -471,23 +356,6 @@ export const ecranVille = (app: HTMLElement, p: Partie, ouvrirFiche: () => void,
       const refus = vendre(p, o.id, Number(el.dataset.prix));
       if (!refus) noter(p, `vend ${o.nom} pour ${el.dataset.prix} PO.`);
       message(refus ? echapper(refus) : `Tu vends <b>${echapper(o.nom)}</b> pour ${el.dataset.prix} PO.`);
-    });
-
-    // Sac
-    sur('.equiper', (el) => {
-      const o = objet(el.dataset.id!);
-      const refus = equiper(p, o.id);
-      message(refus ? `<span class="alerte">${echapper(refus)}</span>` : `Tu t'équipes : <b>${echapper(o.nom)}</b>.`);
-    });
-    sur('.retirer', (el) => {
-      desequiper(p, el.dataset.emplacement as 'arme' | 'armure');
-      message('Rangé dans le sac.');
-    });
-    sur('.boire', (el) => {
-      const r = boirePotion(p, el.dataset.id!);
-      if (typeof r === 'string') return message(echapper(r));
-      noter(p, `boit une potion et récupère ${r.rendu} PV.`);
-      message(`${r.des.map((d) => de(d)).join('')} Glou glou… Tu récupères <b>${r.rendu} PV</b>.`);
     });
 
     // Bars, auberges, soins

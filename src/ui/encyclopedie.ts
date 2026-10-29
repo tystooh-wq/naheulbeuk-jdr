@@ -6,6 +6,7 @@ import { ORIGINES } from '../rules/origines';
 import { trajet, longueur } from '../rules/rues';
 import { CARACS, type Criteres } from '../rules/types';
 import { LIEUX } from '../rules/waldorg';
+import { itineraire, LIEUX_MONDE } from '../rules/monde';
 import { competence, echapper, liste } from './outils';
 
 // Encyclopédie de debug : toutes les données du jeu, consultables à tout moment, en marge de la partie.
@@ -18,7 +19,7 @@ const RUBRIQUES: [Rubrique, string][] = [
   ['origines', 'Origines'],
   ['metiers', 'Métiers'],
   ['competences', 'Compétences'],
-  ['lieux', 'Lieux de Waldorg'],
+  ['lieux', 'Lieux'],
 ];
 
 const TYPES_OBJET: [Objet['type'], string][] = [
@@ -157,6 +158,21 @@ const contenu = (r: Rubrique, q: string): string => {
                   <p>${echapper(l.description)}</p>
                   ${l.boutique ? `<p class="note">Stock : ${echapper(l.boutique.stock.join(', '))}</p>` : ''}
                   <p class="note">Longueur des trajets à pied (en % de la largeur du plan) : ${echapper(distances)}</p>
+                </details>`,
+              };
+            }),
+          ],
+          [
+            'Terre de Fangh',
+            LIEUX_MONDE.map((l) => {
+              const it = l.id === 'waldorg' ? null : itineraire('waldorg', l.id);
+              return {
+                texte: `${l.nom} ${l.description}`,
+                html: `<details class="ency-ligne">
+                  <summary><b>${echapper(l.nom)}</b><span class="ency-chiffres">${it ? `${Math.round(it.km)} km de Waldorg · ${it.heures.toFixed(1)} h` : 'départ'}</span></summary>
+                  <p>${echapper(l.description)}</p>
+                  ${l.auberge ? `<p class="note">${echapper(l.auberge.nom)} : repas ${l.auberge.repas} PO, chambre ${l.auberge.chambre} PO (${l.auberge.confort})</p>` : ''}
+                  ${it ? `<p class="note">Par ${echapper(it.etapes.join(' → '))}</p>` : ''}
                 </details>`,
               };
             }),

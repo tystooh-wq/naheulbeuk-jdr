@@ -46,6 +46,14 @@ export const charger = (): Personnage | null => {
 export const sauvegarderPartie = (p: Partie): boolean => ecrire(CLE_PARTIE, p);
 
 export const chargerPartie = (): Partie | null => {
-  const p = lire<Partie>(CLE_PARTIE);
-  return p?.version === 2 ? p : null;
+  const p = lire<Partie | (Omit<Partie, 'version' | 'heure' | 'zone' | 'lieuMonde'> & { version: 2 })>(CLE_PARTIE);
+  // Version 2 : avant la carte du monde, on était forcément dans Waldorg.
+  if (p?.version === 2) return { ...p, version: 3, heure: 9, zone: 'ville', lieuMonde: 'waldorg' };
+  return p?.version === 3 ? p : null;
+};
+
+/** Fin de l'aventure : le héros et sa partie disparaissent. */
+export const effacerTout = () => {
+  effacer(CLE_PARTIE);
+  effacer(CLE_PERSO);
 };

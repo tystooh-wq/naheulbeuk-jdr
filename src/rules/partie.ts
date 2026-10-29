@@ -11,8 +11,19 @@ export interface Equipement {
 
 export type EtatQuete = 'acceptee' | 'terminee';
 
+/** Un voyage en cours sur la carte du monde, interrompu (nuit, rencontre) ou en marche. */
+export interface Voyage {
+  /** Lieux traversés, du départ à l'arrivée. */
+  etapes: string[];
+  /** Heures de marche déjà faites depuis le départ. */
+  fait: number;
+  allure: 'normale' | 'forcee';
+  /** Heure de marche à laquelle le MJ vérifiera s'il se passe quelque chose. */
+  prochainControle: number;
+}
+
 export interface Partie {
-  version: 2;
+  version: 3;
   perso: Personnage;
   ev: number;
   or: number;
@@ -22,6 +33,13 @@ export interface Partie {
   ville: string;
   lieu: string;
   jour: number;
+  /** Heure du jour, de 0 à 24 (avec des fractions). */
+  heure: number;
+  /** En ville (plan de Waldorg) ou sur la carte du monde. */
+  zone: 'ville' | 'monde';
+  /** Position sur la carte du monde (ou dernière, quand on est en ville). */
+  lieuMonde: string;
+  voyage?: Voyage;
   quetes: Record<string, EtatQuete>;
   journal: string[];
   /** Le récit d'arrivée a été lu. */
@@ -66,7 +84,7 @@ export const nouvellePartie = (perso: Personnage): Partie => {
   const { sac, equipe } = equipementDepart(perso);
   const fiche = calculerFiche(perso);
   return {
-    version: 2,
+    version: 3,
     perso,
     ev: fiche.ev,
     or: perso.or,
@@ -75,6 +93,9 @@ export const nouvellePartie = (perso: Personnage): Partie => {
     ville: 'Waldorg',
     lieu: 'porte',
     jour: 1,
+    heure: 9,
+    zone: 'ville',
+    lieuMonde: 'waldorg',
     quetes: {},
     journal: [`Jour 1 : ${perso.nom} arrive aux portes de Waldorg avec ${perso.or} pièces d'or.`],
     arrive: false,
@@ -190,7 +211,8 @@ export const desequiper = (p: Partie, emplacement: keyof Equipement) => {
 
 /** Lance une expression de dés comme « 2D+4 ». */
 export const lancerExpression = (expr: string, rng?: Rng): { total: number; des: number[] } => {
-  const fixe = expr.replace(/\s/g, '');
+  // Les tableaux notent parfois un astérisque de renvoi (« 1D-1* ») : on l'ignore.
+  const fixe = expr.replace(/[\s*]/g, '');
   if (/^\d+$/.test(fixe)) return { total: Number(fixe), des: [] };
   const m = /^(\d*)D([+-]\d+)?$/.exec(fixe);
   if (!m) throw new Error(`Expression de dés invalide : ${expr}`);
@@ -219,11 +241,50 @@ export const boirePotion = (p: Partie, id: string, rng?: Rng): { rendu: number; 
 
 /** Une nuit de 8 heures (règles V4, 5.1) : 1 PV par 4 h, 2 h ou 1 h selon le confort. */
 export const dormir = (p: Partie, confort: 'mauvais' | 'normal' | 'excellent'): number => {
-  p.jour += 1;
+  if (p.heure >= 6) p.jour += 1;
+  p.heure = 7;
   return soigner(p, { mauvais: 2, normal: 4, excellent: 8 }[confort]);
+};
+
+/** Fait avancer l'horloge, en changeant de jour à minuit. */
+export const passerTemps = (p: Partie, heures: number) => {
+  p.heure += heures;
+  while (p.heure >= 24) {
+    p.heure -= 24;
+    p.jour += 1;
+  }
+};
+
+export const formatHeure = (h: number) => {
+  const m = Math.floor((h % 1) * 60);
+  return `${Math.floor(h)} h${m ? String(m).padStart(2, '0') : ''}`;
+};
+
+/** Épreuve (règles V4) : réussie si le D20 ne dépasse pas la valeur ; 1 réussit toujours, 20 échoue toujours. */
+export const epreuve = (valeur: number, rng?: Rng): { de: number; reussi: boolean } => {
+  const de = lancer(20, rng);
+  return { de, reussi: de === 1 || (de !== 20 && de <= valeur) };
 };
 
 export const noter = (p: Partie, texte: string) => {
   p.journal.unshift(`Jour ${p.jour} : ${texte}`);
   p.journal = p.journal.slice(0, 30);
+};
+
+/**
+ * Une nuit à la belle étoile. Récupération selon la couverture (tableau « Matériel et services ») :
+ * sans couverture, basse ; avec la couverture d'aventurier, normale. Le matelas de camping ajoute
+ * 1 PV par heure de sommeil. Sans ration, on dort le ventre vide et on récupère moitié moins.
+ */
+export const bivouaquer = (p: Partie): { rendu: number; confort: 'mauvais' | 'normal'; mange: boolean; matelas: boolean } => {
+  const confort = p.sac.includes('couverture') ? 'normal' : 'mauvais';
+  const matelas = p.sac.includes('matelas');
+  const i = p.sac.indexOf('rations');
+  const mange = i >= 0;
+  if (mange) p.sac.splice(i, 1);
+  let points = { mauvais: 2, normal: 4 }[confort] + (matelas ? 8 : 0);
+  if (!mange) points = Math.floor(points / 2);
+  if (p.heure >= 6) p.jour += 1;
+  p.heure = 6;
+  return { rendu: soigner(p, points), confort, mange, matelas };
 };

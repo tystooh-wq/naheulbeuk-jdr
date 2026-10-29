@@ -5,7 +5,8 @@ import { ecranCreation } from './ui/creation';
 import { installerEncyclopedie } from './ui/encyclopedie';
 import { ecranFiche } from './ui/fiche';
 import { echapper } from './ui/outils';
-import { charger, chargerPartie, sauvegarderPartie } from './ui/sauvegarde';
+import { charger, chargerPartie, effacerTout, sauvegarderPartie } from './ui/sauvegarde';
+import { ecranMonde } from './ui/monde';
 import { ecranVille } from './ui/ville';
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
@@ -18,18 +19,37 @@ const ficheAvantDepart = (perso: Personnage, enregistre = true) =>
 
 const jouer = (partie: Partie) => {
   sauvegarderPartie(partie);
-  const ville = () =>
-    ecranVille(
-      app,
-      partie,
-      () =>
-        ecranFiche(app, calculerFiche(partie.perso), accueil, {
-          enJeu: { or: partie.or, ev: partie.ev },
-          suite: { libelle: 'Retour en ville', action: ville },
-        }),
-      accueil,
-    );
-  ville();
+  const fiche = (retour: () => void, libelle: string) => () =>
+    ecranFiche(app, calculerFiche(partie.perso), accueil, {
+      enJeu: { or: partie.or, ev: partie.ev },
+      suite: { libelle, action: retour },
+    });
+  const ville = () => {
+    partie.zone = 'ville';
+    sauvegarderPartie(partie);
+    ecranVille(app, partie, fiche(ville, 'Retour en ville'), accueil, () => {
+      partie.lieuMonde = 'waldorg';
+      monde();
+    });
+  };
+  const monde = () => {
+    partie.zone = 'monde';
+    sauvegarderPartie(partie);
+    ecranMonde(app, partie, {
+      ouvrirFiche: fiche(monde, 'Retour à la carte'),
+      retourAccueil: accueil,
+      entrerVille: () => {
+        partie.lieu = 'porte';
+        ville();
+      },
+      finDePartie: () => {
+        effacerTout();
+        accueil();
+      },
+    });
+  };
+  if (partie.zone === 'monde') monde();
+  else ville();
 };
 
 export const accueil = () => {

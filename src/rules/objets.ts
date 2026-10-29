@@ -82,7 +82,7 @@ export const OBJETS: Objet[] = [
   { id: 'couverture', nom: "Couverture d'aventurier", type: 'materiel', prix: 2, description: 'En extérieur, permet une récupération normale.' },
   { id: 'gourde', nom: 'Outre de cuir (1 litre)', type: 'materiel', prix: 2, description: "Contient de l'eau. Ou autre chose." },
   { id: 'chaussettes', nom: 'Chaussettes (3 paires)', type: 'materiel', prix: 1, description: 'Hé ! Chaussette !!! Essentiel, et trop souvent oublié.' },
-  { id: 'rations', nom: 'Rations de voyage (3 repas)', type: 'materiel', prix: 6, description: 'Se conservent 7 jours. Ça cale.' },
+  { id: 'rations', nom: 'Rations de voyage (2 repas)', type: 'materiel', prix: 4, description: "Le dîner et le petit déjeuner d'un bivouac (2 PO le repas). Se conservent 7 jours." },
   { id: 'corde', nom: 'Corde standard (10 m)', type: 'materiel', prix: 10, description: 'Charge maximale : 80 kilos.' },
   { id: 'torche', nom: 'Torches (lot de 10)', type: 'materiel', prix: 1, description: 'Une heure de lumière chacune.' },
   { id: 'lampe', nom: 'Lampe à huile', type: 'materiel', prix: 5, description: 'Brûle 24 heures avec un flacon d\'huile.' },

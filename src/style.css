@@ -597,7 +597,8 @@ button.petit.actif {
 
 .heros {
   position: absolute;
-  transform: translate(-50%, -135%);
+  /* La pointe du marqueur (coin bas-gauche, tourné de 45°) se pose exactement sur le lieu. */
+  translate: -50% -121%;
   width: 26px;
   height: 26px;
   border-radius: 50% 50% 50% 0;
@@ -975,4 +976,138 @@ body.ency-ouverte {
 .vitesse button {
   min-width: 36px;
   padding: 2px 8px;
+}
+
+/* --- Carte du monde ---------------------------------------------------------------- */
+
+.carte-monde {
+  position: relative;
+  height: min(68vh, 600px);
+  min-height: 320px;
+  overflow: hidden;
+  border: 2px solid var(--bordure);
+  border-radius: 4px;
+  background: #d8cdb4;
+  touch-action: none;
+  cursor: grab;
+  user-select: none;
+}
+
+.carte-monde:active {
+  cursor: grabbing;
+}
+
+.calque {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform-origin: 0 0;
+}
+
+.calque > img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  /* La carte officielle est en niveaux de gris : un ton parchemin la fond dans le décor. */
+  filter: sepia(0.45) contrast(1.05) brightness(1.02);
+  pointer-events: none;
+}
+
+.carte-monde.nuit .calque > img {
+  filter: sepia(0.5) brightness(0.62) contrast(1.1) hue-rotate(185deg) saturate(0.6);
+}
+
+.calque .pistes {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.pistes polyline {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.pistes .hors-piste {
+  stroke: #7a5a2a;
+  stroke-width: 1.5;
+  stroke-dasharray: 1 5;
+  opacity: 0.8;
+}
+
+.pistes .itineraire {
+  stroke: var(--rouge);
+  stroke-width: 3;
+  stroke-dasharray: 2 6;
+}
+
+.poi-monde {
+  width: 28px;
+  height: 28px;
+  font-family: 'EB Garamond', Georgia, serif;
+  font-size: 1rem;
+}
+
+.poi-monde em {
+  opacity: 1;
+  color: var(--encre);
+}
+
+.poi-ville {
+  background: #fff6e0;
+  border-color: var(--rouge);
+  color: var(--rouge);
+}
+
+.poi-grotte {
+  background: #3b2c1c;
+  color: #f3e7c9;
+}
+
+.zoom {
+  position: absolute;
+  right: 8px;
+  top: 8px;
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.zoom button {
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  font-size: 1.1rem;
+  background: var(--carte);
+}
+
+.trait-hors-piste {
+  width: 22px;
+  border-top: 2px dotted #7a5a2a;
+}
+
+.illustration.monde img {
+  width: 700%;
+}
+
+.allure {
+  border: 1px solid var(--bordure);
+  border-radius: 4px;
+  margin: 10px 0;
+  padding: 6px 12px 10px;
+}
+
+.allure label {
+  display: block;
+}
+
+.de.petit {
+  width: 24px;
+  height: 24px;
+  font-size: 0.85rem;
 }
