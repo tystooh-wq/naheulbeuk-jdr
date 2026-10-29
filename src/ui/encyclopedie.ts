@@ -186,7 +186,7 @@ export const installerEncyclopedie = () => {
 
   const afficher = () => {
     fenetre.innerHTML = `<div class="page ency-page">
-      <button class="secondaire petit fermer" id="ency-fermer" aria-label="Fermer l'encyclopédie">✕</button>
+      <div class="barre-fermer"><button class="secondaire petit fermer" id="ency-fermer" aria-label="Fermer l'encyclopédie">✕</button></div>
       <h2>Encyclopédie</h2>
       <p class="note">Outil de debug : toutes les données chargées dans le jeu.</p>
       <div class="onglets">${RUBRIQUES.map(([r, nom]) => `<button class="secondaire petit ${r === rubrique ? 'actif' : ''}" data-rubrique="${r}">${nom}</button>`).join('')}</div>

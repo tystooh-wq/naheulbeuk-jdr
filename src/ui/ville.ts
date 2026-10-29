@@ -252,7 +252,7 @@ export const ecranVille = (app: HTMLElement, p: Partie, ouvrirFiche: () => void,
     return `<div class="popup-lieu" id="popup" role="dialog" aria-labelledby="titre-lieu">
       ${illustration(l)}
       <div class="panneau carte-lieu" id="panneau">
-        <button class="secondaire petit fermer" id="fermer-lieu" aria-label="Fermer et revenir au plan">✕</button>
+        <div class="barre-fermer"><button class="secondaire petit fermer" id="fermer-lieu" aria-label="Fermer et revenir au plan">✕</button></div>
         <div class="entete-lieu">
           <span class="icone-lieu poi-${l.type}">${ICONES[l.type]}</span>
           <div><h2 id="titre-lieu">${echapper(l.nom)}</h2><div class="note">${echapper(l.quartier)}</div></div>
@@ -383,8 +383,8 @@ export const ecranVille = (app: HTMLElement, p: Partie, ouvrirFiche: () => void,
     if (enRoute) return;
     if (id === p.lieu) return entrer();
     const chemin = trajet(lieu(p.lieu), lieu(id));
-    // À vitesse ×1, environ 4 s pour traverser la ville ; le réglage de vitesse divise cette durée.
-    const duree = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : Math.max(900, longueur(chemin) * 42);
+    // À vitesse ×1, environ 7 s pour traverser la ville ; le réglage de vitesse divise cette durée.
+    const duree = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : Math.max(1500, longueur(chemin) * 70);
     const arriver = () => {
       enRoute = false;
       p.lieu = id;
