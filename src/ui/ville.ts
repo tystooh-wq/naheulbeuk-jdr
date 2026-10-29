@@ -55,6 +55,29 @@ interface Visite {
   message?: string;
 }
 
+const VITESSES = [1, 2, 4];
+const CLE_VITESSE = 'naheulbeuk.vitesse';
+
+/** Réglage propre à chaque joueur, retenu dans son navigateur s'il le permet. */
+const lireVitesse = (): number => {
+  try {
+    const v = Number(localStorage.getItem(CLE_VITESSE));
+    return VITESSES.includes(v) ? v : 1;
+  } catch {
+    return 1;
+  }
+};
+
+const memoriserVitesse = (v: number) => {
+  try {
+    localStorage.setItem(CLE_VITESSE, String(v));
+  } catch {
+    // Pas de stockage : le réglage vaut pour cette visite seulement.
+  }
+};
+
+let vitesse = lireVitesse();
+
 let echapActif: ((e: KeyboardEvent) => void) | undefined;
 
 export const ecranVille = (app: HTMLElement, p: Partie, ouvrirFiche: () => void, retourAccueil: () => void) => {
@@ -105,7 +128,10 @@ export const ecranVille = (app: HTMLElement, p: Partie, ouvrirFiche: () => void,
       <div class="heros" id="heros" style="left:${ici.x}%;top:${ici.y}%" aria-hidden="true"></div>
     </div>
     <div class="legende">${LEGENDE.map(([t, nom]) => `<span><i class="poi-mini poi-${t}">${ICONES[t]}</i>${nom}</span>`).join('')}
-      <span><i class="heros-mini"></i>${echapper(p.perso.nom)}</span></div>`;
+      <span><i class="heros-mini"></i>${echapper(p.perso.nom)}</span>
+      <span class="vitesse" role="group" aria-label="Vitesse de marche">Vitesse ${VITESSES.map(
+        (v) => `<button class="secondaire petit ${v === vitesse ? 'actif' : ''}" data-vitesse="${v}" aria-pressed="${v === vitesse}">×${v}</button>`,
+      ).join('')}</span></div>`;
   };
 
   // --- Panneau du lieu -----------------------------------------------------------
@@ -357,8 +383,8 @@ export const ecranVille = (app: HTMLElement, p: Partie, ouvrirFiche: () => void,
     if (enRoute) return;
     if (id === p.lieu) return entrer();
     const chemin = trajet(lieu(p.lieu), lieu(id));
-    // Assez lent pour voir le trajet, assez court pour ne pas lasser : 2,5 s pour traverser la ville.
-    const duree = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : Math.max(500, longueur(chemin) * 28);
+    // À vitesse ×1, environ 4 s pour traverser la ville ; le réglage de vitesse divise cette durée.
+    const duree = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : Math.max(900, longueur(chemin) * 42);
     const arriver = () => {
       enRoute = false;
       p.lieu = id;
@@ -375,9 +401,13 @@ export const ecranVille = (app: HTMLElement, p: Partie, ouvrirFiche: () => void,
     enRoute = true;
     const heros = app.querySelector<HTMLElement>('#heros')!;
     app.querySelector('#trace')!.setAttribute('points', chemin.map(([x, y]) => `${x},${y}`).join(' '));
-    const debut = performance.now();
+    let avance = 0;
+    let avant = performance.now();
     const pas = (maintenant: number) => {
-      const t = Math.min(1, (maintenant - debut) / duree);
+      // La vitesse peut changer en pleine marche : on avance par petits bouts.
+      avance += ((maintenant - avant) * vitesse) / duree;
+      avant = maintenant;
+      const t = Math.min(1, avance);
       // Démarrage et arrivée en douceur.
       const [x, y] = pointA(chemin, t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2);
       heros.style.left = `${x}%`;
@@ -412,6 +442,16 @@ export const ecranVille = (app: HTMLElement, p: Partie, ouvrirFiche: () => void,
     });
     sur('#fiche', () => ouvrirFiche());
     sur('#accueil', () => retourAccueil());
+    sur('[data-vitesse]', (el) => {
+      vitesse = Number(el.dataset.vitesse);
+      memoriserVitesse(vitesse);
+      // Pas de nouveau rendu : le héros est peut-être en train de marcher.
+      app.querySelectorAll<HTMLElement>('[data-vitesse]').forEach((b) => {
+        const actif = Number(b.dataset.vitesse) === vitesse;
+        b.classList.toggle('actif', actif);
+        b.setAttribute('aria-pressed', String(actif));
+      });
+    });
 
     // Boutiques
     sur('#marchander', () => {

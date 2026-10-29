@@ -952,3 +952,13 @@ body.ency-ouverte {
 .ency-ligne code {
   font-size: 0.85em;
 }
+
+.legende .vitesse {
+  margin-left: auto;
+  gap: 4px;
+}
+
+.vitesse button {
+  min-width: 36px;
+  padding: 2px 8px;
+}
