@@ -57,6 +57,8 @@ export const TACTIQUES: Record<Tactique, { libelle: string; carac: 'ad' | 'cha' 
   intimider: { libelle: "Faire peur à la bestiole", carac: 'cou', nomCarac: 'Courage' },
 };
 
+export const valeurTactique = (p: Partie, t: Tactique) => valeursCombat(p)[TACTIQUES[t].carac];
+
 export interface Coup {
   des: number[];
   degats: number;
@@ -74,10 +76,10 @@ export interface Issue {
  * Résout une rencontre hostile sans combat. En cas d'échec, chaque adversaire (trois au plus,
  * les autres gênent plus qu'ils ne frappent) porte un coup avant que le héros ne s'en sorte.
  */
-export const resoudre = (p: Partie, r: Rencontre, tactique: Tactique, rng?: Rng): Issue => {
+export const resoudre = (p: Partie, r: Rencontre, tactique: Tactique, rng?: Rng, deLance?: number): Issue => {
+  const valeur = valeurTactique(p, tactique);
   const v = valeursCombat(p);
-  const valeur = v[TACTIQUES[tactique].carac];
-  const e = epreuve(valeur, rng);
+  const e = epreuve(valeur, rng, deLance);
   const coups: Coup[] = [];
   if (!e.reussi) {
     for (let i = 0; i < Math.min(r.nombre, 3); i++) {

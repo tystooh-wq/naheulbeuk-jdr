@@ -177,6 +177,8 @@ export interface Troncon {
 
 export interface Itineraire {
   etapes: string[];
+  /** Tout droit à travers la lande, sans suivre les pistes. */
+  horsPiste?: boolean;
   troncons: Troncon[];
   km: number;
   heures: number;
@@ -257,8 +259,43 @@ export const terrainApres = (it: Itineraire, h: number): Terrain => {
   return it.troncons[it.troncons.length - 1].terrain;
 };
 
+/** Les Dunes Waldorgaises, à peu près : une ellipse autour du dessin des dunes. */
+const DUNES = { cx: 2415, cy: 1210, rx: 100, ry: 50 };
+const dansLesDunes = ([x, y]: Point) => ((x - DUNES.cx) / DUNES.rx) ** 2 + ((y - DUNES.cy) / DUNES.ry) ** 2 <= 1;
+
+/**
+ * Tout droit, sans suivre la route : plus court, mais à travers la lande ou les dunes,
+ * là où les embûches sont plus nombreuses (voir `controler`).
+ */
+export const itineraireDirect = (de: string, vers: string, allure: 'normale' | 'forcee' = 'normale'): Itineraire => {
+  const a = lieuMonde(de);
+  const b = lieuMonde(vers);
+  const morceaux = 24;
+  const troncons: Troncon[] = [];
+  for (let i = 0; i < morceaux; i++) {
+    const p0: Point = [a.x + ((b.x - a.x) * i) / morceaux, a.y + ((b.y - a.y) * i) / morceaux];
+    const p1: Point = [a.x + ((b.x - a.x) * (i + 1)) / morceaux, a.y + ((b.y - a.y) * (i + 1)) / morceaux];
+    const terrain: Terrain = dansLesDunes([(p0[0] + p1[0]) / 2, (p0[1] + p1[1]) / 2]) ? 'dunes' : 'plaine';
+    const dernier = troncons[troncons.length - 1];
+    if (dernier?.terrain === terrain) dernier.points.push(p1);
+    else troncons.push({ terrain, points: [p0, p1], km: 0, heures: 0 });
+  }
+  for (const t of troncons) {
+    t.km = longueurPx(t.points) / PX_PAR_KM;
+    t.heures = (t.km / KM_PAR_JOUR[t.terrain][allure]) * HEURES_DE_ROUTE_PAR_JOUR;
+  }
+  return {
+    etapes: [de, vers],
+    horsPiste: true,
+    troncons,
+    km: troncons.reduce((s, t) => s + t.km, 0),
+    heures: troncons.reduce((s, t) => s + t.heures, 0),
+  };
+};
+
 /** Rebâtit un itinéraire à partir de la liste de ses étapes (pour reprendre un voyage sauvegardé). */
-export const itineraireEtapes = (etapes: string[], allure: 'normale' | 'forcee' = 'normale'): Itineraire => {
+export const itineraireEtapes = (etapes: string[], allure: 'normale' | 'forcee' = 'normale', horsPiste = false): Itineraire => {
+  if (horsPiste) return itineraireDirect(etapes[0], etapes[etapes.length - 1], allure);
   const troncons = etapes.slice(1).map((vers, i) => {
     const de = etapes[i];
     const piste = PISTES.find((p) => (p.de === de && p.vers === vers) || (p.de === vers && p.vers === de));

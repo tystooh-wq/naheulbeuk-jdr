@@ -18,6 +18,8 @@ export interface Voyage {
   /** Heures de marche déjà faites depuis le départ. */
   fait: number;
   allure: 'normale' | 'forcee';
+  /** Tout droit, sans suivre les pistes. */
+  horsPiste?: boolean;
   /** Heure de marche à laquelle le MJ vérifiera s'il se passe quelque chose. */
   prochainControle: number;
 }
@@ -261,8 +263,8 @@ export const formatHeure = (h: number) => {
 };
 
 /** Épreuve (règles V4) : réussie si le D20 ne dépasse pas la valeur ; 1 réussit toujours, 20 échoue toujours. */
-export const epreuve = (valeur: number, rng?: Rng): { de: number; reussi: boolean } => {
-  const de = lancer(20, rng);
+export const epreuve = (valeur: number, rng?: Rng, deLance?: number): { de: number; reussi: boolean } => {
+  const de = deLance ?? lancer(20, rng);
   return { de, reussi: de === 1 || (de !== 20 && de <= valeur) };
 };
 

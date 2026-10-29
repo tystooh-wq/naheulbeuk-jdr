@@ -7,6 +7,7 @@ import {
   NOM_TERRAIN,
   PISTES,
   itineraire,
+  itineraireDirect,
   itineraireEtapes,
   lieuMonde,
   positionApres,
@@ -16,12 +17,13 @@ import {
   type Point,
   type TypeLieuMonde,
 } from '../rules/monde';
+import { avecDe, lancer, type Rng } from '../rules/des';
 import { controler, INTERVALLE_CONTROLE, type Evenement, type Resultat } from '../rules/evenements';
 import { bivouaquer, dormir, evMax, formatHeure, noter, passerTemps, soigner, valeursCombat, type Partie } from '../rules/partie';
 import { parle, resoudre, TACTIQUES, tirerRencontre, type Issue, type Rencontre, type Tactique } from '../rules/rencontres';
 import { QUETE_GOBELINS } from '../rules/waldorg';
 import { bandeau, boutonsVitesse, lierSac, lierVitesse, majHorloge, panneauJournal, panneauSac, vitesse } from './commun';
-import { de, echapper } from './outils';
+import { animerDes, de, echapper } from './outils';
 import { sauvegarderPartie } from './sauvegarde';
 
 // La carte de la Terre de Fangh : on s'y déplace de lieu en lieu le long des pistes, l'horloge tourne,
@@ -42,9 +44,9 @@ const ZOOMS = [0.3, 0.45, 0.65, 1, 1.4];
 
 type Fenetre =
   | { type: 'lieu'; message?: string }
-  | { type: 'itineraire'; vers: string; allure: 'normale' | 'forcee' }
-  | { type: 'rencontre'; r: Rencontre; issue?: Issue; nuit: boolean }
-  | { type: 'evenement'; ev: Evenement; resultat?: Resultat }
+  | { type: 'itineraire'; vers: string; allure: 'normale' | 'forcee'; horsPiste: boolean }
+  | { type: 'rencontre'; r: Rencontre; issue?: Issue; nuit: boolean; tactique?: Tactique; animerCoups?: boolean }
+  | { type: 'evenement'; ev: Evenement; resultat?: Resultat; choix?: number }
   | { type: 'nuit'; resultat?: string }
   | { type: 'reprise' }
   | { type: 'mort' };
@@ -68,7 +70,7 @@ export const ecranMonde = (app: HTMLElement, p: Partie, s: Sorties) => {
   let centre: Point = [lieuMonde(p.lieuMonde).x, lieuMonde(p.lieuMonde).y];
 
   const sauver = () => (enregistre = sauvegarderPartie(p));
-  const voyage = (): Itineraire | null => (p.voyage ? itineraireEtapes(p.voyage.etapes, p.voyage.allure) : null);
+  const voyage = (): Itineraire | null => (p.voyage ? itineraireEtapes(p.voyage.etapes, p.voyage.allure, p.voyage.horsPiste) : null);
   const position = (): Point => {
     const it = voyage();
     if (it && p.voyage) return positionApres(it, p.voyage.fait);
@@ -177,10 +179,11 @@ export const ecranMonde = (app: HTMLElement, p: Partie, s: Sorties) => {
     return cadreFenetre([l.x, l.y], l.nom, echapper(l.nom), `${nuit() ? 'De nuit' : 'De jour'} · ${formatHeure(p.heure)}`, corps);
   };
 
-  const fenetreItineraire = (vers: string, allure: 'normale' | 'forcee') => {
+  const fenetreItineraire = (vers: string, allure: 'normale' | 'forcee', horsPiste: boolean) => {
     const l = lieuMonde(vers);
-    const it = itineraire(p.lieuMonde, vers, allure);
-    if (!it) return cadreFenetre([l.x, l.y], l.nom, echapper(l.nom), '', '<p>Aucun chemin connu ne mène là-bas.</p>');
+    const route = itineraire(p.lieuMonde, vers, allure);
+    const direct = itineraireDirect(p.lieuMonde, vers, allure);
+    const it = horsPiste || !route ? direct : route;
     const parTerrain = new Map<string, number>();
     for (const t of it.troncons) parTerrain.set(NOM_TERRAIN[t.terrain], (parTerrain.get(NOM_TERRAIN[t.terrain]) ?? 0) + t.km);
     const arrivee = p.heure + it.heures;
@@ -188,12 +191,17 @@ export const ecranMonde = (app: HTMLElement, p: Partie, s: Sorties) => {
     const corps = `<p>${echapper(l.description)}</p>
       <div class="detail-choix">
         <p><b>${Math.round(it.km)} km</b> (${[...parTerrain].map(([t, km]) => `${Math.round(km)} km de ${t}`).join(', ')}), soit environ <b>${dureeTexte(it.heures)} de marche</b>.</p>
-        <p>En passant par : ${it.etapes.map((e) => echapper(lieuMonde(e).nom)).join(' → ')}.</p>
+        <p>${it.horsPiste ? 'Tout droit à travers la lande, sans suivre de chemin.' : `En passant par : ${it.etapes.map((e) => echapper(lieuMonde(e).nom)).join(' → ')}.`}</p>
         ${
           nuitEnRoute
             ? `<p class="alerte">La nuit tombe à ${CREPUSCULE} h : il faudra bivouaquer en chemin. ${p.sac.includes('couverture') ? '' : "Tu n'as pas de couverture. "}${p.sac.includes('rations') ? '' : "Tu n'as pas de rations."}</p>`
             : `<p>Arrivée prévue vers ${formatHeure(arrivee)}.</p>`
         }
+        <fieldset class="allure"><legend>Chemin</legend>
+          ${route ? `<label><input type="radio" name="chemin" value="route" ${!it.horsPiste ? 'checked' : ''} /> Suivre la route : ${Math.round(route.km)} km, ${dureeTexte(route.heures)}</label>` : ''}
+          <label><input type="radio" name="chemin" value="direct" ${it.horsPiste ? 'checked' : ''} /> Ne pas suivre la route : ${Math.round(direct.km)} km, ${dureeTexte(direct.heures)}.
+            <span class="note">Plus court, mais loin des patrouilles et des villages : deux fois plus d'embûches et de rencontres.</span></label>
+        </fieldset>
         <fieldset class="allure"><legend>Allure</legend>
           <label><input type="radio" name="allure" value="normale" ${allure === 'normale' ? 'checked' : ''} /> Voyage normal</label>
           <label><input type="radio" name="allure" value="forcee" ${allure === 'forcee' ? 'checked' : ''} /> Marche forcée (plus rapide, −2 PV par jour de marche)</label>
@@ -214,7 +222,11 @@ export const ecranMonde = (app: HTMLElement, p: Partie, s: Sorties) => {
     let corps = `<p>${f.nuit ? 'Au milieu de la nuit, des bruits près du camp…' : 'Sur le chemin, tu tombes nez à nez avec'} <b>${echapper(nom)}</b>. ${r.nombre > 1 ? 'Ils ont' : 'Ça a'} l'air hostile.</p>
       ${stats}
       <p class="note">Table « Rencontres en terre sauvage 1 », D20 : ${r.d20}. En attendant les combats, tu t'en sors par une épreuve.</p>`;
-    if (!issue) {
+    if (!issue && f.tactique) {
+      const t = TACTIQUES[f.tactique];
+      corps += `<div class="recit lancer-joueur">${t.libelle} : épreuve de ${t.nomCarac}. Il faut faire <b>${v[t.carac]} ou moins</b> sur le D20.
+        <div>${de('?', 'a-lancer" id="de-joueur')}<button id="lancer">Lancer le D20</button></div></div>`;
+    } else if (!issue) {
       corps += `<p class="actions-lieu">${tactiques
         .map((t) => `<button data-tactique="${t}">${TACTIQUES[t].libelle} (${TACTIQUES[t].nomCarac} ${v[TACTIQUES[t].carac]})</button>`)
         .join('')}</p>`;
@@ -224,7 +236,7 @@ export const ecranMonde = (app: HTMLElement, p: Partie, s: Sorties) => {
         e.reussi
           ? 'Réussie ! Tu t\'en sors sans une égratignure.'
           : `Ratée. Avant que tu ne t'échappes, ${issue.coups.length > 1 ? 'ils frappent' : 'il frappe'} :
-            <ul>${issue.coups.map((c, i) => `<li>Coup ${i + 1} : ${c.des.map((d) => de(d, 'petit')).join('')} ${c.degats} dégâts, ${c.blessure} après ton armure</li>`).join('')}</ul>
+            <ul>${issue.coups.map((c, i) => `<li>Coup ${i + 1} : ${c.des.map((d) => de(d, 'petit coup')).join('')} ${c.degats} dégâts, ${c.blessure} après ton armure</li>`).join('')}</ul>
             Tu perds <b>${issue.perdu} PV</b>.`
       }</div>
       <p><button id="suite">Continuer</button></p>`;
@@ -235,7 +247,13 @@ export const ecranMonde = (app: HTMLElement, p: Partie, s: Sorties) => {
   const fenetreEvenement = (f: Extract<Fenetre, { type: 'evenement' }>) => {
     const { ev, resultat } = f;
     let corps = `<p>${echapper(ev.texte)}</p>`;
-    if (!resultat) {
+    if (!resultat && f.choix !== undefined) {
+      const c = ev.choix[f.choix];
+      const jet = c.jet!;
+      const valeur = jet.valeur?.(p);
+      corps += `<div class="recit lancer-joueur">${echapper(c.libelle)}. Lance le D${jet.faces} pour ${echapper(jet.pour)}${valeur !== undefined ? ` : il faut faire <b>${valeur} ou moins</b>` : ''}.
+        <div>${de('?', 'a-lancer" id="de-joueur')}<button id="lancer">Lancer le D${jet.faces}</button></div></div>`;
+    } else if (!resultat) {
       corps += `<p class="actions-lieu">${ev.choix
         .map((c, i) => {
           const refus = c.possible?.(p) ?? null;
@@ -284,7 +302,7 @@ export const ecranMonde = (app: HTMLElement, p: Partie, s: Sorties) => {
       case 'lieu':
         return fenetreLieu(lieuMonde(p.lieuMonde), fenetre.message);
       case 'itineraire':
-        return fenetreItineraire(fenetre.vers, fenetre.allure);
+        return fenetreItineraire(fenetre.vers, fenetre.allure, fenetre.horsPiste);
       case 'rencontre':
         return fenetreRencontre(fenetre);
       case 'evenement':
@@ -321,6 +339,13 @@ export const ecranMonde = (app: HTMLElement, p: Partie, s: Sorties) => {
     </div>`;
     cadrer();
     lier();
+    lierSuite();
+    // Les coups de l'adversaire roulent tout seuls : ce sont ses dés, pas ceux du joueur.
+    if (fenetre?.type === 'rencontre' && fenetre.animerCoups) {
+      fenetre.animerCoups = false;
+      const des = [...app.querySelectorAll<HTMLElement>('.de.coup')];
+      animerDes(des, 6, des.map((d) => Number(d.textContent)));
+    }
   };
 
   // --- Voyage ----------------------------------------------------------------------------
@@ -341,11 +366,10 @@ export const ecranMonde = (app: HTMLElement, p: Partie, s: Sorties) => {
     return true;
   };
 
-  const partir = (vers: string, allure: 'normale' | 'forcee') => {
-    const it = itineraire(p.lieuMonde, vers, allure);
-    if (!it) return;
-    p.voyage = { etapes: it.etapes, fait: 0, allure, prochainControle: Math.min(INTERVALLE_CONTROLE, it.heures / 2) };
-    noter(p, `part pour ${lieuMonde(vers).nom} (${Math.round(it.km)} km).`);
+  const partir = (vers: string, allure: 'normale' | 'forcee', horsPiste: boolean) => {
+    const it = (!horsPiste && itineraire(p.lieuMonde, vers, allure)) || itineraireDirect(p.lieuMonde, vers, allure);
+    p.voyage = { etapes: it.etapes, fait: 0, allure, horsPiste: !!it.horsPiste, prochainControle: Math.min(INTERVALLE_CONTROLE, it.heures / 2) };
+    noter(p, `part pour ${lieuMonde(vers).nom} (${Math.round(it.km)} km${it.horsPiste ? ', hors des routes' : ''}).`);
     sauver();
     marcher();
   };
@@ -414,7 +438,7 @@ export const ecranMonde = (app: HTMLElement, p: Partie, s: Sorties) => {
       }
       if (p.voyage.fait >= p.voyage.prochainControle - 1e-6) {
         p.voyage.prochainControle += INTERVALLE_CONTROLE;
-        const c = controler(terrainApres(it, p.voyage.fait), false);
+        const c = controler(terrainApres(it, p.voyage.fait), false, undefined, p.voyage.horsPiste);
         if (c.type !== 'rien') {
           enMarche = false;
           centre = pt;
@@ -430,7 +454,7 @@ export const ecranMonde = (app: HTMLElement, p: Partie, s: Sorties) => {
 
   /** Bivouac de nuit : le MJ vérifie d'abord si quelque chose rôde autour du camp. */
   const installerBivouac = () => {
-    const c = controler(terrainActuel(), true);
+    const c = controler(terrainActuel(), true, undefined, !!p.voyage?.horsPiste);
     if (c.type === 'rencontre') {
       fenetre = { type: 'rencontre', r: tirerRencontre(), nuit: true };
       return render();
@@ -492,7 +516,7 @@ export const ecranMonde = (app: HTMLElement, p: Partie, s: Sorties) => {
     sur('.poi-monde', (el) => {
       if (enMarche || p.voyage || deplace) return;
       const id = el.dataset.lieu!;
-      fenetre = id === p.lieuMonde ? { type: 'lieu' } : { type: 'itineraire', vers: id, allure: 'normale' };
+      fenetre = id === p.lieuMonde ? { type: 'lieu' } : { type: 'itineraire', vers: id, allure: 'normale', horsPiste: false };
       render();
     });
 
@@ -510,7 +534,15 @@ export const ecranMonde = (app: HTMLElement, p: Partie, s: Sorties) => {
         }
       }),
     );
-    sur('#partir', () => fenetre?.type === 'itineraire' && partir(fenetre.vers, fenetre.allure));
+    app.querySelectorAll<HTMLInputElement>('input[name=chemin]').forEach((r) =>
+      r.addEventListener('change', () => {
+        if (fenetre?.type === 'itineraire') {
+          fenetre.horsPiste = r.value === 'direct';
+          render();
+        }
+      }),
+    );
+    sur('#partir', () => fenetre?.type === 'itineraire' && partir(fenetre.vers, fenetre.allure, fenetre.horsPiste));
     sur('#entrer-ville', () => s.entrerVille());
 
     const l = lieuMonde(p.lieuMonde);
@@ -546,32 +578,67 @@ export const ecranMonde = (app: HTMLElement, p: Partie, s: Sorties) => {
 
     sur('[data-tactique]', (el) => {
       if (fenetre?.type !== 'rencontre') return;
-      fenetre.issue = resoudre(p, fenetre.r, el.dataset.tactique as Tactique);
-      const r = fenetre.r;
-      noter(
-        p,
-        `${fenetre.issue.epreuve.reussi ? 'échappe à' : 'se fait malmener par'} ${r.nombre > 1 ? `${r.nombre} ${r.ligne.nom}` : r.ligne.nom}${
-          fenetre.issue.perdu ? ` (−${fenetre.issue.perdu} PV)` : ''
-        }.`,
-      );
-      sauver();
+      fenetre.tactique = el.dataset.tactique as Tactique;
       render();
     });
+
+    // Le joueur lance lui-même son dé : il roule un instant, puis on applique le résultat.
+    sur('#lancer', (bouton) => {
+      const f = fenetre;
+      const faces = f?.type === 'evenement' && f.choix !== undefined ? f.ev.choix[f.choix].jet!.faces : 20;
+      const valeur = lancer(faces);
+      (bouton as HTMLButtonElement).disabled = true;
+      animerDes([app.querySelector<HTMLElement>('#de-joueur')!], faces, [valeur]).then(() =>
+        setTimeout(() => {
+          if (f?.type === 'rencontre') resoudreRencontre(valeur);
+          else if (f?.type === 'evenement' && f.choix !== undefined) appliquerChoix(f.choix, avecDe(valeur, faces));
+        }, 350),
+      );
+    });
+  };
+
+  const resoudreRencontre = (deLance: number) => {
+    if (fenetre?.type !== 'rencontre' || !fenetre.tactique) return;
+    fenetre.issue = resoudre(p, fenetre.r, fenetre.tactique, undefined, deLance);
+    fenetre.animerCoups = fenetre.issue.coups.length > 0;
+    const r = fenetre.r;
+    noter(
+      p,
+      `${fenetre.issue.epreuve.reussi ? 'échappe à' : 'se fait malmener par'} ${r.nombre > 1 ? `${r.nombre} ${r.ligne.nom}` : r.ligne.nom}${
+        fenetre.issue.perdu ? ` (−${fenetre.issue.perdu} PV)` : ''
+      }.`,
+    );
+    sauver();
+    render();
+  };
+
+  const appliquerChoix = (i: number, rng?: Rng) => {
+    if (fenetre?.type !== 'evenement') return;
+    const c = fenetre.ev.choix[i];
+    const res = c.effet(p, rng);
+    if (res.heures) {
+      passerTemps(p, res.heures);
+      if (p.voyage) {
+        // Le temps perdu ne fait pas avancer : on décale le prochain contrôle d'autant.
+        p.voyage.prochainControle += res.heures;
+      }
+    }
+    fenetre.resultat = res;
+    noter(p, `${fenetre.ev.titre.toLowerCase()} : ${res.texte.slice(0, 80)}${res.texte.length > 80 ? '…' : ''}`);
+    sauver();
+    render();
+  };
+
+  const lierSuite = () => {
+    const sur = (sel: string, fn: (el: HTMLElement) => void) =>
+      app.querySelectorAll<HTMLElement>(sel).forEach((el) => el.addEventListener('click', () => fn(el)));
     sur('[data-choix]', (el) => {
       if (fenetre?.type !== 'evenement') return;
-      const c = fenetre.ev.choix[Number(el.dataset.choix)];
-      const res = c.effet(p);
-      if (res.heures) {
-        passerTemps(p, res.heures);
-        if (p.voyage) {
-          // Le temps perdu ne fait pas avancer : on décale le prochain contrôle d'autant.
-          p.voyage.prochainControle += res.heures;
-        }
-      }
-      fenetre.resultat = res;
-      noter(p, `${fenetre.ev.titre.toLowerCase()} : ${res.texte.slice(0, 80)}${res.texte.length > 80 ? '…' : ''}`);
-      sauver();
-      render();
+      const i = Number(el.dataset.choix);
+      if (fenetre.ev.choix[i].jet) {
+        fenetre.choix = i;
+        render();
+      } else appliquerChoix(i);
     });
     sur('#suite', () => {
       if (verifierMort()) return;

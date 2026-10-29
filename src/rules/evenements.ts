@@ -14,6 +14,8 @@ export interface Resultat {
 
 export interface Choix {
   libelle: string;
+  /** Le joueur lance lui-même ce dé avant que l'effet ne s'applique (c'est le premier dé de `effet`). */
+  jet?: { faces: 6 | 20; pour: string; valeur?: (p: Partie) => number };
   /** Raison pour laquelle ce choix est impossible, ou null. */
   possible?: (p: Partie) => string | null;
   effet: (p: Partie, rng?: Rng) => Resultat;
@@ -47,6 +49,7 @@ export const EVENEMENTS: Evenement[] = [
     choix: [
       {
         libelle: 'La ramasser',
+        jet: { faces: 6, pour: "compter les pièces d'or" },
         effet: (p, rng) => {
           const or = lancer(6, rng);
           p.or += or;
@@ -96,6 +99,7 @@ export const EVENEMENTS: Evenement[] = [
     choix: [
       {
         libelle: "Retirer ton pied à temps (épreuve d'Adresse)",
+        jet: { faces: 20, pour: "l'épreuve d'Adresse", valeur: (p) => valeursCombat(p).ad },
         effet: (p, rng) => {
           const e = epreuve(valeursCombat(p).ad, rng);
           if (e.reussi) return { texte: `Dé : ${e.de}. Tu sautes en arrière, les mâchoires se referment sur le vide.` };
@@ -114,6 +118,7 @@ export const EVENEMENTS: Evenement[] = [
       { libelle: "S'abriter derrière une dune (2 heures perdues)", effet: () => ({ texte: 'Tu attends, recroquevillé. La tempête finit par passer.', heures: 2 }) },
       {
         libelle: 'Avancer quand même (épreuve de Force)',
+        jet: { faces: 20, pour: "l'épreuve de Force", valeur: (p) => calculerFiche(p.perso).caracs.FO },
         effet: (p, rng) => {
           const e = epreuve(calculerFiche(p.perso).caracs.FO, rng);
           if (e.reussi) return { texte: `Dé : ${e.de}. Tu avances courbé contre le vent, sans perdre de temps.` };
@@ -153,6 +158,7 @@ export const EVENEMENTS: Evenement[] = [
     choix: [
       {
         libelle: 'Boire un coup',
+        jet: { faces: 6, pour: 'voir ce que vaut cette eau (1 à 3 : bonne)' },
         effet: (p, rng) => {
           const d = lancer(6, rng);
           if (d <= 3) {
@@ -174,6 +180,7 @@ export const EVENEMENTS: Evenement[] = [
     choix: [
       {
         libelle: 'Montrer patte blanche (épreuve de Charisme)',
+        jet: { faces: 20, pour: "l'épreuve de Charisme", valeur: (p) => valeursCombat(p).cha },
         effet: (p, rng) => {
           const e = epreuve(valeursCombat(p).cha, rng);
           if (e.reussi) return { texte: `Dé : ${e.de}. « Bon, ça ira. Bonne route, et pas de grabuge. »` };
@@ -208,6 +215,7 @@ export const EVENEMENTS: Evenement[] = [
     choix: [
       {
         libelle: "En manger quelques-uns",
+        jet: { faces: 6, pour: 'voir ce que valent ces champignons (6 : délicieux, 1 ou 2 : aïe)' },
         effet: (p, rng) => {
           const d = lancer(6, rng);
           if (d <= 2) return { texte: `Dé : ${d}. Tu vois des licornes roses pendant une heure, puis tu vomis : −${perdre(p, 2)} PV.`, heures: 1 };
@@ -231,12 +239,14 @@ export type Controle = { type: 'rien' } | { type: 'rencontre' } | { type: 'evene
  * Le supplément « Déplacements et transport » propose une rencontre par demi-journée en Terre de Fangh.
  * Le MJ vérifie toutes les 2 h 30 de marche (deux fois par demi-journée) : 1 sur un D6, rencontre hostile ;
  * 2, un événement ; sinon rien. La nuit, seule la rencontre hostile est possible.
+ * Hors piste, les chances doublent : 1-2 rencontre, 3-4 événement.
  */
 export const INTERVALLE_CONTROLE = 2.5;
 
-export const controler = (terrain: Terrain, nuit: boolean, rng?: Rng): Controle => {
+export const controler = (terrain: Terrain, nuit: boolean, rng?: Rng, horsPiste = false): Controle => {
   const d = lancer(6, rng);
-  if (d === 1) return { type: 'rencontre' };
-  if (d === 2 && !nuit) return { type: 'evenement', evenement: tirerEvenement(terrain, rng) };
+  // Hors des routes, loin des patrouilles et des villages : rencontres et embûches deux fois plus probables.
+  if (d === 1 || (horsPiste && d === 2)) return { type: 'rencontre' };
+  if (!nuit && (horsPiste ? d <= 4 : d === 2)) return { type: 'evenement', evenement: tirerEvenement(terrain, rng) };
   return { type: 'rien' };
 };

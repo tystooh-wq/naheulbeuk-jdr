@@ -27,3 +27,22 @@ describe('carte du monde', () => {
     expect(positionApres(it, it.heures)).toEqual([2515, 1240]);
   });
 });
+
+describe('hors des routes', () => {
+  it('le trajet direct est plus court que la route et traverse les dunes vers les grottes', async () => {
+    const { itineraireDirect } = await import('../src/rules/monde');
+    const route = itineraire('hameau', 'biouro')!;
+    const direct = itineraireDirect('hameau', 'biouro');
+    expect(direct.km).toBeLessThan(route.km * 0.75);
+    expect(itineraireDirect('waldorg', 'grottes').troncons.some((t) => t.terrain === 'dunes')).toBe(true);
+  });
+
+  it('hors piste, le MJ tire deux fois plus de rencontres et d\'embûches', async () => {
+    const { controler } = await import('../src/rules/evenements');
+    const de = (n: number) => () => (n - 0.5) / 6;
+    expect(controler('plaine', false, de(2), false).type).toBe('evenement');
+    expect(controler('plaine', false, de(2), true).type).toBe('rencontre');
+    expect(controler('plaine', false, de(4), true).type).toBe('evenement');
+    expect(controler('plaine', false, de(5), true).type).toBe('rien');
+  });
+});

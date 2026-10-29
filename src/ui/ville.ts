@@ -5,6 +5,7 @@ import { objet, type Objet } from '../rules/objets';
 import {
   acheter,
   dormir,
+  epreuve,
   evMax,
   noter,
   passerTemps,
@@ -17,7 +18,7 @@ import {
 import { longueur, pointA, trajet } from '../rules/rues';
 import { LIEUX, QUETE_GOBELINS, RUMEURS_LOUCHES, RUMEURS_NORMALES, lieu, type Lieu, type TypeLieu } from '../rules/waldorg';
 import { bandeau, boutonsVitesse, lierSac, lierVitesse, ligneObjet, panneauJournal, panneauSac, vitesse } from './commun';
-import { de, echapper } from './outils';
+import { animerDes, de, echapper } from './outils';
 import { sauvegarderPartie } from './sauvegarde';
 
 // Lettres sur le plan, dans l'esprit des symboles des cartes MJ (A, E, T…).
@@ -49,6 +50,8 @@ interface Visite {
   /** Remise (négative) ou majoration obtenue en marchandant, en fraction. */
   marchandage?: number;
   jetMarchandage?: number;
+  /** Le joueur a choisi de marchander et doit lancer son dé. */
+  marchandageEnCours?: boolean;
   message?: string;
 }
 
@@ -101,7 +104,10 @@ export const ecranVille = (
     return `
       <h3>À vendre</h3>
       ${
-        visite.marchandage === undefined
+        visite.marchandageEnCours
+          ? `<div class="recit lancer-joueur">Épreuve de Charisme : il faut faire <b>${valeursCombat(p).cha} ou moins</b> sur le D20 pour obtenir 10 % de remise. Raté, le marchand se vexe et ajoute 10 %.
+              <div>${de('?', 'a-lancer" id="de-joueur')}<button id="lancer-marchandage">Lancer le D20</button></div></div>`
+          : visite.marchandage === undefined
           ? `<p><button class="secondaire petit" id="marchander">Marchander (épreuve de Charisme)</button></p>`
           : `<p class="note">Marchandage : ${de(visite.jetMarchandage!)} ${
               visite.marchandage < 0 ? 'Réussi : 10 % de remise pendant cette visite.' : 'Raté : le marchand est vexé, +10 % pendant cette visite.'
@@ -340,10 +346,20 @@ export const ecranVille = (
 
     // Boutiques
     sur('#marchander', () => {
-      const d = lancer(20);
-      visite.jetMarchandage = d;
-      visite.marchandage = d <= valeursCombat(p).cha ? -0.1 : 0.1;
+      visite.marchandageEnCours = true;
       render();
+    });
+    sur('#lancer-marchandage', (bouton) => {
+      const d = lancer(20);
+      (bouton as HTMLButtonElement).disabled = true;
+      animerDes([app.querySelector<HTMLElement>('#de-joueur')!], 20, [d]).then(() =>
+        setTimeout(() => {
+          visite.marchandageEnCours = false;
+          visite.jetMarchandage = d;
+          visite.marchandage = epreuve(valeursCombat(p).cha, undefined, d).reussi ? -0.1 : 0.1;
+          render();
+        }, 350),
+      );
     });
     sur('.acheter', (el) => {
       const o = objet(el.dataset.id!);

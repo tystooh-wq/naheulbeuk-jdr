@@ -1111,3 +1111,15 @@ body.ency-ouverte {
   height: 24px;
   font-size: 0.85rem;
 }
+
+/* Le dé que le joueur lance lui-même. */
+.lancer-joueur > div {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.de.a-lancer {
+  color: var(--encre-douce);
+}
