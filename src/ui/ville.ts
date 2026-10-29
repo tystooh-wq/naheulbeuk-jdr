@@ -18,6 +18,7 @@ import {
   vendre,
   type Partie,
 } from '../rules/partie';
+import { longueur, pointA, trajet } from '../rules/rues';
 import { LIEUX, QUETE_GOBELINS, RUMEURS_LOUCHES, RUMEURS_NORMALES, lieu, type Lieu, type TypeLieu } from '../rules/waldorg';
 import { de, echapper } from './outils';
 import { sauvegarderPartie } from './sauvegarde';
@@ -54,9 +55,15 @@ interface Visite {
   message?: string;
 }
 
+let echapActif: ((e: KeyboardEvent) => void) | undefined;
+
 export const ecranVille = (app: HTMLElement, p: Partie, ouvrirFiche: () => void, retourAccueil: () => void) => {
   let visite: Visite = {};
   let vue: 'lieu' | 'sac' | 'journal' = 'lieu';
+  /** La fenêtre du lieu est ouverte au-dessus du plan. */
+  let popup = true;
+  /** Le héros marche : on ignore les clics le temps du trajet. */
+  let enRoute = false;
   let enregistre = true;
 
   const sauver = () => (enregistre = sauvegarderPartie(p));
@@ -94,6 +101,7 @@ export const ecranVille = (app: HTMLElement, p: Partie, ouvrirFiche: () => void,
           <span>${ICONES[l.type]}</span><em>${echapper(l.nom)}</em>
         </button>`,
       ).join('')}
+      <svg class="trace" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><polyline id="trace" points="" /></svg>
       <div class="heros" id="heros" style="left:${ici.x}%;top:${ici.y}%" aria-hidden="true"></div>
     </div>
     <div class="legende">${LEGENDE.map(([t, nom]) => `<span><i class="poi-mini poi-${t}">${ICONES[t]}</i>${nom}</span>`).join('')}
@@ -207,16 +215,26 @@ export const ecranVille = (app: HTMLElement, p: Partie, ouvrirFiche: () => void,
     }
   };
 
-  const panneauLieu = () => {
+  // En attendant les illustrations, le cadre montre le plan agrandi autour du lieu.
+  const illustration = (l: Lieu) => `<figure class="illustration">
+      <div class="cadre"><img src="${planWaldorg}" alt="" draggable="false" style="transform:translate(-${l.x}%,-${l.y}%)" /></div>
+      <figcaption>${echapper(l.nom)} · illustration à venir</figcaption>
+    </figure>`;
+
+  const popupLieu = () => {
     const l = lieu(p.lieu);
-    return `<div class="panneau" id="panneau">
-      <div class="entete-lieu">
-        <span class="icone-lieu poi-${l.type}">${ICONES[l.type]}</span>
-        <div><h2>${echapper(l.nom)}</h2><div class="note">${echapper(l.quartier)}</div></div>
+    return `<div class="popup-lieu" id="popup" role="dialog" aria-labelledby="titre-lieu">
+      ${illustration(l)}
+      <div class="panneau carte-lieu" id="panneau">
+        <button class="secondaire petit fermer" id="fermer-lieu" aria-label="Fermer et revenir au plan">✕</button>
+        <div class="entete-lieu">
+          <span class="icone-lieu poi-${l.type}">${ICONES[l.type]}</span>
+          <div><h2 id="titre-lieu">${echapper(l.nom)}</h2><div class="note">${echapper(l.quartier)}</div></div>
+        </div>
+        <p>${echapper(l.description)}</p>
+        ${visite.message ? `<div class="recit">${visite.message}</div>` : ''}
+        ${actionsLieu(l)}
       </div>
-      <p>${echapper(l.description)}</p>
-      ${visite.message ? `<div class="recit">${visite.message}</div>` : ''}
-      ${actionsLieu(l)}
     </div>`;
   };
 
@@ -305,10 +323,15 @@ export const ecranVille = (app: HTMLElement, p: Partie, ouvrirFiche: () => void,
 
   const render = () => {
     if (!p.arrive) return ecranArrivee();
-    const panneau = vue === 'lieu' ? panneauLieu() : vue === 'sac' ? panneauSac() : panneauJournal();
+    const ouvert = vue === 'lieu' && popup;
+    const panneau = vue === 'sac' ? panneauSac() : vue === 'journal' ? panneauJournal() : '';
     app.innerHTML = `<div class="page page-ville">
       ${bandeau()}
-      ${plan()}
+      <div class="scene ${ouvert ? 'popup-ouverte' : ''}" id="scene">
+        ${plan()}
+        ${ouvert ? popupLieu() : ''}
+      </div>
+      ${vue === 'lieu' && !popup ? `<p class="note">Clique sur un lieu pour t'y rendre. Tu es à <b>${echapper(lieu(p.lieu).nom)}</b> : clique sur son repère pour y entrer.</p>` : ''}
       ${panneau}
       ${enregistre ? '' : '<p class="alerte">Ce navigateur ne permet pas de sauvegarder : ta partie sera perdue si tu fermes la page.</p>'}
       <div class="actions"><button class="secondaire" id="accueil">Accueil</button></div>
@@ -322,24 +345,47 @@ export const ecranVille = (app: HTMLElement, p: Partie, ouvrirFiche: () => void,
     render();
   };
 
+  const entrer = () => {
+    vue = 'lieu';
+    popup = true;
+    render();
+    app.querySelector('#scene')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  };
+
+  /** Le héros suit les rues jusqu'au lieu choisi, puis la fenêtre du lieu s'ouvre. */
   const aller = (id: string) => {
-    if (id === p.lieu && vue === 'lieu') return;
-    const depart = lieu(p.lieu);
-    const arrivee = lieu(id);
-    const heros = app.querySelector<HTMLElement>('#heros')!;
-    const distance = Math.hypot(arrivee.x - depart.x, arrivee.y - depart.y);
-    const duree = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : Math.min(900, 200 + distance * 12);
-    heros.style.transition = `left ${duree}ms ease-in-out, top ${duree}ms ease-in-out`;
-    heros.style.left = `${arrivee.x}%`;
-    heros.style.top = `${arrivee.y}%`;
-    setTimeout(() => {
+    if (enRoute) return;
+    if (id === p.lieu) return entrer();
+    const chemin = trajet(lieu(p.lieu), lieu(id));
+    // Assez lent pour voir le trajet, assez court pour ne pas lasser : 2,5 s pour traverser la ville.
+    const duree = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : Math.max(500, longueur(chemin) * 28);
+    const arriver = () => {
+      enRoute = false;
       p.lieu = id;
       visite = {};
-      vue = 'lieu';
       sauver();
-      render();
-      app.querySelector('#panneau')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }, duree);
+      entrer();
+    };
+    if (duree === 0) return arriver();
+
+    // Fermer la fenêtre et montrer le trajet avant de partir.
+    popup = false;
+    vue = 'lieu';
+    render();
+    enRoute = true;
+    const heros = app.querySelector<HTMLElement>('#heros')!;
+    app.querySelector('#trace')!.setAttribute('points', chemin.map(([x, y]) => `${x},${y}`).join(' '));
+    const debut = performance.now();
+    const pas = (maintenant: number) => {
+      const t = Math.min(1, (maintenant - debut) / duree);
+      // Démarrage et arrivée en douceur.
+      const [x, y] = pointA(chemin, t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2);
+      heros.style.left = `${x}%`;
+      heros.style.top = `${y}%`;
+      if (t < 1) requestAnimationFrame(pas);
+      else setTimeout(arriver, 150);
+    };
+    requestAnimationFrame(pas);
   };
 
   const lier = () => {
@@ -349,8 +395,20 @@ export const ecranVille = (app: HTMLElement, p: Partie, ouvrirFiche: () => void,
     sur('.poi', (el) => aller(el.dataset.lieu!));
     sur('[data-vue]', (el) => {
       vue = el.dataset.vue as typeof vue;
+      if (vue === 'lieu') popup = true;
       visite.message = undefined;
       render();
+    });
+    sur('#fermer-lieu', () => {
+      popup = false;
+      render();
+    });
+    // Un clic à côté des cartes, sur le plan assombri, ferme aussi la fenêtre.
+    app.querySelector('#popup')?.addEventListener('click', (e) => {
+      if (e.target === e.currentTarget) {
+        popup = false;
+        render();
+      }
     });
     sur('#fiche', () => ouvrirFiche());
     sur('#accueil', () => retourAccueil());
@@ -438,6 +496,16 @@ export const ecranVille = (app: HTMLElement, p: Partie, ouvrirFiche: () => void,
       ),
     );
   };
+
+  // Échap ferme la fenêtre du lieu. Un seul écouteur à la fois, même si l'écran est recréé.
+  if (echapActif) document.removeEventListener('keydown', echapActif);
+  echapActif = (e: KeyboardEvent) => {
+    if (e.key === 'Escape' && popup && vue === 'lieu' && app.querySelector('#popup')) {
+      popup = false;
+      render();
+    }
+  };
+  document.addEventListener('keydown', echapActif);
 
   render();
 };

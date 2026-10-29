@@ -750,3 +750,205 @@ button.petit.actif {
   rotate: -45deg;
   background: var(--rouge);
 }
+
+/* --- Trajets et fenêtre du lieu ------------------------------------------------ */
+
+.scene {
+  position: relative;
+}
+
+.trace {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.trace polyline {
+  fill: none;
+  stroke: var(--rouge);
+  stroke-width: 3;
+  stroke-dasharray: 2 6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+  opacity: 0.85;
+}
+
+.scene.popup-ouverte .plan::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(43, 29, 14, 0.45);
+  z-index: 5;
+}
+
+.popup-lieu {
+  position: absolute;
+  inset: 3% 2.5%;
+  z-index: 6;
+  display: grid;
+  grid-template-columns: minmax(0, 36%) minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.illustration {
+  margin: 0;
+  margin-top: 8%;
+  background: var(--carte);
+  border: 2px solid var(--bordure);
+  border-radius: 4px;
+  padding: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  rotate: -1.5deg;
+}
+
+.illustration .cadre {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  border: 1px solid var(--bordure);
+}
+
+.illustration img {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 380%;
+  max-width: none;
+  filter: sepia(0.55) contrast(1.05);
+}
+
+.illustration figcaption {
+  margin-top: 6px;
+  text-align: center;
+  font-size: 0.85rem;
+  font-style: italic;
+  color: var(--encre-douce);
+}
+
+.carte-lieu {
+  position: relative;
+  margin-top: 0;
+  max-height: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+.popup-lieu {
+  grid-template-rows: minmax(0, 1fr);
+}
+
+.carte-lieu .entete-lieu {
+  padding-right: 40px;
+}
+
+.fermer {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  line-height: 1;
+}
+
+@media (max-width: 700px) {
+  .popup-lieu {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    display: block;
+    overflow-y: auto;
+    padding: 16px max(16px, env(safe-area-inset-right, 0px)) 32px max(16px, env(safe-area-inset-left, 0px));
+    background: rgba(43, 29, 14, 0.7);
+  }
+
+  .illustration {
+    margin: 0 auto 12px;
+    max-width: 320px;
+  }
+
+  .carte-lieu {
+    max-height: none;
+    overflow: visible;
+  }
+}
+
+/* --- Encyclopédie (debug) ------------------------------------------------------ */
+
+.bouton-ency {
+  position: fixed;
+  right: max(12px, env(safe-area-inset-right, 0px));
+  bottom: max(12px, env(safe-area-inset-bottom, 0px));
+  z-index: 60;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  background: var(--carte);
+}
+
+.ency {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: rgba(20, 13, 6, 0.7);
+  padding: 24px max(16px, env(safe-area-inset-right, 0px)) 64px max(16px, env(safe-area-inset-left, 0px));
+}
+
+body.ency-ouverte {
+  overflow: hidden;
+}
+
+.ency-page {
+  position: relative;
+  max-width: 980px;
+  margin: 0 auto;
+}
+
+.ency-page h2 {
+  padding-right: 40px;
+}
+
+.ency-page input[type='search'] {
+  width: 100%;
+  margin: 12px 0 4px;
+  padding: 8px 12px;
+  font: inherit;
+  border: 1px solid var(--bordure);
+  border-radius: 4px;
+  background: var(--carte);
+  color: var(--encre);
+}
+
+.ency-ligne {
+  border-bottom: 1px dotted var(--bordure);
+  padding: 6px 0;
+}
+
+.ency-ligne summary {
+  cursor: pointer;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 10px;
+}
+
+.ency-chiffres {
+  margin-left: auto;
+  font-size: 0.85rem;
+  color: var(--encre-douce);
+  font-variant-numeric: tabular-nums;
+}
+
+.ency-ligne p {
+  margin: 6px 0;
+}
+
+.ency-ligne code {
+  font-size: 0.85em;
+}

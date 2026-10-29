@@ -51,6 +51,8 @@ const titre = (cle: string) => cle.charAt(0) + cle.slice(1).toLowerCase();
 
 export const competencesGeneriques = (): string[] => COMPETENCES_GENERIQUES.map(titre);
 
+export const toutesCompetences = (): string[] => NOMS_COMPETENCES.map(titre);
+
 // --- Caractéristiques -------------------------------------------------------
 
 /** Vérifie des critères de création. Renvoie la liste des raisons de refus (vide = autorisé). */

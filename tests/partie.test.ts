@@ -37,9 +37,9 @@ describe('équipement de départ', () => {
     expect(partie.sac).toContain('briquet');
   });
 
-  it('un mage pauvre part avec un bâton', () => {
+  it('un mage pauvre part avec un bâton de sorcier perrave', () => {
     const { equipe } = equipementDepart(perso({ metierId: 'mage', jets: { COU: 10, INT: 12, CHA: 10, AD: 10, FO: 10 }, or: 20 }));
-    expect(equipe.arme).toBe('baton');
+    expect(equipe.arme).toBe('baton-sorcier-perrave');
   });
 
   it("l'armure respecte la limite de PR de l'origine", () => {
@@ -91,8 +91,8 @@ describe('commerce et sac', () => {
     partie.ev = 10;
     partie.sac.push('potion-soin');
     const r = boirePotion(partie, 'potion-soin', () => 0.99);
-    expect(r).toEqual({ rendu: 8, des: [6] });
-    expect(partie.ev).toBe(18);
+    expect(r).toEqual({ rendu: 5, des: [] });
+    expect(partie.ev).toBe(15);
   });
 
   it('une nuit en excellentes conditions rend 8 PV et fait passer un jour', () => {

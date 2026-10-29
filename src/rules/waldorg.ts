@@ -32,7 +32,7 @@ export interface Lieu {
   rumeurs?: 'normales' | 'louches';
 }
 
-const MATERIEL = ['sac', 'briquet', 'couverture', 'gourde', 'chaussettes', 'rations', 'corde', 'torche'];
+const MATERIEL = ['sac', 'briquet', 'couverture', 'gourde', 'chaussettes', 'rations', 'corde', 'torche', 'lampe', 'matelas'];
 
 export const LIEUX: Lieu[] = [
   {
@@ -109,7 +109,7 @@ export const LIEUX: Lieu[] = [
     quartier: 'Sud-Ouest',
     description:
       "Le plus grand spécialiste des potions de la ville : bons prix, bonnes affaires. À Waldorg, la concurrence fait baisser le prix des potions d'un quart.",
-    boutique: { stock: ['potion-soin', 'potion-soin-forte'], prix: 0.75, rachat: 0.5, rachete: ['potion'] },
+    boutique: { stock: ['potion-soin', 'potion-plaies', 'potion-soin-forte'], prix: 0.75, rachat: 0.5, rachete: ['potion'] },
   },
   {
     id: 'lames',
@@ -121,7 +121,7 @@ export const LIEUX: Lieu[] = [
     description:
       "Une bonne armurerie, près du fort militaire. On y trouve des armes neuves et le surplus de l'armée de Waldorg, à peine utilisé.",
     boutique: {
-      stock: ['dague-bleusaille', 'dague-premiere', 'dague-recourbee', 'glaive-allonge', 'glaive-bleusaille', 'hache-bleusaille', 'hache-longue-bleusaille', 'batarde', 'claymore-bleusaille', 'veste-cuir', 'tenue-eclaireur', 'tenue-lourde'],
+      stock: ['dague-base', 'dague-qualite', 'dague-recourbee', 'epee-correcte', 'epee-bonne', 'glaive-allonge', 'glaive-bleusaille', 'hache-correcte', 'hache-bleusaille', 'marteau-correct', 'lance-base', 'batarde', 'claymore-bleusaille', 'epee-2m-base', 'baton-sorcier', 'gambison-correct', 'plastron-cuir-bouilli', 'plastron-cuir-renforce', 'cotte-sans-manches', 'tenue-eclaireur', 'tenue-lourde'],
       prix: 1,
       rachat: 0.5,
       rachete: ['arme', 'armure'],
@@ -137,7 +137,7 @@ export const LIEUX: Lieu[] = [
     description:
       "Tout acheter, tout vendre… Attention, le patron est roublard : il rachète tout, mais pas cher, et ses prix sont un peu gonflés.",
     boutique: {
-      stock: ['vetements-rembourres', 'veste-cuir', 'gourdin', 'baton', 'dague-bleusaille', 'outils-crochetage', 'instrument', 'corde', 'torche', 'rations'],
+      stock: ['vetements-rembourres', 'veste-cuir', 'plastron-cuir', 'gourdin', 'baton', 'couteau-qualite', 'poignard-base', 'dague-bleusaille', 'epee-perrave', 'hache-2m-grossiere', 'baton-sorcier-perrave', 'outils-crochetage', 'instrument', 'corde', 'torche', 'rations'],
       prix: 1.1,
       rachat: 0.4,
       rachete: ['arme', 'armure', 'potion', 'materiel'],

@@ -42,7 +42,8 @@ export const equipementDepart = (perso: Personnage): { sac: string[]; equipe: Eq
   const o = fiche.origine.id;
 
   let arme: string;
-  if (m === 'mage' || m === 'menestrel') arme = classe === 'pauvre' ? 'baton' : 'dague-premiere';
+  if (m === 'mage') arme = classe === 'pauvre' ? 'baton-sorcier-perrave' : 'baton-sorcier';
+  else if (m === 'menestrel') arme = classe === 'pauvre' ? 'baton' : 'dague-premiere';
   else if (o === 'gnome') arme = 'dague-bleusaille';
   else if (o === 'nain' || o === 'demi-elfe-nain') arme = 'hache-bleusaille';
   else if (classe === 'pauvre') arme = 'gourdin';
@@ -189,7 +190,9 @@ export const desequiper = (p: Partie, emplacement: keyof Equipement) => {
 
 /** Lance une expression de dés comme « 2D+4 ». */
 export const lancerExpression = (expr: string, rng?: Rng): { total: number; des: number[] } => {
-  const m = /^(\d*)D([+-]\d+)?$/.exec(expr.replace(/\s/g, ''));
+  const fixe = expr.replace(/\s/g, '');
+  if (/^\d+$/.test(fixe)) return { total: Number(fixe), des: [] };
+  const m = /^(\d*)D([+-]\d+)?$/.exec(fixe);
   if (!m) throw new Error(`Expression de dés invalide : ${expr}`);
   const nb = Number(m[1] || 1);
   const des = Array.from({ length: nb }, () => lancer(6, rng));
