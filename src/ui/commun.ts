@@ -95,7 +95,7 @@ export const ligneObjet = (p: Partie, o: Objet, droite: string) => {
   const refus = o.type === 'arme' ? peutManier(fiche, o) : o.type === 'armure' ? peutPorter(fiche, o) : null;
   const details = [
     o.degats ? `Dégâts ${o.degats}` : '',
-    o.pr ? `PR ${o.pr}` : '',
+    o.pr ? `PR ${o.pr}${o.emplacement && o.emplacement !== 'torse' ? ` (${o.emplacement === 'tete' ? 'tête' : o.emplacement})` : ''}` : '',
     o.mains === 2 ? '2 mains' : '',
     o.soin ? `Rend ${o.soin} PV` : '',
     formatMods(o.mods),

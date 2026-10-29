@@ -20,6 +20,7 @@ import { LIEUX, QUETE_GOBELINS, RUMEURS_LOUCHES, RUMEURS_NORMALES, lieu, type Li
 import { bandeau, boutonsVitesse, lierSac, lierVitesse, ligneObjet, panneauJournal, panneauSac, vitesse } from './commun';
 import { animerDes, de, echapper } from './outils';
 import { marchander, type Marchandage } from '../rules/marchandage';
+import { boutonAutrement } from './idees';
 import { sauvegarderPartie } from './sauvegarde';
 
 // Lettres sur le plan, dans l'esprit des symboles des cartes MJ (A, E, T…).
@@ -212,6 +213,7 @@ export const ecranVille = (
         <p>${echapper(l.description)}</p>
         ${visite.message ? `<div class="recit">${visite.message}</div>` : ''}
         ${actionsLieu(l)}
+        <p>${boutonAutrement({ type: 'lieu', id: `waldorg:${l.id}`, titre: `${l.nom} (Waldorg)` })}</p>
       </div>
     </div>`;
   };

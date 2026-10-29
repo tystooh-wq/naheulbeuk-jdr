@@ -3,6 +3,7 @@ import { calculerFiche, type Personnage } from './rules/creation';
 import { nouvellePartie, type Partie } from './rules/partie';
 import { ecranCreation } from './ui/creation';
 import { installerEncyclopedie } from './ui/encyclopedie';
+import { installerIdees } from './ui/idees';
 import { ecranFiche } from './ui/fiche';
 import { echapper } from './ui/outils';
 import { charger, chargerPartie, effacerTout, sauvegarderPartie } from './ui/sauvegarde';
@@ -83,5 +84,6 @@ export const accueil = () => {
   app.querySelector('#continuer')?.addEventListener('click', () => (partie ? jouer(partie) : ficheAvantDepart(perso!)));
 };
 
+installerIdees();
 installerEncyclopedie();
 accueil();

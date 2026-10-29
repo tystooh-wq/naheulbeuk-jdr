@@ -25,6 +25,7 @@ import { objet } from '../rules/objets';
 import { boirePotion, noter, type Partie } from '../rules/partie';
 import type { Rencontre } from '../rules/rencontres';
 import { boutonsVitesse, lierVitesse, vitesse } from './commun';
+import { boutonAutrement } from './idees';
 import { animerDes, de, echapper } from './outils';
 
 // Le plateau de combat : le héros à gauche, ses ennemis à droite, l'action en cours au milieu.
@@ -102,7 +103,8 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
           .join('')}</p>
         <p class="actions-lieu">${potions()
           .map((id) => `<button class="secondaire" data-potion="${id}">Boire : ${echapper(objet(id).nom)}</button>`)
-          .join('')}${fuite}</p></div>`;
+          .join('')}${fuite}</p>
+        <p>${boutonAutrement({ type: 'combat', id: r.ligne.nom, titre: `Combat contre ${r.nombre > 1 ? `${r.nombre} ${r.ligne.nom}` : r.ligne.nom}` })}</p></div>`;
     }
     if (attente.type === 'defense') {
       const a = combattant(c, attente.attaquant);

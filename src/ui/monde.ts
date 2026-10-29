@@ -27,6 +27,7 @@ import { bandeau, boutonsVitesse, lierSac, lierVitesse, majHorloge, panneauJourn
 import { animerDes, de, echapper } from './outils';
 import { ecranCombat, type BilanCombat } from './combat';
 import { EVENEMENT_PROVOQUER } from './encyclopedie';
+import { boutonAutrement, ideesValidees, NOM_EPREUVE, resoudreIdee, surChangement, valeurEpreuve, type Idee } from './idees';
 import { sauvegarderPartie } from './sauvegarde';
 
 // La carte de la Terre de Fangh : on s'y déplace de lieu en lieu le long des pistes, l'horloge tourne,
@@ -48,11 +49,31 @@ const ZOOMS = [0.3, 0.45, 0.65, 1, 1.4];
 type Fenetre =
   | { type: 'lieu'; message?: string }
   | { type: 'itineraire'; vers: string; allure: 'normale' | 'forcee'; horsPiste: boolean }
-  | { type: 'rencontre'; r: Rencontre; issue?: Issue; nuit: boolean; tactique?: Tactique; animerCoups?: boolean; bilan?: BilanCombat }
-  | { type: 'evenement'; ev: Evenement; resultat?: Resultat; choix?: number }
+  | { type: 'rencontre'; r: Rencontre; issue?: Issue; nuit: boolean; tactique?: Tactique; animerCoups?: boolean; bilan?: BilanCombat; idee?: IdeeJouee }
+  | { type: 'evenement'; ev: Evenement; resultat?: Resultat; choix?: number; idee?: IdeeJouee }
   | { type: 'nuit'; resultat?: string }
   | { type: 'reprise' }
   | { type: 'mort' };
+
+/** Une idée de joueur validée, choisie à la place des choix écrits : on lance le dé, puis on lit le résultat. */
+interface IdeeJouee {
+  idee: Idee;
+  resultat?: { reussi: boolean; texte: string };
+}
+
+let rafraichirIdees: (() => void) | undefined;
+surChangement(() => rafraichirIdees?.());
+
+/** Le panneau d'une idée validée en cours : dé à lancer, ou résultat. */
+const panneauIdee = (p: Partie, j: IdeeJouee, suite: string) => {
+  const i = j.idee;
+  if (j.resultat) return `<div class="recit">${echapper(j.resultat.texte)}</div><p>${suite}</p>`;
+  return `<div class="recit lancer-joueur">${echapper(i.libelle ?? i.texte)}. Épreuve de ${NOM_EPREUVE[i.epreuve!]} : il faut faire <b>${valeurEpreuve(p, i)} ou moins</b> sur le D20.
+    <div>${de('?', 'a-lancer" id="de-joueur')}<button id="lancer">Lancer le D20</button></div></div>`;
+};
+
+const boutonsIdees = (idees: Idee[]) =>
+  idees.map((i) => `<button class="secondaire choix-joueur" data-idee-choix="${echapper(i.id)}" title="Idée de joueur validée">💡 ${echapper(i.libelle ?? i.texte)}</button>`).join('');
 
 export interface Sorties {
   ouvrirFiche: () => void;
@@ -179,7 +200,8 @@ export const ecranMonde = (app: HTMLElement, p: Partie, s: Sorties) => {
       ${msg ? `<div class="recit">${msg}</div>` : ''}
       <p class="actions-lieu">${actions.join('')}</p>
       ${l.inventeNom ? '<p class="note">Lieu dessiné sur la carte officielle mais sans nom : celui-ci est inventé pour le jeu.</p>' : ''}
-      <p class="note">Pour partir, ferme cette fenêtre et clique sur une destination.</p>`;
+      <p class="note">Pour partir, ferme cette fenêtre et clique sur une destination.</p>
+      <p>${boutonAutrement({ type: 'lieu', id: `monde:${l.id}`, titre: l.nom })}</p>`;
     return cadreFenetre([l.x, l.y], l.nom, echapper(l.nom), `${nuit() ? 'De nuit' : 'De jour'} · ${formatHeure(p.heure)}`, corps);
   };
 
@@ -227,7 +249,10 @@ export const ecranMonde = (app: HTMLElement, p: Partie, s: Sorties) => {
       ${stats}
       <p class="note">Table « Rencontres en terre sauvage 1 », D20 : ${r.d20}. Tu peux te battre, ou tenter de t'en sortir par une épreuve.</p>
       ${r.nombre >= 3 ? `<p class="note">Conseil du MJ : seul contre ${r.nombre}, même un héros finit en charpie. Trois au plus te tomberont dessus à la fois, et tu ne pares qu'un coup par assaut.</p>` : ''}`;
-    if (f.bilan) {
+    const contexte = { type: 'rencontre' as const, id: l.nom, titre: l.rencontre };
+    if (f.idee) {
+      corps += panneauIdee(p, f.idee, f.idee.resultat?.reussi ? '<button id="suite">Continuer</button>' : '<button data-combattre>⚔ Combattre</button>');
+    } else if (f.bilan) {
       const b = f.bilan;
       corps += `<div class="recit">${
         b.fin === 'victoire'
@@ -244,7 +269,8 @@ export const ecranMonde = (app: HTMLElement, p: Partie, s: Sorties) => {
     } else if (!issue) {
       corps += `<p class="actions-lieu"><button data-combattre>⚔ Combattre</button>${tactiques
         .map((t) => `<button data-tactique="${t}">${TACTIQUES[t].libelle} (${TACTIQUES[t].nomCarac} ${v[TACTIQUES[t].carac]})</button>`)
-        .join('')}</p>`;
+        .join('')}${boutonsIdees(ideesValidees('rencontre', l.nom))}</p>
+        <p>${boutonAutrement(contexte)}</p>`;
     } else {
       const e = issue.epreuve;
       corps += `<div class="recit">Épreuve : ${de(e.de)} contre ${e.valeur}. ${
@@ -262,7 +288,9 @@ export const ecranMonde = (app: HTMLElement, p: Partie, s: Sorties) => {
   const fenetreEvenement = (f: Extract<Fenetre, { type: 'evenement' }>) => {
     const { ev, resultat } = f;
     let corps = `<p>${echapper(ev.texte)}</p>`;
-    if (!resultat && f.choix !== undefined) {
+    if (f.idee) {
+      corps += panneauIdee(p, f.idee, '<button id="suite">Continuer</button>');
+    } else if (!resultat && f.choix !== undefined) {
       const c = ev.choix[f.choix];
       const jet = c.jet!;
       const valeur = jet.valeur?.(p);
@@ -274,7 +302,8 @@ export const ecranMonde = (app: HTMLElement, p: Partie, s: Sorties) => {
           const refus = c.possible?.(p) ?? null;
           return `<button data-choix="${i}" ${refus ? `disabled title="${echapper(refus)}"` : ''}>${echapper(c.libelle)}</button>`;
         })
-        .join('')}</p>`;
+        .join('')}${boutonsIdees(ideesValidees('evenement', ev.id))}</p>
+        <p>${boutonAutrement({ type: 'evenement', id: ev.id, titre: ev.titre })}</p>`;
     } else {
       corps += `<div class="recit">${echapper(resultat.texte)}</div><p>${
         resultat.combat ? '<button id="combat-evenement">⚔ Combattre</button>' : '<button id="suite">Continuer</button>'
@@ -639,11 +668,23 @@ export const ecranMonde = (app: HTMLElement, p: Partie, s: Sorties) => {
       (bouton as HTMLButtonElement).disabled = true;
       animerDes([app.querySelector<HTMLElement>('#de-joueur')!], faces, [valeur]).then(() =>
         setTimeout(() => {
-          if (f?.type === 'rencontre') resoudreRencontre(valeur);
+          if ((f?.type === 'rencontre' || f?.type === 'evenement') && f.idee) jouerIdee(valeur);
+          else if (f?.type === 'rencontre') resoudreRencontre(valeur);
           else if (f?.type === 'evenement' && f.choix !== undefined) appliquerChoix(f.choix, avecDe(valeur, faces));
         }, 350),
       );
     });
+  };
+
+  /** Applique l'idée validée choisie (avec le dé du joueur s'il y a une épreuve). */
+  const jouerIdee = (deLance?: number) => {
+    if ((fenetre?.type !== 'rencontre' && fenetre?.type !== 'evenement') || !fenetre.idee) return;
+    const j = fenetre.idee;
+    j.resultat = resoudreIdee(p, j.idee, deLance);
+    noter(p, `${(j.idee.libelle ?? j.idee.texte).toLowerCase().slice(0, 60)} : ${j.resultat.reussi ? 'réussi' : 'raté'}.`);
+    sauver();
+    if (verifierMort()) return;
+    render();
   };
 
   const resoudreRencontre = (deLance: number) => {
@@ -681,6 +722,15 @@ export const ecranMonde = (app: HTMLElement, p: Partie, s: Sorties) => {
   const lierSuite = () => {
     const sur = (sel: string, fn: (el: HTMLElement) => void) =>
       app.querySelectorAll<HTMLElement>(sel).forEach((el) => el.addEventListener('click', () => fn(el)));
+    sur('[data-idee-choix]', (el) => {
+      if (fenetre?.type !== 'rencontre' && fenetre?.type !== 'evenement') return;
+      const idees = fenetre.type === 'rencontre' ? ideesValidees('rencontre', fenetre.r.ligne.nom) : ideesValidees('evenement', fenetre.ev.id);
+      const idee = idees.find((i) => i.id === el.dataset.ideeChoix);
+      if (!idee) return;
+      fenetre.idee = { idee };
+      if (idee.epreuve) render();
+      else jouerIdee();
+    });
     sur('[data-choix]', (el) => {
       if (fenetre?.type !== 'evenement') return;
       const i = Number(el.dataset.choix);
@@ -755,6 +805,13 @@ export const ecranMonde = (app: HTMLElement, p: Partie, s: Sorties) => {
     render();
   };
   window.addEventListener(EVENEMENT_PROVOQUER, provoquerActif);
+
+  // Les idées validées arrivent après le chargement : on redessine le choix en cours s'il est encore ouvert.
+  rafraichirIdees = () => {
+    if (enMarche || !app.querySelector('#carte')) return;
+    if ((fenetre?.type === 'evenement' && !fenetre.resultat && !fenetre.idee) || (fenetre?.type === 'rencontre' && !fenetre.issue && !fenetre.tactique && !fenetre.idee && !fenetre.bilan))
+      render();
+  };
 
   render();
 };
