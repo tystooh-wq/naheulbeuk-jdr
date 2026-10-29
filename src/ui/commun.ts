@@ -1,4 +1,5 @@
 import { calculerFiche } from '../rules/creation';
+import { formatOr } from '../rules/monnaie';
 import { formatMods, objet, type Objet } from '../rules/objets';
 import {
   boirePotion,
@@ -68,7 +69,7 @@ export const bandeau = (p: Partie, vue: string, nomCarte: string) => {
     <div><b class="nom-court">${echapper(p.perso.nom)}</b> <span class="note">${echapper(f.nomVersionHB ?? f.origine.nom)}</span></div>
     <div class="jauges">
       <span title="Énergie vitale">❤ <b>${p.ev}</b>/${evMax(p)}</span>
-      <span title="Pièces d'or">● <b>${p.or}</b> PO</span>
+      <span title="Bourse (1 PO = 100 PA = 1000 PC)">● <b>${formatOr(p.or)}</b></span>
       <span title="Points de destin">✦ <b>${p.perso.destin}</b></span>
       <span title="Expérience">★ <b>${p.xp ?? 0}</b> XP</span>
       <span title="Jour et heure" id="horloge">${p.heure >= 20 || p.heure < 6 ? '☾' : '☼'} jour <b>${p.jour}</b>, ${formatHeure(p.heure)}</span>

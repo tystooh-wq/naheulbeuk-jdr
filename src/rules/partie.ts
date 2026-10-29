@@ -1,5 +1,6 @@
 import { calculerFiche, cleCompetence, type Fiche, type Personnage } from './creation';
 import { lancer, type Rng } from './des';
+import { arrondirOr } from './monnaie';
 import { objet, type Objet } from './objets';
 
 // L'état d'une partie en cours : le héros, sa bourse, son sac et où il se trouve.
@@ -213,11 +214,11 @@ export const valeursCombat = (p: Partie): ValeursCombat => {
 
 // --- Commerce ------------------------------------------------------------------
 
-export const prixVente = (o: Objet, taux: number) => Math.max(1, Math.floor(o.prix * taux));
+export const prixVente = (o: Objet, taux: number) => Math.max(0.001, arrondirOr(o.prix * taux));
 
 export const acheter = (p: Partie, id: string, prix: number): string | null => {
   if (p.or < prix) return "Tu n'as pas assez d'or.";
-  p.or -= prix;
+  p.or = arrondirOr(p.or - prix);
   p.sac.push(id);
   return null;
 };
@@ -226,7 +227,7 @@ export const vendre = (p: Partie, id: string, prix: number): string | null => {
   const i = p.sac.indexOf(id);
   if (i < 0) return "Tu n'as pas cet objet dans ton sac.";
   p.sac.splice(i, 1);
-  p.or += prix;
+  p.or = arrondirOr(p.or + prix);
   return null;
 };
 

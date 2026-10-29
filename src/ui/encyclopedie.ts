@@ -2,6 +2,7 @@ import { CREATURES, FICHES, type Creature } from '../rules/bestiaire';
 import { toutesCompetences } from '../rules/creation';
 import { METIERS } from '../rules/metiers';
 import { TABLES_BUTIN } from '../rules/butin';
+import { formatOr } from '../rules/monnaie';
 import { formatMods, OBJETS, type Emplacement, type Objet } from '../rules/objets';
 import { ORIGINES } from '../rules/origines';
 import { trajet, longueur } from '../rules/rues';
@@ -54,7 +55,7 @@ const NOM_EMPLACEMENT: Record<Emplacement, string> = {
   complete: 'armure complète',
 };
 
-const prixTexte = (prix: number) => (prix === 0 ? 'gratuit' : prix < 1 ? `${Math.round(prix * 10)} PA` : `${prix} PO`);
+const prixTexte = (prix: number) => (prix === 0 ? 'gratuit' : formatOr(prix));
 
 const ligneObjet = (o: Objet) => {
   const effets = [

@@ -29,7 +29,8 @@ def prix_po(valeur, monnaie='PO'):
     if valeur in ('***', ''):
         return 0
     v = float(valeur.replace(',', '.').replace(' ', ''))
-    return v / {'PO': 1, 'PA': 10, 'PC': 100}.get(monnaie, 1)
+    # Monnaie du jeu (choix de Sedy) : 1 PO = 100 PA = 1000 PC.
+    return round(v / {'PO': 1, 'PA': 100, 'PC': 1000}.get(monnaie, 1), 3)
 
 
 def lignes(fichier):

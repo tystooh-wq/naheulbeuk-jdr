@@ -4785,7 +4785,7 @@
 "fichier": "Matériel et services V3.0",
 "type": "service",
 "categorie": "Hostellerie",
-"prix": 0.2,
+"prix": 0.02,
 "effets": "Donne mal au ventre",
 "id": "1-pinte-de-biere-quelconque"
 },
@@ -4794,7 +4794,7 @@
 "fichier": "Matériel et services V3.0",
 "type": "service",
 "categorie": "Hostellerie",
-"prix": 0.5,
+"prix": 0.05,
 "effets": "",
 "id": "1-pinte-de-biere-de-bonne-qualite"
 },
@@ -4803,7 +4803,7 @@
 "fichier": "Matériel et services V3.0",
 "type": "service",
 "categorie": "Hostellerie",
-"prix": 0.8,
+"prix": 0.08,
 "effets": "Donne mal au ventre",
 "id": "1-pichet-de-vin-quelconque"
 },
@@ -4830,7 +4830,7 @@
 "fichier": "Matériel et services V3.0",
 "type": "service",
 "categorie": "Hostellerie",
-"prix": 0.5,
+"prix": 0.05,
 "effets": "Donne mal au crâne",
 "id": "verre-d-eau-de-vie-de-base"
 },
@@ -4839,7 +4839,7 @@
 "fichier": "Matériel et services V3.0",
 "type": "service",
 "categorie": "Hostellerie",
-"prix": 1.5,
+"prix": 0.15,
 "effets": "+1 PV",
 "id": "verre-d-eau-de-vie-de-qualite"
 },
@@ -4848,7 +4848,7 @@
 "fichier": "Matériel et services V3.0",
 "type": "service",
 "categorie": "Hostellerie",
-"prix": 0.2,
+"prix": 0.02,
 "effets": "À partager",
 "id": "miche-de-pain"
 },
@@ -4857,7 +4857,7 @@
 "fichier": "Matériel et services V3.0",
 "type": "service",
 "categorie": "Hostellerie",
-"prix": 0.05,
+"prix": 0.005,
 "effets": "",
 "id": "tranche-de-pain"
 },
@@ -4866,7 +4866,7 @@
 "fichier": "Matériel et services V3.0",
 "type": "service",
 "categorie": "Hostellerie",
-"prix": 0.8,
+"prix": 0.08,
 "effets": "",
 "id": "plat-de-viande-de-base"
 },
@@ -4875,7 +4875,7 @@
 "fichier": "Matériel et services V3.0",
 "type": "service",
 "categorie": "Hostellerie",
-"prix": 0.1,
+"prix": 0.01,
 "effets": "Pour les elfes, ha ha",
 "id": "salade-verte"
 },
@@ -4884,7 +4884,7 @@
 "fichier": "Matériel et services V3.0",
 "type": "service",
 "categorie": "Hostellerie",
-"prix": 0.4,
+"prix": 0.04,
 "effets": "",
 "id": "salade-composee"
 },
@@ -4893,7 +4893,7 @@
 "fichier": "Matériel et services V3.0",
 "type": "service",
 "categorie": "Hostellerie",
-"prix": 0.2,
+"prix": 0.02,
 "effets": "",
 "id": "tranche-de-jambon"
 },
@@ -4902,7 +4902,7 @@
 "fichier": "Matériel et services V3.0",
 "type": "service",
 "categorie": "Hostellerie",
-"prix": 0.5,
+"prix": 0.05,
 "effets": "À partager",
 "id": "saucisson"
 },
@@ -4911,7 +4911,7 @@
 "fichier": "Matériel et services V3.0",
 "type": "service",
 "categorie": "Hostellerie",
-"prix": 0.5,
+"prix": 0.05,
 "effets": "À partager",
 "id": "terrine-au-porc"
 },
@@ -4938,7 +4938,7 @@
 "fichier": "Matériel et services V3.0",
 "type": "service",
 "categorie": "Hostellerie",
-"prix": 0.2,
+"prix": 0.02,
 "effets": "La portion",
 "id": "soupe-de-legumes"
 },
@@ -4965,7 +4965,7 @@
 "fichier": "Matériel et services V3.0",
 "type": "service",
 "categorie": "Auberge pourrie, la nuit",
-"prix": 0.2,
+"prix": 0.02,
 "effets": "Récupération basse",
 "id": "paillasse-en-dortoir"
 },
@@ -4974,7 +4974,7 @@
 "fichier": "Matériel et services V3.0",
 "type": "service",
 "categorie": "Auberge pourrie, la nuit",
-"prix": 0.6,
+"prix": 0.06,
 "effets": "Récupération basse",
 "id": "lit-en-dortoir"
 },
@@ -5019,7 +5019,7 @@
 "fichier": "Matériel et services V3.0",
 "type": "materiel",
 "categorie": "Sacs et transport",
-"prix": 0.5,
+"prix": 0.05,
 "effets": "Charge Max 3 kilos",
 "id": "besace-de-base"
 },
@@ -5046,7 +5046,7 @@
 "fichier": "Matériel et services V3.0",
 "type": "materiel",
 "categorie": "Sacs et transport",
-"prix": 0.5,
+"prix": 0.05,
 "effets": "Charge Max 5 kilos",
 "id": "sacoche-de-tissu"
 },
@@ -5073,7 +5073,7 @@
 "fichier": "Matériel et services V3.0",
 "type": "materiel",
 "categorie": "Sacs et transport",
-"prix": 0.5,
+"prix": 0.05,
 "effets": "Max. 50 PO – 500 gr (pleine)",
 "id": "bourse-standard"
 },
@@ -5118,7 +5118,7 @@
 "fichier": "Matériel et services V3.0",
 "type": "materiel",
 "categorie": "Équipement d'aventure",
-"prix": 0.1,
+"prix": 0.01,
 "effets": "1H de lumière sur une torche",
 "id": "torche"
 },
@@ -5136,7 +5136,7 @@
 "fichier": "Matériel et services V3.0",
 "type": "materiel",
 "categorie": "Équipement d'aventure",
-"prix": 0.5,
+"prix": 0.05,
 "effets": "24H de lumière sur la lampe",
 "id": "flacon-d-huile"
 },
@@ -5163,7 +5163,7 @@
 "fichier": "Matériel et services V3.0",
 "type": "materiel",
 "categorie": "Équipement d'aventure",
-"prix": 0.02,
+"prix": 0.002,
 "effets": "charge max. 10 kilos",
 "id": "ficelle-le-metre"
 },
@@ -5172,7 +5172,7 @@
 "fichier": "Matériel et services V3.0",
 "type": "materiel",
 "categorie": "Équipement d'aventure",
-"prix": 0.1,
+"prix": 0.01,
 "effets": "charge max. 25 kilos",
 "id": "cordelette-le-metre"
 },
@@ -5208,7 +5208,7 @@
 "fichier": "Matériel et services V3.0",
 "type": "materiel",
 "categorie": "Équipement d'aventure",
-"prix": 0.2,
+"prix": 0.02,
 "effets": "",
 "id": "couverts-de-bois"
 },
@@ -5217,7 +5217,7 @@
 "fichier": "Matériel et services V3.0",
 "type": "materiel",
 "categorie": "Équipement d'aventure",
-"prix": 0.5,
+"prix": 0.05,
 "effets": "Peut servir d'arme (1D-1)",
 "id": "couverts-de-metal"
 },
@@ -5235,7 +5235,7 @@
 "fichier": "Matériel et services V3.0",
 "type": "materiel",
 "categorie": "Équipement d'aventure",
-"prix": 0.3,
+"prix": 0.03,
 "effets": "",
 "id": "ecuelle-de-bois"
 },
@@ -5244,7 +5244,7 @@
 "fichier": "Matériel et services V3.0",
 "type": "materiel",
 "categorie": "Équipement d'aventure",
-"prix": 0.6,
+"prix": 0.06,
 "effets": "",
 "id": "ecuelle-de-fer"
 },
@@ -5262,7 +5262,7 @@
 "fichier": "Matériel et services V3.0",
 "type": "materiel",
 "categorie": "Équipement d'aventure",
-"prix": 0.1,
+"prix": 0.01,
 "effets": "",
 "id": "gobelet-en-bois"
 },
@@ -5271,7 +5271,7 @@
 "fichier": "Matériel et services V3.0",
 "type": "materiel",
 "categorie": "Équipement d'aventure",
-"prix": 0.3,
+"prix": 0.03,
 "effets": "",
 "id": "gobelet-de-fer"
 },
@@ -5298,7 +5298,7 @@
 "fichier": "Matériel et services V3.0",
 "type": "materiel",
 "categorie": "Bivouac et camping",
-"prix": 0.5,
+"prix": 0.05,
 "effets": "En extérieur : récup. basse",
 "id": "couverture-de-paysan-1-kilo"
 },
@@ -5379,7 +5379,7 @@
 "fichier": "Matériel et services V3.0",
 "type": "materiel",
 "categorie": "Vêtements",
-"prix": 0.3,
+"prix": 0.03,
 "effets": "",
 "id": "chaussettes-he-chaussette"
 },
@@ -5388,7 +5388,7 @@
 "fichier": "Matériel et services V3.0",
 "type": "materiel",
 "categorie": "Vêtements",
-"prix": 0.6,
+"prix": 0.06,
 "effets": "Immunise à : rhume des pierres",
 "id": "chaussettes-chaudes"
 },
@@ -5397,7 +5397,7 @@
 "fichier": "Matériel et services V3.0",
 "type": "materiel",
 "categorie": "Vêtements",
-"prix": 0.5,
+"prix": 0.05,
 "effets": "Donne \"sentir des pieds\"",
 "id": "chaussures-de-paysan"
 },
@@ -5433,7 +5433,7 @@
 "fichier": "Matériel et services V3.0",
 "type": "materiel",
 "categorie": "Vêtements",
-"prix": 0.3,
+"prix": 0.03,
 "effets": "CHA-1*",
 "id": "short-de-toile-de-base-pour-paysan"
 },
@@ -5442,7 +5442,7 @@
 "fichier": "Matériel et services V3.0",
 "type": "materiel",
 "categorie": "Vêtements",
-"prix": 0.8,
+"prix": 0.08,
 "effets": "CHA-1*",
 "id": "pantalon-de-toile-nase"
 },
@@ -5496,7 +5496,7 @@
 "fichier": "Matériel et services V3.0",
 "type": "materiel",
 "categorie": "Vêtements",
-"prix": 0.8,
+"prix": 0.08,
 "effets": "CHA-1*",
 "id": "chemise-de-paysan"
 },
@@ -5505,7 +5505,7 @@
 "fichier": "Matériel et services V3.0",
 "type": "materiel",
 "categorie": "Vêtements (suite)",
-"prix": 1.5,
+"prix": 0.15,
 "effets": "",
 "id": "chemise-de-base"
 },
@@ -5559,7 +5559,7 @@
 "fichier": "Matériel et services V3.0",
 "type": "materiel",
 "categorie": "Vêtements (suite)",
-"prix": 0.5,
+"prix": 0.05,
 "effets": "",
 "id": "gants-de-manutention"
 },
@@ -5604,7 +5604,7 @@
 "fichier": "Matériel et services V3.0",
 "type": "materiel",
 "categorie": "Vêtements (suite)",
-"prix": 0.5,
+"prix": 0.05,
 "effets": "Protège du soleil",
 "id": "chapeau-de-paille"
 },
@@ -5676,7 +5676,7 @@
 "fichier": "Matériel et services V3.0",
 "type": "materiel",
 "categorie": "Produits pour les elfes",
-"prix": 0.2,
+"prix": 0.02,
 "effets": "",
 "id": "shampooing-de-base"
 },
@@ -5802,7 +5802,7 @@
 "fichier": "Matériel et services V3.0",
 "type": "service",
 "categorie": "Services",
-"prix": 0.5,
+"prix": 0.05,
 "effets": "CHA+1* / 1 jour",
 "id": "coupe-chez-le-coiffeur"
 },
@@ -5955,7 +5955,7 @@
 "fichier": "Matériel et services V3.0",
 "type": "service",
 "categorie": "Services (suite)",
-"prix": 0.5,
+"prix": 0.05,
 "effets": "Pour 10 km",
 "id": "transport-en-chariot-paysan"
 },

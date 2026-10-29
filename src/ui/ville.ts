@@ -20,6 +20,7 @@ import { LIEUX, QUETE_GOBELINS, RUMEURS_LOUCHES, RUMEURS_NORMALES, lieu, type Li
 import { bandeau, boutonsVitesse, lierSac, lierVitesse, ligneObjet, panneauJournal, panneauSac, vitesse } from './commun';
 import { animerDes, de, echapper } from './outils';
 import { marchander, type Marchandage } from '../rules/marchandage';
+import { arrondirOr, formatOr } from '../rules/monnaie';
 import { boutonAutrement } from './idees';
 import { sauvegarderPartie } from './sauvegarde';
 
@@ -97,7 +98,7 @@ export const ecranVille = (
 
   // --- Panneau du lieu -----------------------------------------------------------
 
-  const prixAchat = (o: Objet, l: Lieu) => Math.max(1, Math.round(o.prix * (l.boutique!.prix) * (1 + (visite.marchandage?.taux ?? 0))));
+  const prixAchat = (o: Objet, l: Lieu) => Math.max(0.001, arrondirOr(o.prix * l.boutique!.prix * (1 + (visite.marchandage?.taux ?? 0))));
 
   const texteMarchandage = (m: Marchandage) => {
     if (m.critique === 'remise')
@@ -127,7 +128,7 @@ export const ecranVille = (
         .map((id) => {
           const o = objet(id);
           const prix = prixAchat(o, l);
-          return ligneObjet(p, o, `<button class="petit acheter" data-id="${id}" data-prix="${prix}" ${p.or < prix ? 'disabled' : ''}>${prix} PO</button>`);
+          return ligneObjet(p, o, `<button class="petit acheter" data-id="${id}" data-prix="${prix}" ${p.or < prix ? 'disabled' : ''}>${formatOr(prix)}</button>`);
         })
         .join('')}
       ${
@@ -139,7 +140,7 @@ export const ecranVille = (
                       const o = objet(id);
                       const prix = prixVente(o, b.rachat!);
                       const nb = p.sac.filter((x) => x === id).length;
-                      return ligneObjet(p, o, `<span class="pastille">×${nb}</span> <button class="secondaire petit vendre" data-id="${id}" data-prix="${prix}">Vendre ${prix} PO</button>`);
+                      return ligneObjet(p, o, `<span class="pastille">×${nb}</span> <button class="secondaire petit vendre" data-id="${id}" data-prix="${prix}">Vendre ${formatOr(prix)}</button>`);
                     })
                     .join('')
                 : '<p class="note">Rien dans ton sac ne l\'intéresse. (Pour vendre ton arme ou ton armure, retire-la d\'abord dans « Sac et équipement ».)</p>'
@@ -375,8 +376,8 @@ export const ecranVille = (
       const o = objet(el.dataset.id!);
       const refus = acheter(p, o.id, Number(el.dataset.prix));
       if (refus) return message(echapper(refus));
-      noter(p, `achète ${o.nom} pour ${el.dataset.prix} PO.`);
-      let texte = `Tu achètes <b>${echapper(o.nom)}</b> pour ${el.dataset.prix} PO. Il est dans ton sac.`;
+      noter(p, `achète ${o.nom} pour ${formatOr(Number(el.dataset.prix))}.`);
+      let texte = `Tu achètes <b>${echapper(o.nom)}</b> pour ${formatOr(Number(el.dataset.prix))}. Il est dans ton sac.`;
       const m = visite.marchandage;
       if (m?.cadeau) {
         const c = objet(m.cadeau);
@@ -390,8 +391,8 @@ export const ecranVille = (
     sur('.vendre', (el) => {
       const o = objet(el.dataset.id!);
       const refus = vendre(p, o.id, Number(el.dataset.prix));
-      if (!refus) noter(p, `vend ${o.nom} pour ${el.dataset.prix} PO.`);
-      message(refus ? echapper(refus) : `Tu vends <b>${echapper(o.nom)}</b> pour ${el.dataset.prix} PO.`);
+      if (!refus) noter(p, `vend ${o.nom} pour ${formatOr(Number(el.dataset.prix))}.`);
+      message(refus ? echapper(refus) : `Tu vends <b>${echapper(o.nom)}</b> pour ${formatOr(Number(el.dataset.prix))}.`);
     });
 
     // Bars, auberges, soins
