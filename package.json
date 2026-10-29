@@ -1,0 +1,20 @@
+{
+  "name": "naheulbeuk-jdr",
+  "version": "1.0.0",
+  "description": "Jeu de rôle solo dans l univers du JDR Naheulbeuk, où l ordinateur fait le MJ.",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "test": "vitest run"
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "typescript": "^5.6.3",
+    "vite": "^5.4.10",
+    "vitest": "^2.1.4"
+  },
+  "private": true,
+  "type": "module"
+}

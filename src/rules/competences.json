@@ -1,0 +1,362 @@
+{
+ "AMBIDEXTRIE": {
+  "stat": "AD",
+  "texte": "Pure compétence de guerrier en mêlée. À partir du niveau 2, le héros peut prendre une arme dans chaque main. En plus d'avoir l'air méchant, il pourra exécuter deux attaques par Assaut s'il atteint ou dépasse un score d'Adresse de 14. Ce qui lui donne, également, deux fois plus de chance de se blesser tout seul ou de blesser un camarade... Car la deuxième attaque est plus difficile à réussir. Il ne peut parer qu'une fois, ambidextre ou non. ■ Requis : avoir 2 armes à 1 main, minimum AD 14. ■ Utilisation : deuxième attaque possible à chaque assaut, avec une épreuve AT-5 / une seule parade."
+ },
+ "AGORAPHOBIE": {
+  "stat": "INT",
+  "texte": "Les personnages agoraphobes ont peur des gens, de la foule. En présence d'une foule (taverne, place du marché...), à la demande du Grand Vilain MJ, le héros devra réussir une épreuve d'Intelligence +4 pour garder le contrôle de lui-même. S'il échoue, il prendra la fuite et devra être convaincu par les autres de reprendre sa place dans le groupe. C'est dommage, mais c'est comme ça. ■ Utilisation : en milieu peuplé, épreuve INT+4 du héros pour garder son sang-froid. ■ Échec : fuite, se cacher, passer du temps pour se calmer. ■ Rattrapage : les équipiers peuvent tenter une épreuve de CHA pour le raisonner."
+ },
+ "APPEL DES RENFORTS": {
+  "stat": "",
+  "texte": "Cette compétence permet de fuir très vite en arrière en oubliant ses petits camarades derrière soi. Le héros qui sait fuir (dignement, bien sûr) ne subira pas d'attaque d'opportunité de la part des ennemis au contact au moment de leur tourner le dos pour détaler. Il pourra, par contre, se faire tirer dessus par les archers ou sorciers ennemis. Bien entendu, les Barbares et les Paladins ne font jamais ça... ■ Utilisation : en cas de fuite d'une scène de combat, le héros ne peut être frappé par les ennemis au contact. Cependant il quitte le combat et s’en éloigne durant 3 assauts au moins (pas de possibilité d’AT mais peut agir, prendre une potion, etc.)."
+ },
+ "APPEL DU SAUVAGE": {
+  "stat": "INT",
+  "texte": "Le héros à moitié barge a vécu son enfance dans des hordes ou dans les grottes de créatures aux mœurs violentes. Si les aventuriers sont attaqués par un grand nombre d'ennemis apparentés (au moins 2 fois plus nombreux que les héros), le Grand Vilain MJ demandera au héros sauvage de faire une épreuve d'Intelligence +4. S'il échoue, il rejoindra le camp adverse pour « se retrouver avec sa bande »... Et il ne sera pas facile de le faire changer d'avis. ■ Utilisation : en présence de horde apparentée, épreuve INT+4 du héros pour garder son sang-froid. ■ Échec : le héros rejoint l'autre camp momentanément, peut devenir ennemi. ■ Rattrapage : les équipiers peuvent tenter une épreuve de CHA pour le raisonner."
+ },
+ "APPEL DU TONNEAU": {
+  "stat": "INT",
+  "texte": "L'alcool attire le héros s'il ne parvient pas à résister à son instinct de poivrot. Il devra passer une épreuve d'Intelligence +4 pour s'en sortir... Ou décidera de s'adonner à la boisson, quitte à finir allongé dans son vomi. C'est vraiment la honte. ■ Utilisation : en présence d'alcool, épreuve INT+4 du héros pour ne pas s'enivrer. ■ Échec : le héros finit bourré (cf. règles d’ivresse dans « les règles de base – Maître confirmé »). ■ Rattrapage : à moins d'utiliser la force, on ne peut pas tenter de raisonner un ivrogne."
+ },
+ "APPEL DU VENTRE": {
+  "stat": "INT",
+  "texte": "Certaines personnes ont besoin de manger souvent. Le héros qui subit l'appel du ventre doit trouver à manger de façon régulière. S'il n'a pas ses trois repas par jour, il devra résister à l'envie de piquer la nourriture de ses camarades, ou même à la tentation de leur manger un bras. Il sera bon pour une épreuve d'Intelligence +4. S'il échoue, ça risque de causer quelques problèmes ! ■ Utilisation : en manque de nourriture, épreuve INT+4 du héros pour rester calme. ■ Échec : il veut voler les provisions et/ou manger ses amis. ■ Rattrapage : épreuve de confrontation CHA (un PJ parmi les alliés) VS INT (PJ) pour le convaincre ou épreuve de confrontation de FO (difficile) pour le ceinturer."
+ },
+ "ARMES DE BOURRIN": {
+  "stat": "",
+  "texte": "Le personnage est capable d'utiliser toutes les armes qui sont lourdes et font très mal, comme les grosses haches, les grosses épées, les grosses massues... En bref, ils ont la capacité d'utiliser des armes portant l'étiquette « à deux mains » notifiées comme « armes de bourrin ». Cette compétence n'est pas utilisable par les Nains et certaines autres créatures. ■ Requis : avoir la force nécessaire (donc, n'avoir pas de restriction d'origine sur les armes à deux mains). ■ Utilisation : peut s'équiper d'armes à deux mains et les utiliser (une à la fois !)."
+ },
+ "ARNAQUE ET CARAMBOUILLE": {
+  "stat": "",
+  "texte": "Il faut parfois faire des concessions à la moralité pour augmenter ses revenus. Le personnage arnaqueur obtiendra une remise de 20% sur le prix à l'achat d'objets neufs, sans faire la moindre épreuve au dé. Il est libre ensuite d'en profiter pour faire du trafic au sein du groupe, à condition que le marchand ne flaire pas l'arnaque (sur décision du MJ). Il peut gagner également 10% sur la revente de matériel usagé (butin), mais il faut savoir que le prix de base d'un matériel revendu est toujours diminué d'au moins 50% par rapport au neuf. ■ Utilisation : en boutique ou en négociation, obtient une remise de 20% sur le prix d'achat, 10% à la revente. Seulement dans un cadre légal. Non cumulable avec « FARIBOLES » et « CONTACT DANS L’IMPORT EXPORT ». ■ Roleplay : pas d'épreuve au dé, mais le joueur doit convaincre le MJ avec un discours abracadabrant ! Peut être cumulé avec « RADIN » selon le bon vouloir du MJ."
+ },
+ "ATTIRE LES MONSTRES": {
+  "stat": "",
+  "texte": "Le héros qui attire les monstres sera toujours le premier visé dans le cas où une bestiole, un animal vindicatif ou un méchant doit faire un choix de victime. Dommage pour lui, il a sans doute une tête à baffes ! ■ Utilisation : dans le cas d'une rencontre avec des ennemis peu intelligents, le héros est attaqué en premier."
+ },
+ "BARAGOUINAGE DES MONSTRES": {
+  "stat": "",
+  "texte": "À force de côtoyer des monstres de différentes espèces dotés d’une certaine intelligence et d'une forme de langage, j’ai appris à grossièrement communiquer avec eux. Mais je ne fais pas de miracles... ■ Utilisation : épreuve d’INT+4 pour comprendre à peu près un monstre doué d’intelligence ou se faire comprendre de lui."
+ },
+ "BOURRE-PIF": {
+  "stat": "",
+  "texte": "L’art du bourre-pif consiste à taper n’importe comment avec les poings de manière efficace. Casser un bras ou se battre avec un tabouret rentre dans la compétence bourre-pif. Le personnage adepte du bourre-pif n'aura pas de malus à son score d'attaque, pourra utiliser la « table des critiques à mains nues » ainsi que les « coups spéciaux à mains nues ». Voir à ce sujet la page 13 du document des règles de base. ■ Utilisation : pas de malus au score AT, dégâts de base 1D6, coups critiques, accès aux coups spéciaux."
+ },
+ "BRICOLO DU DIMANCHE": {
+  "stat": "INGE",
+  "texte": "À l'aide de cette compétence, un personnage pourra tenter de réparer ou de fabriquer des objets rudimentaires, pour peu qu'il réussisse une épreuve d'Adresse, et sans avoir besoin de connaître le sujet en particulier. C'est au Grand Vilain MJ de s'arranger pour que la difficulté de l'épreuve soit adaptée au profil du héros ainsi qu'à l'objet désiré. Un Gobelin fabriquera plus facilement une baliste qu'un nécessaire de coiffure ! Il aura bien entendu besoin d'un certain nombre d'outils et de matériel de construction. ■ Utilisation : fabrication ou réparation possible d'armes rudimentaires, de matériel varié, consolidation sur une épreuve d’Ingéniosité (moyenne AD/INT)."
+ },
+ "CHANCE DU REMPAILLEUR": {
+  "stat": "",
+  "texte": "Le personnage qui n'a que des caractéristiques pourries peut bénéficier de cette compétence, sur décision du Grand Vilain MJ. Les dieux sont parfois cléments avec ceux qui ont une existence difficile. Le personnage bénéficiant de la chance du rempailleur ne pourra mourir dans un combat, il se passera toujours quelque chose de bizarre au moment on son énergie vitale approche de zéro... Il peut en revanche mourir de maladie ou d'accident. ■ Utilisation : Le héros ne peut pas mourir en combat."
+ },
+ "CHEF DE GROUPE": {
+  "stat": "",
+  "texte": "Le héros pense qu'il est un bon chef, et il arrive même à en convaincre les autres. Il lui est donc plus facile d'imposer son avis quand le groupe doit prendre une décision, qu'elle soit bonne ou mauvaise. ■ Utilisation : le vote du chef du groupe compte pour 2 voix, et s'il y a égalité, c'est le chef de groupe qui a raison. ■ Bonus : +3 CHA/INT sur les confrontations des compétences négatives des compagnons (appel du sauvage, appel du ventre, agoraphobie…)."
+ },
+ "CHERCHER DES NOISES": {
+  "stat": "",
+  "texte": "À moins d'être surpris, le personnage qui sait chercher des noises frappe toujours en premier quand il se retrouve au corps-àcorps avec un ennemi. Ceci évite de confronter les scores de Courage, et ça peut faire la différence contre quelqu'un qui a une plus grosse épée. Si plusieurs opposants ont cette compétence, c'est celui qui a le plus de Courage qui sera le premier. ■ Utilisation : le héros a l'initiative sur tous les combats au corps-à-corps."
+ },
+ "CHEVAUCHER": {
+  "stat": "AD, CHA",
+  "texte": "Permet de monter à cheval sans subir le courroux de la bête, sans faire d'épreuve particulière. Chevaucher permet aussi de prétendre pouvoir s'installer sur le dos d'un certain nombre d'autres montures, comme le Chapon Fanghien, le Sanglier de Combat... Au prix d'une épreuve d'adresse (animaux) ou de charisme (monture intelligente) plus difficile à la discrétion du Grand Vilain MJ. Pour les autres, c'est souvent « non, moi je vais marcher ». ■ Utilisation : le héros peut utiliser une monture non-épique sans être ridicule et sans tomber au moindre mouvement. Pour les montures épiques, il existe des formations payantes."
+ },
+ "CHOURAVER": {
+  "stat": "AD",
+  "texte": "Cette compétence permet à son possesseur de faire les poches de ses petits camarades sans être repéré ou de piquer sans complexe des choux sur le marché. Un tel voleur a rarement beaucoup d'amis, et peut coupler sa compétence avec « Appel des renforts » pour assurer ses chances de survie. Il aura un bonus de +4 aux épreuves d'Adresse impliquant un larcin. ■ Utilisation : bonus +4 sur les épreuves AD de vol à la tire, n'impliquant pas de violence."
+ },
+ "COMPRENDRE LES ANIMAUX": {
+  "stat": "INT",
+  "texte": "Le héros peut être fier de cette excellente compétence : grâce à elle, il peut tenter d'instaurer un dialogue verbal avec une mouette, des souris, un chat, une belette ou tout autre animal possédant un embryon de cerveau. Le Vilain MJ devra s'assurer de lui prévoir une épreuve d'Intelligence à la hauteur de la tâche. Une fois le dialogue établi, le personnage peut bien sûr essayer d'en faire un animal familier ! ■ Utilisation : Dialoguer avec un animal avec un minimum d’intelligence. Possibilité d’en faire un familier."
+ },
+ "COMPRÉHENSION DE LA PÈGRE": {
+  "stat": "",
+  "texte": "À force de côtoyer des banquiers, des assureurs, des politiciens et autres escrocs, j’ai appris leurs combines et leur langage. Je sais désormais utiliser avec aisance ces derniers contre eux. Je ne suis plus forcément le dindon de la farce mais peux aussi être le farceur. De plus la compréhension de ce milieu me rend aussi plus à l’aise pour parler ou négocier, par exemple, avec ces margoulins. ■ Utilisation : Permet d’utiliser la compétence ARNAQUE ET CARAMBOUILLE même dans un cadre illégal. De plus ils ont un bonus +2 dans les interactions sociales avec les milieux de la pègre, les politiciens, les assureurs et les banquiers."
+ },
+ "CONNAISSANCES AQUATIQUES": {
+  "stat": "INT",
+  "texte": "Me permet de connaître des choses sur tout ce qui touche les milieux aquatiques comme les monstres, la flore, les lieux, les animaux, les déplacements d’eau… sur une épreuve INT+4. Les aspects les plus complexes peuvent cependant m’échapper. ■ Utilisation : INT+4 aux épreuves de connaissance sur les milieux aquatiques"
+ },
+ "CONNAISSANCES DE LA NATURE": {
+  "stat": "INT",
+  "texte": "Me permet de connaître certaines informations sur tout ce qui touche à la nature comme les plantes, monstres, lieux, animaux… sur une épreuve INT+4. Les aspects les plus complexes peuvent cependant m’échapper. ■ Utilisation : INT+4 aux épreuves de connaissances concernant la nature"
+ },
+ "CONNAISSANCES DES CAVERNES": {
+  "stat": "INT",
+  "texte": "Je suis à l'aise pour tout ce qui a trait au monde cavernicole (caverne, grotte, mine, …) comme les monstres, les spécificités du terrain, les animaux, la géologie, … sur un épreuve INT+4. Cela se limite au monde souterrain, en dehors des agglomérations troglodytes qui ont leurs propres règles. Les aspects les plus complexes peuvent cependant m’échapper. Je suis également capable de reconnaître sans épreuve les gemmes et pierres précieuses ainsi que leur valeur, et j'obtiens une augmentation de 10 % du tarif à la revente, et 20 % de rabais lorsque j'en achète (voir : supplément gemmes et pierres). ■ Utilisation : INT+4 aux jets de connaissances sur les milieux cavernicoles"
+ },
+ "CONNAISSANCES CULINAIRES": {
+  "stat": "INT",
+  "texte": "Je suis expert dans tout ce qui touche de près ou de loin à l’art de la table et de la cuisine. Il m'est ainsi très facile d’identifier les ingrédients dans une recette ou de connaître tout ce qui se rattache à un plat ou à son état sur un épreuve INT+4. Les aspects les plus complexes, comme les empoisonnements, peuvent cependant m’échapper. ■ Utilisation : INT+4 aux jets de connaissances sur tout ce qui touche à la cuisine et la bouffe en général."
+ },
+ "CONNAISSANCES DES STEPPES": {
+  "stat": "INT",
+  "texte": "Permet de connaître certaines informations sur tout ce qui touche le milieu des steppes et des grandes plaines comme les monstres, la faune et la flore, les habitants … sur une épreuve INT+4. Cependant, si c'est trop complexe ou trop exotique, ça peut évidemment m'échapper totalement... ■ Utilisation : INT+4 aux jets de connaissances à propos des steppes"
+ },
+ "CONNAISSANCES GÉNÉRALES": {
+  "stat": "INT",
+  "texte": "Permet de faire démonstration de certaines connaissances embryonnaires sur à peu près tout et n’importe quoi, sur une épreuve INT+2. L'existence du héros l'a amené à s’intéresser à de nombreuses choses sans forcément les creuser à fond, et il ne sera pas capable d'aller très loin sur aucun de ces sujets, mais c'est mieux que rien. Idéal pour briller en société. ■ Utilisation : INT+2 aux jets de connaissances (non cumulable avec les connaissances spécifiques)"
+ },
+ "CUISTOT": {
+  "stat": "",
+  "texte": "C'est l'ami de tout le monde, ce cuistot ! Grâce à ses talents, il peut préparer à manger pour tous ses amis en utilisant quelques ingrédients de base, et en plus, c'est bon ! Chaque repas préparé par le cuistot permettra de récupérer 3 PV au lieu de 2 PV. De plus, on n'attrape pas de maladie liée à la nourriture. Pas d'épreuve nécessaire. Évidemment, ces repas sont riches et ce n'est pas de la médecine, donc on ne peut pas en servir plus de trois par jours. ■ Requis : disposer d'ingrédients et de matériel de cuisine, avoir 30 minutes pour cuisiner. ■ Utilisation : +1 PV de récupération sur un repas pour toute l'équipe. Pas d'épreuve. Ingénieur cuisinier : 4 PV récupérés/repas Cuistot : 3 PV récupérés/repas Rien : 2 PV récupérés/repas"
+ },
+ "DÉPLACEMENT SILENCIEUX": {
+  "stat": "AD",
+  "texte": "Pour se glisser derrière quelqu'un sans être vu et lui dérober les clés de la prison, rien de tel qu'un spécialiste du déplacement silencieux... Celui qui dispose de cette compétence aura un bonus de +4 à son épreuve d'Adresse pour passer inaperçu, sous réserve bien entendu que son équipement ne fasse pas l'effet inverse (armure métallique, gros sac, grelots aux pieds, etc.). ■ Utilisation : bonus +4 sur les épreuves AD de dissimulation et furtivité."
+ },
+ "DÉSAMORCER": {
+  "stat": "AD",
+  "texte": "Le personnage spécialiste en désamorçage dispose d'un bonus de +4 à l'épreuve d'Adresse pour débarrasser une porte, un couloir ou un coffre d'un mécanisme de piège qui ne soit ni magique, ni lié à la religion. Il doit cependant l'avoir détecté avant (lui ou quelqu'un du groupe), en annonçant une détection des pièges et en réussissant son épreuve ! ■ Utilisation : bonus +4 sur les épreuves AD pour désamorcer un piège (non magique/non karmique)."
+ },
+ "DÉTECTER": {
+  "stat": "INT",
+  "texte": "Le héros dispose de sens aiguisés et d'une bonne faculté d'analyse, et ce n'est pas le genre à marcher n'importe où. Il dispose d'un bonus de +2 à l'épreuve d'Intelligence pour déceler les pièges et les chausse-trappes, les ennemis cachés, les embuscades, les environnements risqués. L'action de détecter n'est PAS automatique et doit être annoncée par le héros. ■ Utilisation : INT+2 aux jets de détection d’un danger."
+ },
+ "ENTRETIEN DU MATÉRIEL": {
+  "stat": "INGE",
+  "texte": "Le héros sait comment entretenir correctement son matériel. Il peut effectuer de petites réparations sur celui-ci et aiguiser ses armes, parfois pour augmenter légèrement les dégâts ou bien pour améliorer la résistance. ■ Utilisation : épreuve d’Ingéniosité (moyenne INT/AD) pour aiguiser une arme tranchante, réparer momentanément une arme brisée ou permet de récupérer 1 PR sur une armure ou un vêtement endommagés."
+ },
+ "ÉRUDITION": {
+  "stat": "INT",
+  "texte": "Quand on a une certaine éducation, il y a des choses qu'on peut faire assez facilement. Le héros qui dispose de l'érudition saura lire (la langue de base : commun pour les humains), écrire et compter, sans avoir à passer d'épreuve. Un héros qui n'a pas reçu l'érudition ne saura faire ni l'un ni l'autre (ou alors seulement lire du texte de base, avec une épreuve INT). ■ Utilisation : le personnage sait lire, écrire et compter sans épreuve."
+ },
+ "ESCALADER": {
+  "stat": "AD",
+  "texte": "Spider-Man triche, il a les mains qui collent ! Mais cette compétence permet d’éviter les chutes désastreuses avec talent, lorsqu'on déambule sur une corniche, qu'on attaque une falaise par la face nord ou qu'on se retrouve suspendu entre ciel et terre par une toute petite corde. ■ Utilisation : bonus +5 sur les épreuves AD pour l'escalade et les numéros de monte-en-l'air."
+ },
+ "FORGERON": {
+  "stat": "INGE",
+  "texte": "Le héros forgeron peut réparer et améliorer durablement des armes de métal, et comme c'est un talent plutôt rare, peut en profiter pour faire payer ses services. Une épreuve d'Adresse est nécessaire à la réussite d'une quelconque manipulation. La difficulté sera dosée en fonction du contexte par le Grand Vilain MJ, dans sa grande magnificence. ■ Utilisation : aiguiser ou réparer une arme ou armure, améliorer une arme avec épreuve d’ingéniosité (moyenne INT/AD) (voir tableau correspondant)."
+ },
+ "FRAPPER LÂCHEMENT": {
+  "stat": "AT",
+  "texte": "Quand on n'a pas la force nécessaire pour battre un adversaire au corps à corps et qu’on a le sens moral d’un chacal, on a toujours le choix de feindre le sourire et de frapper sournoisement. Cette compétence permet de doubler les dégâts d’une attaque lorsque celle-ci est placée dans le dos, par une bonne connaissance des points vitaux. Mais cela n'est possible qu'une seule fois par combat car l'ennemi ne se fait pas prendre deux fois à ce genre de jeu. Il faut tout de même réussir son Attaque... et se mettre en position au préalable. La Parade est impossible. ■ Requis : avoir une dague, poignard ou autre lame courte - se placer dans le dos de la cible. ■ Utilisation : une fois les dégâts de l'arme calculés sur une Attaque au contact réussie, multipliez le total par 2. ■ Restrictions : une seule fois par combat, non cumulable avec « AMBIDEXTRIE », coups localisés et coups spéciaux ; ne fonctionne que sur les humanoïdes de taille standard (pas sur les monstres, esprits, animaux et autres) – dague ou autre lame courte uniquement"
+ },
+ "FARIBOLES": {
+  "stat": "INT, CHA",
+  "texte": "Ce talent particulier permet de baratiner n’importe qui en le noyant sous un flot d’histoires invraisemblables. C'est très utile pour distraire des ennemis potentiels (à condition qu'ils ne soient pas en combat), captiver une foule, énerver les gens, faire perdre du temps à quelqu'un, déstabiliser, marchander. Le héros maîtrisant l'art des fariboles doit bien sûr impressionner les joueurs autour de la table, en racontant ses histoires dans la vraie vie ! Il essaiera de faire ainsi passer un mensonge pour la réalité. Il aura un bonus de +3 aux épreuves de Charisme ou d'Intelligence liées à cette compétence. ■ Utilisation : +3 aux épreuves de CHA ou INT pour faire croire n'importe quoi à quelqu'un. ■ Restrictions : dans le cadre d’un marchandage cette compétence n’est pas cumulable avec « ARNAQUE ET CARAMBOUILLE », « CONTACT DANS L’IMPORT-EXPORT » et « RADIN ». ■ Roleplay : le joueur doit également convaincre le MJ avec son discours original !"
+ },
+ "FOUILLER DANS LES POUBELLES": {
+  "stat": "",
+  "texte": "Le héros n'a pas d'amour-propre. Il a l'habitude de faire son marché dans les détritus et sera toujours le premier à trouver un objet intéressant lorsqu'il fouillera une salle, un coffre, un trésor ou n'importe quoi (même une poubelle, d'ailleurs). Si plusieurs aventuriers ont cette compétence, ils peuvent régler l'affaire avec un duel au dé. ■ Utilisation : en cas de fouille d'un lieu ou d'un cadavre, le héros est le premier à trouver le meilleur butin."
+ },
+ "INSTINCT DE SURVIE": {
+  "stat": "",
+  "texte": "Le héros dispose d'un flair particulier : il trouve facilement de la nourriture ou de la boisson quand il y en a quelque part. Il peut ainsi guider tout un groupe d'aventuriers vers la cuisine du donjon, ou trouver « la bonne salle » qui contient à manger. ■ Utilisation : si le héros annonce qu'il suit son instinct de survie, le MJ devra le guider vers la nourriture/boisson la plus proche."
+ },
+ "INSTINCT DU TRÉSOR": {
+  "stat": "INT",
+  "texte": "Le héros a du flair pour trouver les choses cachées, surtout quand elles ont de la valeur ! Cette compétence donne un bonus de +3 aux épreuves d'Intelligence pour sentir les trésors et cachettes. ■ Utilisation : +3 à l'épreuve INT sur une épreuve de fouille ou détection de trésor/cachette."
+ },
+ "INTIMIDER": {
+  "stat": "COU, CHA",
+  "texte": "Quand on se retrouve face à un gros costaud qui fait la grimace et approche son visage furieux de votre nez avec l’apparente attention de vous accrocher la tête au bout d’une pique, on a souvent deux choix : se battre ou fuir. L’intimidation permet au personnage de faire peur à ses adversaires sans avoir besoin de les combattre. Il doit pour cela disposer d'une valeur de Courage supérieure à son (ou ses) ennemis, et réussir une épreuve de Charisme ! ■ Utilisation : épreuve de CHA possible pour faire fuir ou éloigner un adversaire moins courageux que le héros. Le MJ peut demander une épreuve de confrontation de CHA contre le COU de la cible."
+ },
+ "JONGLAGE ET DANSE": {
+  "stat": "AD",
+  "texte": "Ces trucs, ça ne s'invente pas, c'est un don. Le héros capable de danser et de jongler pourra souvent distraire les gens, gagner de l'argent ou obtenir des faveurs avec des épreuves adaptées. Pour les autres, ils pourront se rendre ridicule, mais c'est tout. ■ Utilisation : possibilité d'essayer des prestations artistiques sans malus à l'épreuve AD ou Prestation (AD/CHA)."
+ },
+ "LANGUES DES MONSTRES": {
+  "stat": "",
+  "texte": "Les monstres disent n'importe quoi, c'est bien connu. Pour le héros qui a fait des études dans ce domaine, pas de problème ! Il comprendra les propos de la plupart des créatures douées de parole : les Ogres, les Trolls, les Gnômes des forêts du Nord, les Kobolds, etc. C'est le niveau bien au dessus du « Baragouinage des monstres ». ■ Utilisation : compréhension générale des langues de monstres sans épreuve - pour les monstres de la région d’origine du personnage (le MJ peut prévoir des malus pour des monstres plus exotiques)."
+ },
+ "MÉFIANCE": {
+  "stat": "INT",
+  "texte": "Quand le héros discute avec un personnage au cours d'une aventure, il peut utiliser la compétence de méfiance pour détecter si le personnage ment, ou pas. S'il réussit l'épreuve, le Grand Vilain MJ lui dira si c'est le cas. S'il échoue en revanche, il pourra lui raconter n'importe quoi... ■ Utilisation : possibilité de tenter une épreuve d'INT sans malus pour savoir si un PNJ ment. À moins que le PJ possède également la compétence NAÏVETÉ TOUCHANTE, auquel cas il aura toutefois un malus de -2. Méfiance : épreuve INT Méfiance + naïveté touchante : épreuve INT-2 (léger malus) Rien : épreuve INT-10 (gros malus) Naïveté touchante : épreuve INT-12 (énorme malus)"
+ },
+ "MENDIER ET PLEURNICHER": {
+  "stat": "INT",
+  "texte": "Cette compétence permet au héros de gagner quelques pièces d'or entre deux aventures, sans rien faire... Alors évidemment, il faut qu'il puisse mendier quelque part, donc il doit se trouver au moins dans un village ou dans une ville, pas au milieu de la campagne. Le montant sera tiré au dé, sur une décision du Grand Vilain MJ. ■ Utilisation : gagner de l'or entre deux aventures, sur jet de dé (1D20 PO max.), en milieu urbain ou villageois. À la création du personnage, augmente le pécule de base de 1D20 PO."
+ },
+ "NAGER": {
+  "stat": "AD, FO",
+  "texte": "Pas besoin de faire un dessin, le héros aura eu la chance d'apprendre à nager pendant sa jeunesse. Il bénéficie donc, non seulement de la possibilité de nager sans jeter un dé, mais d'un bonus de +5 aux épreuves liées à la nage (comme par exemple, essayer de sauver un équipier tombé dans la rivière). ■ Utilisation : possibilité de nager sans épreuve, ou +5 à l'épreuve moyenne AD/FO sur une épreuve impliquant de la nage (sauvetage, apnée, encombrement lourd…)."
+ },
+ "NAÏVETÉ TOUCHANTE": {
+  "stat": "CHA",
+  "texte": "Le personnage naïf est si mignon que les autres gens (joueurs et non joueurs) lui pardonnent plus aisément un acte stupide, ou des paroles déplacées. Il dispose d'un bonus de +5 à l'épreuve de charisme pour sauver sa peau dans ce genre de situation. En revanche, il peut se faire avoir facilement et gobe les mensonges de manière naturelle. ■ Utilisation : +5 à l'épreuve CHA pour éviter un conflit suite à un problème ou une bévue impliquant le héros. ■ Roleplay : le joueur doit trouver une excuse bidon !"
+ },
+ "PÉNIBLE": {
+  "stat": "INT",
+  "texte": "Le héros est chiant, même quand il ne dit rien. Il agace les gens, aussi bien les aventuriers de sa compagnie que les personnages rencontrés au cours du jeu. Le Grand Vilain MJ peut lui demander de faire une épreuve d'Intelligence dans ce genre de cas, pour savoir s'il se fait frapper ou non. ■ Utilisation : en cours de partie, le MJ décide que le héros a été chiant et que ses compagnons sont fâchés. Le héros peut essayer de sauver la situation en réussissant une épreuve INT (sans quoi, il se fait frapper)."
+ },
+ "PISTER": {
+  "stat": "INT",
+  "texte": "Tout le monde peut suivre un troll à la trace, vu que généralement tout est cassé sur son chemin, mais pister peut également servir à poursuivre des animaux ou des adversaires beaucoup plus discrets, en se repérant à tous les signaux qu’ils ont pu laisser derrière eux. La compétence permet de bénéficier d'un bonus, mais il est interdit de dire « Moi, j'ai envie de pister ». ■ Utilisation : +3 à l'épreuve INT sur une épreuve de pistage."
+ },
+ "PREMIERS SOINS": {
+  "stat": "AD, INT",
+  "texte": "Le personnage maîtrisant les premiers soins aura plein d'amis ! Il peut faire récupérer quelques points de vie à ses camarades blessés au combat, et stabiliser leurs blessures pour peu qu'il réussisse une épreuve de moyenne AD/INT. Le Grand Vilain MJ prendra soin d'augmenter ou de diminuer la difficulté en fonction de la blessure. ■ Utilisation : épreuve d’ingéniosité (moyenne INT/AD) possible pour tenter de soigner quelqu'un (max 1D6 PV). Permet aussi de reconnaître un poison ou une maladie sur une épreuve INT-6. ■ Échec critique : le héros parvient à blesser encore plus son compagnon (-1D6 PV)."
+ },
+ "RADIN": {
+  "stat": "CHA, INT",
+  "texte": "Cette compétence est innée chez les Nains... Le héros radin disposera d'un bonus de +4 sur son épreuve de Charisme pour marchander (dans la limite d'une remise de 20%, non cumulable avec d'autres bonus). Il a aussi d’emblée l’aptitude de savoir compter ses dépenses et autres possessions. Ainsi un personnage radin saura compter correctement de manière instinctive. En contrepartie, il devra passer une épreuve d'intelligence +4 quand il faut partager un butin ou une dépense avec le reste du groupe. S'il échoue, il y aura sans doute un conflit à régler ! ■ Utilisation : +4 à l'épreuve CHA pour le marchandage, épreuve nécessaire INT+4 en cas de partage de butin (conflit). Sait compter sans épreuve d’INT. ■ Non cumulable avec « FARIBOLES » et « CONTACT DANS L’IMPORT-EXPORT »."
+ },
+ "RÉCUPÉRATION": {
+  "stat": "PA",
+  "texte": "Les mages, les prêtres et les paladins ont besoin de se poser une heure complète par jour pour réviser leurs sortilèges ou prier. C'est comme ça... Et ce n'est pas la peine d'essayer d'y couper. Ils peuvent le faire à la place du repos, au détriment de la récupération d'un certain nombre de points de vie (voir les règles de récupération). ■ Utilisation : obligation de faire une pause chaque jour (et une seule fois par jour) pour continuer à pratiquer la magie / les prodiges, en lisant leurs livres et grimoires. Ceci permet, en outre la récupération de 4PA."
+ },
+ "RESSEMBLE À RIEN": {
+  "stat": "",
+  "texte": "Il est des gens dont personne ne se souvient, qui passent inaperçus. Le héros qui ne ressemble à rien dispose de ce talent. Certes, il ne sert pas à grand-chose, mais un jour il pourra peut-être lui sauver la vie, par exemple s'il est recherché par des gardes et qu'ils tombent sur lui par hasard. ■ Utilisation : les PNJs ne se souviennent pas du héros. Ils ne pourront pas le décrire précisément. ■ Restrictions : Si le PJ est le seul de son métier ou de sa race au milieu d’une assemblée, il pourra être reconnu."
+ },
+ "RUNES BIZARRES": {
+  "stat": "INT",
+  "texte": "Le héros disposant de cette compétence a pris des cours et peut interpréter les écritures étranges en Terre de Fangh, pour peu qu'il réussisse une épreuve d'Intelligence +4. Les autres, c'est pas de chance, ils n'ont même pas le droit d'essayer. Attention, cette compétence ne permet PAS de lire le Nainscrit (pour en savoir plus, voir éventuellement le supplément sur Jambfer). ■ Utilisation : +4 à l'épreuve INT pour lire les langues bizarres. Il est possible de lire les autres langues, avec une épreuve dont le malus est défini par le MJ."
+ },
+ "SENTIR DES PIEDS": {
+  "stat": "",
+  "texte": "Le héros concerné, s'il enlève ses bottes, éloigne les animaux (dangereux ou pas) quand il dort en milieu naturel. C'est l'effet positif. Par contre, dans une chambre d'auberge ou un dortoir, il incommode les autres équipiers qui dormiront moins bien (récupération moins bonne). Les équipiers qui sentent eux-mêmes des pieds ne sont pas incommodés. ■ Utilisation : éloigne les prédateurs la nuit en bivouac, mais diminue le confort des chambres partagées par les alliés. Ils auront -1 PV à la récupération."
+ },
+ "SERRURIER": {
+  "stat": "AD",
+  "texte": "Dans certains villages éloignés de Fangh, les élèves serruriers sont souvent automatiquement pendus de manière préventive. En effet, dans un cas sur deux, ce n’est pas le noble art de la fabrication de serrure qui intéressent les apprentis mais bien comment fracturer le coffre du commerçant d’en face sans faire de bruit. La compétence de serrurier permet de pouvoir ouvrir n’importe quel porte ou mécanisme fonctionnant avec une serrure, avec une épreuve d'Adresse. Ceux qui n'ont pas la compétence auront le droit d'essayer, mais le Grand Vilain MJ leur rendra la vie dure avec une épreuve beaucoup plus ardue. ■ Utilisation : Possibilité d’épreuve AD sans malus pour tenter de crocheter une porte, un mécanisme de difficulté normale."
+ },
+ "TÊTE VIDE": {
+  "stat": "",
+  "texte": "Les sorts affectant le psychique n'ont pas prise sur ce héros, car il ne dispose pas du capital nécessaire. C'est le cas de certains sorts ou prodiges de prise de contrôle, de terreur, d'illusion, de télépathie. ■ Utilisation : Le héros est insensible aux attaques mentales, de plus il résiste automatiquement à certains types de sortilèges, illusions ou malédictions (signalés comme tels dans les grimoires). ■ Restriction : Cette compétence n’est pas compatible avec le métier de mage, de prêtre ou de paladin, sauf mention contraire, car il faut être idiot pour l'avoir. Ces derniers ne peuvent donc pas recevoir cette compétence."
+ },
+ "TIRER CORRECTEMENT": {
+  "stat": "AD",
+  "texte": "Tirer correctement permet d’utiliser une arme comme l’arc, le couteau de jet de manière efficace, avec une épreuve d'Adresse. Pour donner un exemple, prenez l’Elfe, et bien c’est exactement le contraire. Clair non ? Les gens qui n'ont pas cette compétence peuvent toujours essayer, mais le Grand Vilain MJ leur donnera du fil à retordre avec une épreuve plus difficile. De toutes façons, le fait d'avoir la compétence n'empêche pas de tirer accidentellement sur les petits copains... ■ Utilisation : épreuve AD possible pour utiliser des armes de jet ou de lancer. Donne un bonus de +1 en Adresse à l'utilisation des armes complexes (arbalètes, armes à poudre, …). Si le héros n’a pas la compétence, il devra effectuer une épreuve AD-4, voire plus difficile."
+ },
+ "TOMBER DANS LES PIÈGES": {
+  "stat": "",
+  "texte": "Une fois qu'il se retrouve affublé de cette tare grotesque, le héros sera toujours le premier à tomber dans un piège, dans le cas où un groupe d'aventuriers marche dedans sans le détecter. Il n'avait qu'à faire attention. Si plusieurs aventuriers ont cette compétence, ils peuvent régler l'affaire avec un duel au dé. ■ Utilisation : le héros se prend toujours le piège en premier (dans la limite du cohérent)."
+ },
+ "TRUC DE MAUVIETTE": {
+  "stat": "PR",
+  "texte": "Le héros n'a pas mal, même quand il a mal. Il serre les dents et continue de faire son malin, parce que la douleur est une simple information. Le héros qui rit des trucs de mauviette dispose d'une protection naturelle de 1 point supplémentaire (PR+1). ■ Utilisation : +1 au score de PR totale, mais ce bonus ne compte pas dans l'encombrement. Il est compté même si le personnage subit une attaque critique, un peu comme la PR Magique. COmpétences spéciales"
+ },
+ "AGILE": {
+  "stat": "",
+  "texte": "Le héros, la plupart du temps un Gnôme, est si agile qu’il est difficile de l’arrêter, de le coincer, et il peut se retrouver n’importe où dans le combat en sacrifiant un seul assaut (zone circulaire de 20 mètres de diamètre, au maximum). Il se faufile entre les jambes des guerriers, saute par-dessus les héros ou simplement vole au-dessus de leurs têtes. En conséquence il peut choisir de s’attaquer à n’importe qui et on ne pourra pas, à moins d’être très rusé, l’encercler ou le bloquer. ■ Utilisation : Peut se déplacer n’importe où sur la zone de combat (20 m. de diamètre max.) au prix d’un assaut ■ Restriction : Ne peut pas être utilisé pour se déplacer en dehors d'un combat."
+ },
+ "BÂTARD": {
+  "stat": "",
+  "texte": "Les hybrides sont généralement mal acceptés par les communautés diverses d'où ils sont issus, chacun rejetant un peu la « faute » sur l'autre. Ainsi, lors d’interactions sociales avec l’une ou l’autre des communautés concernées, le personnage bâtard aura un malus de -2 en CHA pour les négociations, le marchandage ou la séduction. ■ Utilisation : CHA-2 dans les interactions avec les communautés d’origines des parents."
+ },
+ "BERSERKER": {
+  "stat": "",
+  "texte": "Le guerrier spécialisé dans la voie du Berserker peut rentrer dans une rage qui fait qu’il ne ressent plus la douleur une fois par jour. Cela se traduisant par un capital de vie augmenté de « 3D6 + niveau » PV temporaires. Le retour à la réalité par contre peut être très douloureux, voire fatal ! ■ Utilisation : gagne « 3D6 + niveau » PV temporaires jusqu’à la fin du combat. Les points de vie temporaires perdus sont toutefois déduits des PV restants au bout de 30 secondes après la fin du combat. ■ Rattrapage : à la fin du combat, quand il n’a plus d’ennemi, le Berserker doit être raisonné par son équipe sur une confrontation entre l’INT du Berserker et le CHA-5 ou INT-5 pour l’allié. ■ Échec : il continuera le combat contre ses alliés jusqu’à réussite de la confrontation ou jusqu'à ce qu’il soit maîtrisé. Une confrontation possible par allié et par Assaut."
+ },
+ "BRIC-À-BRAC": {
+  "stat": "",
+  "texte": "La plupart du temps, un Gobelin porte des armures rafistolées, des casques trop grands ou des bracelets bricolés. Il perdra rapidement de l'Adresse en portant une armure lourde (supérieure à 3 PR), mais contrairement à la plupart des autres héros il ne sera jamais affligé d'un malus au score de PARADE ou d'ESQUIVE. Il est simplement tellement couard qu'il développe un sens spécial pour échapper aux coups ! Son score d'ATTAQUE, en revanche, pourra toujours être réduit. ■ Utilisation : Pas de malus au score de PARADE ou d’ESQUIVE quel que soit le score de PR."
+ },
+ "CAMPING FORESTIER": {
+  "stat": "INGE",
+  "texte": "La forêt, ça me connaît ! Lorsque je dors à la belle étoile je sais où trouver les endroits les plus confortables pour dormir et me reposer en paix tout en profitant des bruits ambiants, de la symphonie nocturne de la nature. Je sais reconnaître les lieux où la terre et la mousse seront aussi confortables qu’une bonne paillasse. L’endroit où même en cas de pluie la frondaison des arbres m’assurera un couvert maximal, et le feu de camp ne déclenchera pas d’incendie. Ainsi, lorsque mes compagnons dorment avec moi en forêt, ils auront toujours un confort maximal, sauf s'il pleut des cordes évidemment. ■ Utilisation : Le héros peut construire un bivouac de qualité en milieu forestier, sur une épreuve d’Ingéniosité +3. La Récupération par nuit est alors améliorée de +2 PV et +4 PA (sous réserve que la météo ne soit pas trop mauvaise). ■ Restriction : Non cumulable avec la compétence CAMPING TOUT-TERRAIN."
+ },
+ "CAMPING SOUTERRAIN": {
+  "stat": "INGE",
+  "texte": "Ma vie dans les cavernes me permet de trouver l’endroit le plus adéquat afin de bivouaquer. L’endroit où la pierre est la plus meuble et confortable, l’air le moins vicié et humide, permettant d’allumer un feu sans s’intoxiquer. Ceci afin d’améliorer mon confort et celui de mes compagnons pour être comme une bière dans sa chope. ■ Utilisation : Le héros peut construire un bivouac de qualité en milieu sous-terrain, sur une épreuve d’ingéniosité +3. La Récupération par nuit est alors améliorée de +2 PV et +4 PA."
+ },
+ "CAMPING TOUT-TERRAIN": {
+  "stat": "INGE",
+  "texte": "Mon expérience me permet de trouver l’endroit idéal pour monter un bivouac, pas trop pentu, à l’abri du vent, … J’organise la répartition des couchages et des tentes au mieux autour du feu de camp pour optimiser le confort de chacun durant la nuit, permettant à mes compagnons et moi-même un repos aux petits oignons afin d’être comme des coqs en pâte. À moins qu'il y ait une tempête, évidemment... ■ Utilisation : Le héros peut construire un bivouac de qualité en milieu naturel à l’air libre sur une épreuve d’ingéniosité +3. La récupération par nuit est alors améliorée de +2 PV et +4 PA (sous réserve que la météo ne soit pas trop mauvaise). ■ Restriction : Non cumulable avec la compétence CAMPING FORESTIER"
+ },
+ "CHANCE DU PIRATE": {
+  "stat": "",
+  "texte": "Un coup du sort vient toujours me permettre de trouver une échappatoire pour fuir un endroit : un garde qui laisse ses clés à portée, un bateau à l’horizon… Bref, je sais me sortir de n’importe quelle situation grâce à ma chance insolente. ■ Utilisation : Le héros a toujours une possibilité de s’échapper de n’importe quelle situation, selon les idées farfelues du joueur et l’inventivité du MJ, par un concours improbable de circonstances. Cela peut être plus ou moins difficile et n’empêche absolument pas le personnage de mourir."
+ },
+ "COMPAGNONNAGE": {
+  "stat": "",
+  "texte": "L’ingénieur a suivi une partie de sa formation chez différents maîtres partout où il a travaillé, et et a donc appris beaucoup de techniques qu’il peut réutiliser dans son art. ■ Utilisation : permet de relancer une fois par jour un D20 d'épreuve lié à sa spécialisation d’ingénieur, mais il devra conserver le résultat du deuxième jet."
+ },
+ "CONTACT DANS L’IMPORT-EXPORT": {
+  "stat": "",
+  "texte": "Le marchand est un homme de réseau et ce dernier sait où se fournir en matériel exotique, pour peu que celui-ci soit disponible. D'autres héros pourraient passer plusieurs décades à chercher la même chose. Ce n'est pas forcément donné, évidemment, mais il faut ce qu'il faut ! Le héros doit se trouver proche d'une agglomération. ■ Utilisation : Au début de chaque aventure, le marchand peut aller chercher dans les tableaux de n’importe quelle contrée UN objet, qu’il obtiendra au prix suivant le résultat de son D20. Cet objet ne peut dépasser NIVEAU x 300 PO, en prix de base dans le tableau correspondant. Voir ci-dessous les tarifs obtenus au D20 : 1 à 2 : prix des tableaux 8 à 10 : prix x2 3 à 4 : prix x1,25 11 à 20 : l’objet n’est pas disponible. 5 à 7 : prix x1,5 ■ Restrictions : Ne peut être cumulé avec « ARNAQUES ET CARAMBOUILLE », « FARIBOLES » et « RADIN »."
+ },
+ "DÉBITEUR DE CADDYRO": {
+  "stat": "",
+  "texte": "En échange de 10% de TOUTES ses recettes, Caddyro protège son marchand et lui permet de relancer un D20 d'épreuve 1 fois par jour. La relance peut être refaite tant que le score du dé n’est pas meilleur que le premier score . Pour ce faire, le héros doit disposer désormais d’une Cassette Bénie de Caddyro (prix cassette + bénédiction = 300PO), envoyant directement l’argent dans le plan de Caddyro. ■ Utilisation : Relance d’un jet une fois par jour contre 10% de toutes ses recettes."
+ },
+ "ÉCORCHAGE DES BARBARES": {
+  "stat": "INGE",
+  "texte": "Il est dans la nature des barbares d’écorcher leurs proies afin de pouvoir faire avec la peau un tout nouveau pagne bien plus classe que l’ancien (car oui, plus l’animal est dangereux, plus c’est stylé !). Ainsi, dès leur plus tendre enfance, ils apprennent à retirer efficacement la peau de n’importe quelle bestiole. ■ Utilisation : permet une épreuve de dépeçage pour de la récolte : épreuve d’ingéniosité +4 (INT/AD)"
+ },
+ "ERREUR DE LA NATURE": {
+  "stat": "",
+  "texte": "Les origines infâmes du héros font qu’il est honni par la plupart des origines, les non monstrueuses généralement. Les interactions sociales avec ces dernières sont alors toujours extrêmement compliquées à cause des ressentiments négatifs ainsi que du dégoût provoqué par l’existence même d’individus comme le héros. ■ Utilisation : toutes les origines non monstrueuses ont un ressentiment particulièrement négatif envers le héros et il a un malus de -5 à toutes ses interactions sociales avec ces origines."
+ },
+ "ESQUIVE NATURELLE": {
+  "stat": "",
+  "texte": "Le héros est bien meilleur à l’Esquive qu’à la Parade et il sait se déplacer rapidement. Ainsi, après avoir réussi une esquive, il a 50 % de chances de pouvoir attaquer tout de même au cours de l’assaut suivant (4, 5 ou 6 au D6). ■ Utilisation : peut attaquer à la suite d’une esquive sur 4, 5, ou 6 au D6"
+ },
+ "HÉRITAGE MEULDOR": {
+  "stat": "",
+  "texte": "Suite à la corruption des Meuldors provoquée par Gzor, les Elfes ont perdu leur immortalité et leur capacité à lancer la plupart de leurs sorts via les chants magiques. L’émergence de la sorcellerie et de la prêtrise chez les humains n’aida pas à la conservation de ce savoir, qui est devenu compliqué à maîtriser. ■ Utilisation : Accès à trois chants de la magie Meuldor (grimoire correspondant non encore publié)."
+ },
+ "HÉRITAGE SYLVESTRE DES MEULDORS": {
+  "stat": "",
+  "texte": "Suite à la corruption des Meuldors provoquée par Gzor, les Elfes ont perdu leur immortalité et leur capacité à lancer la plupart de leurs sorts via les chants magiques. L’émergence de la sorcellerie et de la prêtrise chez les humains n’aida pas à la conservation de ce savoir, qui est devenu compliqué à maîtriser. Contrairement à leurs cousins Haut-Elfes, les Sylvains ont développé à la place l’art du coiffage de poney, au détriment de la conservation des chants de leurs ancêtres. ■ Utilisation : Accès à deux chants de la magie Meuldor (note : grimoire correspondant non encore publié)."
+ },
+ "INVESTISSEMENT HASARDEUX": {
+  "stat": "",
+  "texte": "Le marchand étant toujours un homme à l’affût des bonnes affaires, il se prête parfois au jeu des financements à hauts risques. Il faut toutefois qu'il se trouve en milieu urbain, sans quoi il n'y a personne avec qui traiter les affaires... Note pour le MJ : pour un gameplay avancé dans ce domaine, consulter le supplément S'enrichir sans combattre. ■ Utilisation : au début de chaque aventure, le marchand peut lancer un D20 en misant une partie de son pécule jusqu’à 100 PO et obtiendra suivant le résultat un gain, aucune perte ou bien une perte d’argent. 1 : double sa mise 16 à 18 : mise x0,5 2 à 5 : mise x1,5 19 : perte totale de la mise de départ. 6 à 10 : mise x1,25 20 : perte de 1,5x la mise de départ. 11 à 15 : pas de gain ni de perte"
+ },
+ "J’AI LE BRAS LONG": {
+  "stat": "",
+  "texte": "Le héros est quelqu’un qui a des relations ! Il connaît des gens de haut rang (dans son pays d'origine, évidemment). Il a donc l’habitude de discuter avec ce type d’interlocuteur ainsi que de parler à la plèbe pour se faire entendre, et faire en sorte que ses souhaits soient réalisés, que ses demandes soient considérées. ■ Utilisation : permet de convaincre plus facilement un interlocuteur, notamment les soldats ou les fonctionnaires, dans une interaction sociale. Confrontation : CHA contre INT ou COU."
+ },
+ "LECTURE DU NAINSCRIT": {
+  "stat": "",
+  "texte": "Le Nainscrit est une langue conceptuelle très ancienne, écrite -- ou plutôt gravée dans la pierre -- que la plupart des nains en Terre de Fangh ou dans ses environs peuvent déchiffrer. Il n’existe plus de version orale du Nainscrit. Note (pour en savoir plus, voir éventuellement le supplément sur Jambfer). ■ Utilisation : permet de lire -- et de graver éventuellement, avec plus ou moins de succès -- le Nainscrit."
+ },
+ "PIED MARIN": {
+  "stat": "",
+  "texte": "Le pirate est un homme dont l’équilibre est maintes fois mis à l’épreuve sur les bateaux ou en sortie de taverne. Cela lui permet d’être ainsi plus adroit lors d’un abordage ou dans les situations difficiles. ■ Utilisation : tant qu’il est sur l’eau, le héros ne subit pas le malus normal de -2 à toutes ses épreuves lors des combats (fonctionne aussi sur l’eau douce)."
+ },
+ "RÉSISTANCE DES PIEDS-VELUS": {
+  "stat": "",
+  "texte": "L’art de vivre comme les semi-hommes est le fait d’être extrêmement routinier et de se contenter des choses simples de la vie. Cela a permis à ces derniers de développer une certaine Résistance à la Magie. ■ Utilisation : permet de relancer un jet de Résistance Magique lors de l’utilisation d’un objet maudit, face au contrôle mental et aux malédictions en général. RM+4 contre les anneaux maléfiques."
+ },
+ "RESSENTI DU SURNATUREL": {
+  "stat": "",
+  "texte": "Par leur nature de peaux-vertes abhorrant la magie et/ou les dieux, les Orques, les Demis-orques et les Gobelins sont capables de ressentir l’aura bénie/maudite/magique d’un objet. Ils ne sauront pas pour autant dire la nature précise ni l’origine de ce qui le dérange, mais ça les dérange. Pas d'épreuve requise au contact d'un objet ou d'un lieu pour détecter, mais épreuve à distance. ■ Utilisation : Détection passive de l’aura magique, maudite ou bénie au contact, ou sur un test INT-4 dans les 2 mètres."
+ },
+ "SECOND PETIT-DÉJEUNER": {
+  "stat": "",
+  "texte": "Les semi-hommes ayant un art de vivre particulier et rythmé par les repas de la journée, ces derniers mangent plus que la plupart des autres origines. Ils ont une capacité de digestion supérieure, de fait. ■ Utilisation : Au lieu de 3 repas par jour permettant de récupérer des PV, les semi-hommes sont limités à 4 repas."
+ },
+ "SÉDUCTION DES DROWS": {
+  "stat": "",
+  "texte": "Certains Elfes Noirs ont gardé l’étrange pouvoir que confère la prise de niveau chez les autres origines d’Elfes. Ils gagnent 1 point de Charisme au niveau 2 et 3, sans l’inconvénient de l’augmentation mammaire pour les femmes. Cependant, ils ont développé, contrairement aux autres, une sorte de magnétisme envers leurs interlocuteurs, leurs conférant un bonus de +2 dans les interactions sociales. Ce bonus est cumulable avec d’autres compétences. ■ Utilisation : CHA+1 au niveau 2 et 3 et +2 dans les interactions sociales."
+ },
+ "SUPER ESQUIVE": {
+  "stat": "",
+  "texte": "À la différence des autres aventuriers, le héros, souvent un Gnôme, peut attaquer et esquiver dans le même assaut. Il est si souple et si vif que ça ne lui pose pas de problème. Il utilise donc très rarement la PARADE, d'autant plus qu'il n'a pas la force physique pour parer, ni une arme capable de dévier les coups. En cas d'échec critique à l'esquive, on peut considérer que c'est simplement une esquive ratée. ■ Utilisation : Peut attaquer après une Esquive. Ne peut pas faire d’échec critique à l’Esquive."
+ },
+ "TANNERIE": {
+  "stat": "INGE",
+  "texte": "C'est l’art et la manière de transformer la peau de n’importe quelle bestiole en cuir utilisable dans l'artisanat. Les Barbares font cela naturellement, car culturellement ils ont appris à se confectionner des pagnes seyants, pour couvrir plus ou moins leurs muscles huilés. Après, il y a ceux dont c’est le métier, comme les ingénieurs du cuir. Certains disent que des Elfes auraient réussi à en créer à partir de plantes pour éviter de tuer de pauvres petits animaux, mais bon... Note : tanner une peau n'est pas un procédé magique. Cela demande au moins trois jours, ainsi qu'un peu de matériel. ■ Utilisation : Sur un jet d’ingéniosité (AD/INT), permet de transformer une peau en pièce de cuir. La difficulté requise et le temps nécessaires pour que cela fonctionne sont à la discrétion du MJ (sous réserve de publication d'un supplément)."
+ },
+ "TAQUINERIE DIVINE": {
+  "stat": "",
+  "texte": "Les Orques et les Gobelins n’étant pas très appréciés des dieux et des mages, et réciproquement, ils évitent le plus possible ce qui a trait à la religion ou à la magie en ce qui concerne leurs équipements. Ainsi, s’ils utilisent ou portent un objet béni ou magique, ils subiront un malus de -2 à toutes leurs épreuves, et leurs chances d’échec critique seront augmentées de 2. ■ Utilisation : -2 à toutes les épreuves ET échec critique +2 si port et/ou utilisation d’un objet béni ou magique."
+ },
+ "TIRE-LAINE": {
+  "stat": "",
+  "texte": "Cette compétence permet au héros de gagner quelques pièces d'or entre deux aventures, sans rien faire, hormis alléger ou subtiliser les bourses de quelques-uns... Le montant sera tiré au dé, sur une décision du Grand Vilain MJ. Il faut toutefois être présent dans un environnement urbain ou périurbain pour que cela soit valide. ■ Utilisation : gagner de l'or issu de menus larcins entre deux aventures, sur jet de dé (1D20 PO). Ajoutez 1D20 tous les 3 niveaux. À la création du personnage, augmente le pécule de base de 1D20 PO."
+ },
+ "VENTRE SUR PATTES": {
+  "stat": "",
+  "texte": "Les Ogres sont toujours en train de manger, en permanence. Ils ne mangent pas pour vivre, mais ils vivent pour manger. Forcément, cela se remarque dans leurs habitudes quotidiennes... ■ Utilisation : Au lieu d’être limités à 3 repas par jour (permettant de récupérer des PV), les Ogres sont limités à 5 repas."
+ },
+ "VICIEUX": {
+  "stat": "",
+  "texte": "Les Gobelins sont vicieux de naissance, ils frappent là où ça fait mal, parce que sinon, ils savent qu'ils vont mourir. De fait, lors de leurs attaques, les dégâts qu'ils pourraient infliger ignorent 1 point de PR naturelle (hors truc de mauviette), à condition qu'ils visent une seule cible avec une arme adaptée. ■ Utilisation : Ignore 1 de PR naturelle en cas de dégâts produits avec une arme sur UNE cible."
+ },
+ "VILAIN JARGON GOBELIN": {
+  "stat": "",
+  "texte": "À force de vivre dans les mines au contact des gobelins, qui sont leurs pires ennemis, les nains ont appris à comprendre cette langue de manière un peu empirique. Il est donc plus facile pour eux de communiquer avec ces derniers, même si c’est pour les massacrer au bout du compte. ■ Utilisation : permet une épreuve INT+2 pour comprendre les gobelins et INT-2 pour parler leur langue."
+ },
+ "PUISSANT +": {
+  "stat": "",
+  "texte": "Trait des créatures massives : leurs coups sont si lourds que les opposants subissent un malus à la Parade (voir le Grand Bestiaire des Environs de la Terre de Fangh)."
+ }
+}

@@ -1,0 +1,405 @@
+:root {
+  --parchemin: #f3e7c9;
+  --parchemin-fonce: #e6d3a6;
+  --encre: #2b1d0e;
+  --encre-douce: #6b5434;
+  --rouge: #8c1c13;
+  --vert: #2f5d2a;
+  --bordure: #b89a63;
+  --fond: #3a2a1a;
+  --carte: #fbf4e2;
+  --desactive: #cdbf9f;
+  /* Un seul thème, volontairement : le parchemin, quel que soit le mode du lecteur. */
+  color-scheme: light;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: radial-gradient(circle at 50% 0%, #5a4128, var(--fond) 70%);
+  color: var(--encre);
+  font-family: 'EB Garamond', Georgia, serif;
+  font-size: 18px;
+  line-height: 1.45;
+}
+
+#app {
+  max-width: 980px;
+  margin: 0 auto;
+  padding-block: 24px 64px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+
+[hidden] {
+  display: none !important;
+}
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+summary:focus-visible {
+  outline: 2px solid var(--rouge);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .de.roule {
+    animation: none;
+  }
+}
+
+.page {
+  background: var(--parchemin);
+  border: 2px solid var(--bordure);
+  border-radius: 6px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.45), inset 0 0 60px rgba(150, 110, 50, 0.25);
+  padding: 28px 32px 32px;
+}
+
+h1,
+h2,
+h3 {
+  font-family: 'Cinzel', Georgia, serif;
+  color: var(--rouge);
+  margin: 0 0 12px;
+}
+
+h1 {
+  font-size: 2.1rem;
+  text-align: center;
+}
+
+h2 {
+  font-size: 1.5rem;
+}
+
+h3 {
+  font-size: 1.1rem;
+  color: var(--encre);
+}
+
+p {
+  margin: 0 0 12px;
+}
+
+.sous-titre {
+  text-align: center;
+  font-style: italic;
+  color: var(--encre-douce);
+  margin-bottom: 24px;
+}
+
+.etapes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 20px;
+  font-size: 0.85rem;
+}
+
+.etapes span {
+  padding: 2px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--bordure);
+  color: var(--encre-douce);
+}
+
+.etapes span.active {
+  background: var(--rouge);
+  border-color: var(--rouge);
+  color: var(--parchemin);
+}
+
+.etapes span.faite {
+  background: var(--parchemin-fonce);
+  color: var(--encre);
+}
+
+button {
+  font-family: 'Cinzel', Georgia, serif;
+  font-size: 1rem;
+  font-weight: 600;
+  border: 2px solid var(--rouge);
+  background: var(--rouge);
+  color: var(--parchemin);
+  padding: 8px 18px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+button.secondaire {
+  background: transparent;
+  color: var(--rouge);
+}
+
+button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 28px;
+}
+
+.actions .droite {
+  margin-left: auto;
+}
+
+label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+input[type='text'] {
+  font: inherit;
+  width: 100%;
+  max-width: 420px;
+  padding: 8px 10px;
+  border: 1px solid var(--bordure);
+  border-radius: 4px;
+  background: var(--carte);
+}
+
+.choix-ligne {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 6px 0 16px;
+}
+
+.choix-ligne label {
+  font-weight: 400;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border: 1px solid var(--bordure);
+  border-radius: 4px;
+  background: var(--carte);
+  cursor: pointer;
+}
+
+.choix-ligne input:checked + span {
+  font-weight: 600;
+  color: var(--rouge);
+}
+
+/* Dés */
+.des {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+  margin: 16px 0;
+}
+
+.carac {
+  background: var(--carte);
+  border: 1px solid var(--bordure);
+  border-radius: 6px;
+  padding: 12px;
+  text-align: center;
+}
+
+.carac .nom {
+  font-family: 'Cinzel', Georgia, serif;
+  font-weight: 600;
+}
+
+.carac .valeur {
+  font-size: 2.2rem;
+  font-weight: 600;
+  color: var(--rouge);
+}
+
+.carac .detail {
+  font-size: 0.85rem;
+  color: var(--encre-douce);
+}
+
+.de {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  margin: 4px;
+  border: 2px solid var(--encre);
+  border-radius: 8px;
+  background: #fffaf0;
+  font-weight: 700;
+  font-size: 1.3rem;
+  box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.25);
+}
+
+.de.roule {
+  animation: roule 0.12s linear infinite;
+}
+
+@keyframes roule {
+  0% {
+    transform: rotate(-12deg);
+  }
+  50% {
+    transform: rotate(12deg) translateY(-3px);
+  }
+  100% {
+    transform: rotate(-12deg);
+  }
+}
+
+/* Cartes d'origine et de métier */
+.grille {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 10px;
+  margin: 12px 0 20px;
+}
+
+.carte {
+  text-align: left;
+  font-family: 'EB Garamond', Georgia, serif;
+  font-size: 1rem;
+  font-weight: 400;
+  background: var(--carte);
+  color: var(--encre);
+  border: 1px solid var(--bordure);
+  border-radius: 6px;
+  padding: 10px 12px;
+}
+
+.carte strong {
+  font-family: 'Cinzel', Georgia, serif;
+  display: block;
+}
+
+.carte small {
+  color: var(--encre-douce);
+  font-style: italic;
+}
+
+.carte.choisie {
+  border: 2px solid var(--rouge);
+  background: #fff6e0;
+}
+
+.carte.interdite {
+  background: transparent;
+  border-style: dashed;
+  color: var(--encre-douce);
+  opacity: 1;
+}
+
+.carte.interdite small {
+  color: var(--rouge);
+  font-style: normal;
+}
+
+.detail-choix {
+  background: var(--carte);
+  border: 1px solid var(--bordure);
+  border-radius: 6px;
+  padding: 16px 20px;
+}
+
+.colonnes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 8px 24px;
+}
+
+ul {
+  margin: 4px 0 12px;
+  padding-left: 20px;
+}
+
+.competence {
+  margin: 2px 0;
+}
+
+.competence summary {
+  cursor: pointer;
+}
+
+.competence p {
+  font-size: 0.95rem;
+  color: var(--encre-douce);
+  margin: 4px 0 8px 18px;
+}
+
+.pastille {
+  font-size: 0.8rem;
+  color: var(--encre-douce);
+}
+
+.note {
+  font-size: 0.95rem;
+  font-style: italic;
+  color: var(--encre-douce);
+}
+
+.alerte {
+  color: var(--rouge);
+  font-weight: 600;
+}
+
+/* Fiche */
+.fiche-entete {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+  border-bottom: 2px solid var(--bordure);
+  padding-bottom: 10px;
+  margin-bottom: 16px;
+}
+
+.fiche-entete .nom-heros {
+  font-family: 'Cinzel', Georgia, serif;
+  font-size: 1.8rem;
+  color: var(--rouge);
+}
+
+.valeurs {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.valeurs div {
+  background: var(--carte);
+  border: 1px solid var(--bordure);
+  border-radius: 6px;
+  padding: 6px;
+  text-align: center;
+}
+
+.valeurs b {
+  display: block;
+  font-size: 1.5rem;
+  color: var(--rouge);
+}
+
+.valeurs span {
+  font-size: 0.8rem;
+}
+
+@media (max-width: 600px) {
+  .page {
+    padding: 18px 16px 24px;
+  }
+
+  h1 {
+    font-size: 1.6rem;
+  }
+}

@@ -1,0 +1,25 @@
+// Ville de départ selon l'origine (table validée avec Sedy le 29/10/2026).
+// À affiner plus tard selon le métier et la richesse.
+export const VILLE_DEPART: Record<string, string> = {
+  humain: 'Waldorg',
+  'haut-elfe': 'Waldorg',
+  'demi-haut-elfe': 'Waldorg',
+  barbare: 'Glargh',
+  nain: 'Jambfer',
+  'demi-elfe-nain': 'Mliuej',
+  'elfe-sylvain': 'Tulamor',
+  'demi-sylvain': 'Tulamor',
+  'elfe-noir': 'Tulamor',
+  'demi-elfe-noir': 'Tulamor',
+  'semi-homme': 'Fquiepou',
+  ogre: 'Valtordu',
+  'demi-ogre': 'Valtordu',
+  orque: 'Loubet',
+  'demi-orque': 'Loubet',
+  gobelin: 'Loubet',
+  'demi-gobelin': 'Loubet',
+  'homme-bete': 'Loubet',
+  gnome: 'Chnafon',
+  'demi-elfe': 'Chnafon',
+  'semi-elfe': 'Chnafon',
+};
