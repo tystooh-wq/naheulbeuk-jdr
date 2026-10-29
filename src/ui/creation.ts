@@ -18,7 +18,6 @@ import { METIERS, SANS_METIER } from '../rules/metiers';
 import { ORIGINES } from '../rules/origines';
 import { CARACS, NOM_CARAC, type Carac, type Scores } from '../rules/types';
 import { VILLE_DEPART } from '../rules/villes';
-import { ecranFiche } from './fiche';
 import { animerDes, competence, competences, de, echapper, liste } from './outils';
 import { sauvegarder } from './sauvegarde';
 
@@ -48,7 +47,11 @@ interface Brouillon {
   lancerEnCours?: 'destin' | 'or';
 }
 
-export const ecranCreation = (app: HTMLElement, retourAccueil: () => void) => {
+export const ecranCreation = (
+  app: HTMLElement,
+  retourAccueil: () => void,
+  terminee: (p: Personnage, enregistre: boolean) => void,
+) => {
   const b: Brouillon = { etape: 'Identité', nom: '', tirages: {}, relanceUtilisee: false, choix: [], ajustements: {} };
 
   const origine = () => (b.origineId ? origineParId(b.origineId) : undefined);
@@ -171,8 +174,7 @@ export const ecranCreation = (app: HTMLElement, retourAccueil: () => void) => {
 
   const terminer = () => {
     const p = personnageProvisoire();
-    const enregistre = sauvegarder(p);
-    ecranFiche(app, calculerFiche(p), retourAccueil, enregistre);
+    terminee(p, sauvegarder(p));
   };
 
   // --- Étape 1 : identité ------------------------------------------------------

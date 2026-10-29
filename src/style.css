@@ -478,3 +478,275 @@ ul {
     font-size: 1.6rem;
   }
 }
+
+/* --- Ville ------------------------------------------------------------------ */
+
+.bandeau {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  margin-bottom: 14px;
+}
+
+.nom-court {
+  font-family: 'Cinzel', Georgia, serif;
+  font-size: 1.3rem;
+  color: var(--rouge);
+}
+
+.jauges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+.onglets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+button.petit.actif {
+  background: var(--rouge);
+  color: var(--parchemin);
+}
+
+.plan {
+  position: relative;
+  border: 2px solid var(--bordure);
+  border-radius: 4px;
+  overflow: hidden;
+  user-select: none;
+}
+
+.plan img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.poi {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border-radius: 50%;
+  border: 2px solid var(--encre);
+  background: var(--carte);
+  color: var(--encre);
+  font-family: 'EB Garamond', Georgia, serif;
+  font-size: 0.95rem;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.35);
+  z-index: 2;
+}
+
+.poi em {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translate(-50%, 4px);
+  white-space: nowrap;
+  font-style: normal;
+  font-size: 0.78rem;
+  font-weight: 600;
+  background: rgba(251, 244, 226, 0.92);
+  border: 1px solid var(--bordure);
+  border-radius: 3px;
+  padding: 0 5px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.poi:hover em,
+.poi:focus-visible em,
+.poi.ici em {
+  opacity: 1;
+}
+
+.poi:hover {
+  z-index: 4;
+}
+
+.poi.ici {
+  border-color: var(--rouge);
+  background: #fff6e0;
+}
+
+.poi-auberge,
+.poi-bar {
+  background: #f6e3c0;
+}
+
+.poi-boutique,
+.poi-marche {
+  background: #e9e1c8;
+}
+
+.poi-soins {
+  color: var(--rouge);
+}
+
+.heros {
+  position: absolute;
+  transform: translate(-50%, -135%);
+  width: 26px;
+  height: 26px;
+  border-radius: 50% 50% 50% 0;
+  rotate: -45deg;
+  background: var(--rouge);
+  border: 2px solid var(--parchemin);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+  color: transparent;
+  z-index: 3;
+  pointer-events: none;
+}
+
+.panneau {
+  margin-top: 18px;
+  background: var(--carte);
+  border: 1px solid var(--bordure);
+  border-radius: 6px;
+  padding: 16px 20px;
+  scroll-margin-top: 12px;
+}
+
+.entete-lieu {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.entete-lieu h2 {
+  margin: 0;
+}
+
+.icone-lieu {
+  width: 40px;
+  height: 40px;
+  flex: none;
+  border-radius: 50%;
+  border: 2px solid var(--encre);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+}
+
+.recit {
+  background: #fff6e0;
+  border-left: 3px solid var(--rouge);
+  padding: 10px 14px;
+  margin: 12px 0;
+}
+
+.actions-lieu {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.objet {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px dotted var(--bordure);
+}
+
+.objet-texte {
+  min-width: 0;
+}
+
+.objet-texte .note {
+  font-size: 0.9rem;
+}
+
+.objet-action {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.petit-texte {
+  font-size: 0.9rem;
+}
+
+.journal {
+  padding-left: 18px;
+}
+
+.journal li {
+  margin-bottom: 4px;
+}
+
+@media (max-width: 600px) {
+  .poi {
+    width: 22px;
+    height: 22px;
+    font-size: 0.7rem;
+  }
+
+  .poi em {
+    display: none;
+  }
+
+  .objet {
+    flex-wrap: wrap;
+  }
+}
+
+.poi {
+  font-family: 'Cinzel', Georgia, serif;
+  font-weight: 700;
+}
+
+.legende {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin-top: 8px;
+  font-size: 0.85rem;
+  color: var(--encre-douce);
+}
+
+.legende span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.poi-mini {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1.5px solid var(--encre);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-style: normal;
+  font-family: 'Cinzel', Georgia, serif;
+  font-weight: 700;
+  font-size: 0.65rem;
+  color: var(--encre);
+  background: var(--carte);
+}
+
+.heros-mini {
+  width: 12px;
+  height: 12px;
+  border-radius: 50% 50% 50% 0;
+  rotate: -45deg;
+  background: var(--rouge);
+}

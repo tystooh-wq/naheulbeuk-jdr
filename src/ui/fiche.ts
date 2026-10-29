@@ -2,7 +2,15 @@ import type { Fiche } from '../rules/creation';
 import { CARACS, NOM_CARAC } from '../rules/types';
 import { competences, echapper, liste } from './outils';
 
-export const ecranFiche = (app: HTMLElement, f: Fiche, retourAccueil: () => void, enregistre = true) => {
+export interface OptionsFiche {
+  enregistre?: boolean;
+  /** Bouton principal en bas de la fiche (partir à l'aventure, revenir en ville…). */
+  suite?: { libelle: string; action: () => void };
+  /** En cours de partie : or et énergie vitale actuels. */
+  enJeu?: { or: number; ev: number };
+}
+
+export const ecranFiche = (app: HTMLElement, f: Fiche, retourAccueil: () => void, { enregistre = true, suite, enJeu }: OptionsFiche = {}) => {
   const p = f.personnage;
   const valeur = (titre: string, v: string | number) => `<div><b>${echapper(String(v))}</b><span>${echapper(titre)}</span></div>`;
   const signe = (n: number) => (n >= 0 ? `+${n}` : String(n));
@@ -16,7 +24,7 @@ export const ecranFiche = (app: HTMLElement, f: Fiche, retourAccueil: () => void
           <div>${echapper(p.sexe)} · ${echapper(identite)} · niveau 1</div>
         </div>
         <div style="text-align:right">
-          <div><b>${p.or}</b> pièces d'or</div>
+          <div><b>${enJeu?.or ?? p.or}</b> pièces d'or</div>
           <div><b>${p.destin}</b> point${p.destin > 1 ? 's' : ''} de destin</div>
         </div>
       </div>
@@ -26,7 +34,7 @@ export const ecranFiche = (app: HTMLElement, f: Fiche, retourAccueil: () => void
 
       <h3>Combat et énergies</h3>
       <div class="valeurs">
-        ${valeur('Énergie vitale', f.ev)}
+        ${valeur('Énergie vitale', enJeu ? `${enJeu.ev}/${f.ev}` : f.ev)}
         ${f.ea ? valeur('Énergie astrale', f.ea) : ''}
         ${valeur('Attaque', f.at)}
         ${valeur('Parade', f.prd)}
@@ -57,18 +65,10 @@ export const ecranFiche = (app: HTMLElement, f: Fiche, retourAccueil: () => void
 
       <div class="actions">
         <button class="secondaire" id="accueil">Accueil</button>
-        <button class="droite" id="aventure">Partir pour ${echapper(f.ville)}</button>
+        ${suite ? `<button class="droite" id="suite">${echapper(suite.libelle)}</button>` : ''}
       </div>
-      <div id="suite"></div>
     </div>`;
 
   app.querySelector('#accueil')!.addEventListener('click', retourAccueil);
-  app.querySelector('#aventure')!.addEventListener('click', () => {
-    app.querySelector('#suite')!.innerHTML = `
-      <div class="detail-choix" style="margin-top:20px">
-        <h3>La suite au prochain épisode</h3>
-        <p>Ton héros arrivera à <b>${echapper(f.ville)}</b> avec ${p.or} pièces d'or en poche, pour y faire ses achats et trouver sa première quête.
-        La ville et la carte du monde arrivent à l'étape 2 du prototype.</p>
-      </div>`;
-  });
+  app.querySelector('#suite')?.addEventListener('click', () => suite!.action());
 };
