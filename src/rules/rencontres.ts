@@ -46,6 +46,12 @@ export const tirerRencontre = (rng?: Rng): Rencontre => {
   return { ligne, d20, nombre: tirerNombre(ligne.nombre, rng) };
 };
 
+/** Le nom d'un seul membre de la bande : « coyotes affamés » → « Coyote affamé » (l'Aurochs, seul, reste un Aurochs). */
+export const singulier = (l: LigneRencontre) => {
+  const n = l.nombre === '1' ? l.nom : l.nom.replace(/(\p{L}+)s(?!\p{L})/gu, '$1');
+  return n.charAt(0).toUpperCase() + n.slice(1);
+};
+
 /** Brigands, orques, ogres et trolls parlent (plus ou moins) : on peut négocier. Les bêtes, on les intimide. */
 export const parle = (l: LigneRencontre) => /brigand|orque|ogre|troll/i.test(l.nom);
 

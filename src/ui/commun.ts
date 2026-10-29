@@ -68,6 +68,7 @@ export const bandeau = (p: Partie, vue: string, nomCarte: string) => {
       <span title="Énergie vitale">❤ <b>${p.ev}</b>/${evMax(p)}</span>
       <span title="Pièces d'or">● <b>${p.or}</b> PO</span>
       <span title="Points de destin">✦ <b>${p.perso.destin}</b></span>
+      <span title="Expérience">★ <b>${p.xp ?? 0}</b> XP</span>
       <span title="Jour et heure" id="horloge">${p.heure >= 20 || p.heure < 6 ? '☾' : '☼'} jour <b>${p.jour}</b>, ${formatHeure(p.heure)}</span>
     </div>
     <div class="onglets">

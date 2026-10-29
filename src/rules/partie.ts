@@ -42,6 +42,8 @@ export interface Partie {
   /** Position sur la carte du monde (ou dernière, quand on est en ville). */
   lieuMonde: string;
   voyage?: Voyage;
+  /** Points d'expérience gagnés (absent dans les vieilles sauvegardes). */
+  xp?: number;
   quetes: Record<string, EtatQuete>;
   journal: string[];
   /** Le récit d'arrivée a été lu. */

@@ -1123,3 +1123,275 @@ body.ency-ouverte {
 .de.a-lancer {
   color: var(--encre-douce);
 }
+
+/* --- Combat ------------------------------------------------------------------------ */
+
+.page-combat h2 {
+  margin: 0;
+}
+
+.entete-combat {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.initiative {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  list-style: none;
+  padding: 0;
+  margin: 10px 0;
+  counter-reset: init;
+}
+
+.initiative li {
+  counter-increment: init;
+  padding: 2px 8px;
+  border: 1px solid var(--bordure);
+  border-radius: 12px;
+  font-size: 0.8rem;
+  background: var(--carte);
+}
+
+.initiative li::before {
+  content: counter(init) '. ';
+  color: var(--encre-douce);
+}
+
+.initiative li.cote-heros {
+  border-color: var(--vert);
+}
+
+.initiative li.son-tour {
+  background: var(--encre);
+  color: var(--parchemin);
+}
+
+.initiative li.etat-mort,
+.initiative li.etat-fui {
+  text-decoration: line-through;
+  opacity: 0.5;
+}
+
+.plateau {
+  display: grid;
+  grid-template-columns: minmax(150px, 1fr) minmax(0, 1.6fr) minmax(150px, 1fr);
+  grid-template-areas: 'heros centre ennemis';
+  gap: 14px;
+  align-items: start;
+  padding: 14px;
+  border: 2px solid var(--bordure);
+  border-radius: 6px;
+  background:
+    radial-gradient(ellipse at center, rgba(255, 246, 224, 0.9), rgba(230, 211, 166, 0.9)),
+    var(--parchemin-fonce);
+}
+
+.camp {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.camp-heros {
+  grid-area: heros;
+}
+
+.camp-ennemis {
+  grid-area: ennemis;
+}
+
+.centre-combat {
+  grid-area: centre;
+  min-height: 220px;
+}
+
+.combattant {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  text-align: left;
+  padding: 8px 10px;
+  border: 2px solid var(--bordure);
+  border-radius: 6px;
+  background: var(--carte);
+  color: var(--encre);
+  font: inherit;
+  font-size: 0.85rem;
+  transition: transform 0.2s;
+}
+
+.combattant.cote-heros {
+  border-color: var(--vert);
+}
+
+.combattant.cote-ennemi {
+  border-color: var(--rouge);
+}
+
+button.combattant {
+  cursor: pointer;
+  box-shadow: 0 0 0 3px rgba(140, 28, 19, 0.25);
+}
+
+button.combattant:hover {
+  transform: translateX(-4px);
+}
+
+.combattant.son-tour {
+  box-shadow: 0 0 0 3px var(--encre);
+}
+
+.combattant.etat-mort,
+.combattant.etat-fui {
+  opacity: 0.45;
+  filter: grayscale(1);
+}
+
+.combattant.touche {
+  animation: touche 0.45s ease-out;
+}
+
+@keyframes touche {
+  0%,
+  100% {
+    transform: translateX(0);
+    background: var(--carte);
+  }
+  25% {
+    transform: translateX(-6px);
+    background: #f2c1b5;
+  }
+  75% {
+    transform: translateX(6px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .combattant.touche {
+    animation: none;
+  }
+}
+
+.combattant .statut {
+  color: var(--rouge);
+  font-size: 0.75rem;
+  font-style: italic;
+}
+
+.jauge-ev {
+  display: block;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--desactive);
+  overflow: hidden;
+}
+
+.jauge-ev > span {
+  display: block;
+  height: 100%;
+  background: var(--vert);
+  transition: width 0.4s;
+}
+
+.jauge-ev.basse > span {
+  background: var(--rouge);
+}
+
+.action-combat {
+  padding: 10px 12px;
+  border-left: 3px solid var(--rouge);
+  background: #fff6e0;
+  min-height: 90px;
+}
+
+.action-combat .qui {
+  margin: 0 0 6px;
+}
+
+.action-combat .etape {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin: 2px 0;
+}
+
+.action-combat .de {
+  width: 34px;
+  height: 34px;
+  font-size: 1.05rem;
+}
+
+.verdict {
+  visibility: hidden;
+  font-weight: 700;
+}
+
+.verdict.visible {
+  visibility: visible;
+}
+
+.verdict.critique,
+.verdict.reussi {
+  color: var(--vert);
+}
+
+.verdict.rate,
+.verdict.maladresse {
+  color: var(--rouge);
+}
+
+.action-combat .effet {
+  font-style: italic;
+  color: var(--rouge);
+}
+
+.a-toi {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 2px dashed var(--encre);
+  border-radius: 6px;
+  background: var(--carte);
+}
+
+.a-toi p {
+  margin: 0 0 8px;
+}
+
+.journal-combat {
+  margin-top: 12px;
+  font-size: 0.85rem;
+}
+
+.journal-combat ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
+}
+
+@media (max-width: 700px) {
+  .plateau {
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas:
+      'heros ennemis'
+      'centre centre';
+    padding: 10px;
+    gap: 10px;
+  }
+
+  .combattant {
+    font-size: 0.78rem;
+    padding: 6px 8px;
+  }
+}
+
+.ency-rencontre {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}

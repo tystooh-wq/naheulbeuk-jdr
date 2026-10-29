@@ -20,10 +20,12 @@ import {
 import { avecDe, lancer, type Rng } from '../rules/des';
 import { controler, INTERVALLE_CONTROLE, type Evenement, type Resultat } from '../rules/evenements';
 import { bivouaquer, dormir, evMax, formatHeure, noter, passerTemps, soigner, valeursCombat, type Partie } from '../rules/partie';
-import { parle, resoudre, TACTIQUES, tirerRencontre, type Issue, type Rencontre, type Tactique } from '../rules/rencontres';
+import { parle, resoudre, singulier, TABLE_TERRES_SAUVAGES, TACTIQUES, tirerNombre, tirerRencontre, type Issue, type Rencontre, type Tactique } from '../rules/rencontres';
 import { QUETE_GOBELINS } from '../rules/waldorg';
 import { bandeau, boutonsVitesse, lierSac, lierVitesse, majHorloge, panneauJournal, panneauSac, vitesse } from './commun';
 import { animerDes, de, echapper } from './outils';
+import { ecranCombat, type BilanCombat } from './combat';
+import { EVENEMENT_PROVOQUER } from './encyclopedie';
 import { sauvegarderPartie } from './sauvegarde';
 
 // La carte de la Terre de Fangh : on s'y déplace de lieu en lieu le long des pistes, l'horloge tourne,
@@ -45,7 +47,7 @@ const ZOOMS = [0.3, 0.45, 0.65, 1, 1.4];
 type Fenetre =
   | { type: 'lieu'; message?: string }
   | { type: 'itineraire'; vers: string; allure: 'normale' | 'forcee'; horsPiste: boolean }
-  | { type: 'rencontre'; r: Rencontre; issue?: Issue; nuit: boolean; tactique?: Tactique; animerCoups?: boolean }
+  | { type: 'rencontre'; r: Rencontre; issue?: Issue; nuit: boolean; tactique?: Tactique; animerCoups?: boolean; bilan?: BilanCombat }
   | { type: 'evenement'; ev: Evenement; resultat?: Resultat; choix?: number }
   | { type: 'nuit'; resultat?: string }
   | { type: 'reprise' }
@@ -59,6 +61,7 @@ export interface Sorties {
 }
 
 let echapActif: ((e: KeyboardEvent) => void) | undefined;
+let provoquerActif: ((e: Event) => void) | undefined;
 
 export const ecranMonde = (app: HTMLElement, p: Partie, s: Sorties) => {
   let vue: 'lieu' | 'sac' | 'journal' = 'lieu';
@@ -217,17 +220,26 @@ export const ecranMonde = (app: HTMLElement, p: Partie, s: Sorties) => {
     const l = r.ligne;
     const tactiques: Tactique[] = ['fuir', parle(l) ? 'negocier' : 'intimider'];
     const v = valeursCombat(p);
-    const nom = r.nombre > 1 ? `${r.nombre} ${l.nom}` : l.nom.charAt(0).toUpperCase() + l.nom.slice(1);
+    const nom = r.nombre > 1 ? `${r.nombre} ${l.nom}` : singulier(l);
     const stats = `<p class="pastille">Chacun : AT ${l.at} · PRD ${l.prd} · EV ${l.ev} · PR ${l.pr} · dégâts ${echapper(l.degats)} · COU ${l.cou}${l.notes ? ` · ${echapper(l.notes)}` : ''}</p>`;
     let corps = `<p>${f.nuit ? 'Au milieu de la nuit, des bruits près du camp…' : 'Sur le chemin, tu tombes nez à nez avec'} <b>${echapper(nom)}</b>. ${r.nombre > 1 ? 'Ils ont' : 'Ça a'} l'air hostile.</p>
       ${stats}
-      <p class="note">Table « Rencontres en terre sauvage 1 », D20 : ${r.d20}. En attendant les combats, tu t'en sors par une épreuve.</p>`;
-    if (!issue && f.tactique) {
+      <p class="note">Table « Rencontres en terre sauvage 1 », D20 : ${r.d20}. Tu peux te battre, ou tenter de t'en sortir par une épreuve.</p>
+      ${r.nombre >= 3 ? `<p class="note">Conseil du MJ : seul contre ${r.nombre}, même un héros finit en charpie. Trois au plus te tomberont dessus à la fois, et tu ne pares qu'un coup par assaut.</p>` : ''}`;
+    if (f.bilan) {
+      const b = f.bilan;
+      corps += `<div class="recit">${
+        b.fin === 'victoire'
+          ? `Le combat est fini : tu restes seul debout. ${b.xp} points d'expérience${b.or ? ` et ${b.or} pièces d'or` : ''}.`
+          : "Tu as réussi à t'enfuir, le souffle court."
+      }${b.perdu > 0 ? ` Tu y as laissé ${b.perdu} PV.` : ''}</div>
+      <p><button id="suite">Continuer</button></p>`;
+    } else if (!issue && f.tactique) {
       const t = TACTIQUES[f.tactique];
       corps += `<div class="recit lancer-joueur">${t.libelle} : épreuve de ${t.nomCarac}. Il faut faire <b>${v[t.carac]} ou moins</b> sur le D20.
         <div>${de('?', 'a-lancer" id="de-joueur')}<button id="lancer">Lancer le D20</button></div></div>`;
     } else if (!issue) {
-      corps += `<p class="actions-lieu">${tactiques
+      corps += `<p class="actions-lieu"><button data-combattre>⚔ Combattre</button>${tactiques
         .map((t) => `<button data-tactique="${t}">${TACTIQUES[t].libelle} (${TACTIQUES[t].nomCarac} ${v[TACTIQUES[t].carac]})</button>`)
         .join('')}</p>`;
     } else {
@@ -576,6 +588,18 @@ export const ecranMonde = (app: HTMLElement, p: Partie, s: Sorties) => {
     });
     sur('#bivouac', installerBivouac);
 
+    sur('[data-combattre]', () => {
+      if (fenetre?.type !== 'rencontre') return;
+      const f = fenetre;
+      ecranCombat(app, p, f.r, (bilan) => {
+        f.bilan = bilan;
+        fenetre = bilan.fin === 'defaite' ? { type: 'mort' } : f;
+        if (bilan.fin === 'defaite') p.ev = 0;
+        sauver();
+        render();
+      });
+    });
+
     sur('[data-tactique]', (el) => {
       if (fenetre?.type !== 'rencontre') return;
       fenetre.tactique = el.dataset.tactique as Tactique;
@@ -695,6 +719,17 @@ export const ecranMonde = (app: HTMLElement, p: Partie, s: Sorties) => {
     if (e.key === 'Escape' && (fenetre?.type === 'lieu' || fenetre?.type === 'itineraire') && app.querySelector('#popup')) fermer();
   };
   document.addEventListener('keydown', echapActif);
+
+  // Debug : l'encyclopédie peut faire surgir n'importe quelle rencontre de la table.
+  if (provoquerActif) window.removeEventListener(EVENEMENT_PROVOQUER, provoquerActif);
+  provoquerActif = (e: Event) => {
+    if (!app.querySelector('#carte') || enMarche) return;
+    const ligne = TABLE_TERRES_SAUVAGES[(e as CustomEvent<number>).detail - 1];
+    vue = 'lieu';
+    fenetre = { type: 'rencontre', r: { ligne, d20: ligne.d20, nombre: tirerNombre(ligne.nombre) }, nuit: false };
+    render();
+  };
+  window.addEventListener(EVENEMENT_PROVOQUER, provoquerActif);
 
   render();
 };

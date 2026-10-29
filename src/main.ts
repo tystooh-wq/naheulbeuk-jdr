@@ -21,7 +21,7 @@ const jouer = (partie: Partie) => {
   sauvegarderPartie(partie);
   const fiche = (retour: () => void, libelle: string) => () =>
     ecranFiche(app, calculerFiche(partie.perso), accueil, {
-      enJeu: { or: partie.or, ev: partie.ev },
+      enJeu: { or: partie.or, ev: partie.ev, xp: partie.xp ?? 0 },
       suite: { libelle, action: retour },
     });
   const ville = () => {

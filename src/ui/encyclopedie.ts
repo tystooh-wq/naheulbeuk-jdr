@@ -7,15 +7,17 @@ import { trajet, longueur } from '../rules/rues';
 import { CARACS, type Criteres } from '../rules/types';
 import { LIEUX } from '../rules/waldorg';
 import { itineraire, LIEUX_MONDE } from '../rules/monde';
+import { TABLE_TERRES_SAUVAGES } from '../rules/rencontres';
 import { competence, echapper, liste } from './outils';
 
 // Encyclopédie de debug : toutes les données du jeu, consultables à tout moment, en marge de la partie.
 
-type Rubrique = 'objets' | 'bestiaire' | 'origines' | 'metiers' | 'competences' | 'lieux';
+type Rubrique = 'objets' | 'bestiaire' | 'rencontres' | 'origines' | 'metiers' | 'competences' | 'lieux';
 
 const RUBRIQUES: [Rubrique, string][] = [
   ['objets', 'Objets'],
   ['bestiaire', 'Bestiaire'],
+  ['rencontres', 'Rencontres'],
   ['origines', 'Origines'],
   ['metiers', 'Métiers'],
   ['competences', 'Compétences'],
@@ -101,6 +103,21 @@ const contenu = (r: Rubrique, q: string): string => {
         q,
       )}`;
     }
+    case 'rencontres':
+      return `<p class="note">Table « Rencontres en terre sauvage 1 » (D20). Sur la carte du monde, « Provoquer » fait surgir la rencontre pour tester un combat.</p>${groupes(
+        [
+          [
+            'Terres sauvages',
+            TABLE_TERRES_SAUVAGES.map((l) => ({
+              texte: `${l.rencontre} ${l.notes}`,
+              html: `<div class="ency-ligne ency-rencontre"><span><b>${l.d20}.</b> ${echapper(l.rencontre)}<span class="ency-chiffres">AT ${l.at} · PRD ${l.prd} · EV ${l.ev} · PR ${l.pr} · ${echapper(l.degats)} · COU ${l.cou} · ${l.xp} XP</span>${
+                l.notes ? `<br><span class="note">${echapper(l.notes)}</span>` : ''
+              }</span><button class="secondaire petit" data-provoquer="${l.d20}">Provoquer</button></div>`,
+            })),
+          ],
+        ],
+        q,
+      )}`;
     case 'origines':
       return groupes(
         [
@@ -183,6 +200,9 @@ const contenu = (r: Rubrique, q: string): string => {
   }
 };
 
+/** Demande à la carte du monde de faire surgir une rencontre de la table (numéro du D20). */
+export const EVENEMENT_PROVOQUER = 'naheulbeuk:provoquer';
+
 /** Ajoute le bouton « Encyclopédie » en marge de la page, et sa fenêtre. */
 export const installerEncyclopedie = () => {
   let rubrique: Rubrique = 'objets';
@@ -236,6 +256,12 @@ export const installerEncyclopedie = () => {
     document.body.classList.add('ency-ouverte');
     fenetre.querySelector<HTMLInputElement>('#ency-recherche')!.focus();
   });
-  fenetre.addEventListener('click', (e) => e.target === fenetre && fermer());
+  fenetre.addEventListener('click', (e) => {
+    if (e.target === fenetre) return fermer();
+    const b = (e.target as HTMLElement).closest<HTMLElement>('[data-provoquer]');
+    if (!b) return;
+    fermer();
+    window.dispatchEvent(new CustomEvent(EVENEMENT_PROVOQUER, { detail: Number(b.dataset.provoquer) }));
+  });
   document.addEventListener('keydown', (e) => e.key === 'Escape' && !fenetre.hidden && fermer());
 };

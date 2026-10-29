@@ -7,7 +7,7 @@ export interface OptionsFiche {
   /** Bouton principal en bas de la fiche (partir à l'aventure, revenir en ville…). */
   suite?: { libelle: string; action: () => void };
   /** En cours de partie : or et énergie vitale actuels. */
-  enJeu?: { or: number; ev: number };
+  enJeu?: { or: number; ev: number; xp?: number };
 }
 
 export const ecranFiche = (app: HTMLElement, f: Fiche, retourAccueil: () => void, { enregistre = true, suite, enJeu }: OptionsFiche = {}) => {
@@ -41,7 +41,7 @@ export const ecranFiche = (app: HTMLElement, f: Fiche, retourAccueil: () => void
         ${valeur('Bonus de dégâts', signe(f.bonusDegats))}
         ${valeur('Résistance magie', f.rm)}
         ${valeur('Armure max', f.prMax === null ? 'Libre' : `PR ${f.prMax}`)}
-        ${valeur('Expérience', 0)}
+        ${valeur('Expérience', enJeu?.xp ?? 0)}
       </div>
 
       <div class="colonnes">
