@@ -12,6 +12,7 @@ import {
   type Personnage,
   type Sexe,
 } from '../rules/creation';
+import { descriptionCarac } from '../rules/descriptions';
 import { lancer, lancerPlusieurs, somme } from '../rules/des';
 import { METIERS, SANS_METIER } from '../rules/metiers';
 import { ORIGINES } from '../rules/origines';
@@ -29,6 +30,8 @@ interface Brouillon {
   nom: string;
   sexe?: Sexe;
   jets?: Scores;
+  /** Scores déjà tirés, une caractéristique après l'autre. */
+  tirages: Partial<Scores>;
   relanceUtilisee: boolean;
   origineId?: string;
   versionHB?: number;
@@ -46,7 +49,7 @@ interface Brouillon {
 }
 
 export const ecranCreation = (app: HTMLElement, retourAccueil: () => void) => {
-  const b: Brouillon = { etape: 'Identité', nom: '', relanceUtilisee: false, choix: [], ajustements: {} };
+  const b: Brouillon = { etape: 'Identité', nom: '', tirages: {}, relanceUtilisee: false, choix: [], ajustements: {} };
 
   const origine = () => (b.origineId ? origineParId(b.origineId) : undefined);
   const metier = () => (b.metierId ? metierParId(b.metierId) : undefined);
@@ -204,57 +207,68 @@ export const ecranCreation = (app: HTMLElement, retourAccueil: () => void) => {
 
   // --- Étape 2 : caractéristiques ------------------------------------------
 
+  /** Un dé par caractéristique, lancé l'un après l'autre pour le suspense. */
   const etapeCaracs = () => {
     const anim = b.animation;
+    const prochaine = CARACS.find((c) => b.tirages[c] === undefined);
     const nbOrigines = b.jets ? ORIGINES.filter((o) => raisonsOrigine(b.jets!, o).length === 0).length : 0;
+    const ligne = (c: Carac) => {
+      const score = b.tirages[c];
+      const enCours = anim && b.relanceEnCours === c;
+      if (score === undefined) {
+        return `<div class="ligne-carac a-venir">
+          <div class="nom">${NOM_CARAC[c]}</div>
+          <div>${c === prochaine && !anim ? `<button id="lancer">Lancer le dé</button>` : de('?')}</div>
+          <div class="valeur">—</div>
+          <div class="texte"></div>
+        </div>`;
+      }
+      return `<div class="ligne-carac">
+        <div class="nom">${NOM_CARAC[c]}</div>
+        <div>${de(enCours ? '?' : score - 7, enCours ? 'a-animer' : '')}</div>
+        <div class="valeur">${enCours ? '…' : score}</div>
+        <div class="texte">${enCours ? '' : echapper(descriptionCarac(c, score))}${
+          b.jets && !anim && !b.relanceUtilisee
+            ? ` <button class="secondaire petit relance" data-carac="${c}">Relancer</button>`
+            : ''
+        }</div>
+      </div>`;
+    };
     return `
       <h2>Les caractéristiques</h2>
       <p>On lance un D6 pour chaque caractéristique, et on ajoute 7. Un score de 8 est très bas, 10 est dans la moyenne, 13 est exceptionnel.</p>
+      <div class="liste-caracs">${CARACS.map(ligne).join('')}</div>
       ${
-        b.jets
-          ? `<div class="des">${CARACS.map((c) => {
-              const enCours = anim && b.relanceEnCours ? b.relanceEnCours === c : anim;
-              return `<div class="carac">
-                <div class="nom">${NOM_CARAC[c]}</div>
-                <div>${de(enCours ? '?' : b.jets![c] - 7, enCours ? 'a-animer' : '')}</div>
-                <div class="valeur">${enCours ? '…' : b.jets![c]}</div>
-                <div class="detail">${enCours ? '' : `${b.jets![c] - 7} + 7`}</div>
-              </div>`;
-            }).join('')}</div>
-            ${
-              anim
-                ? ''
-                : `<p>Avec ces scores, <b>${nbOrigines} origine${nbOrigines > 1 ? 's' : ''}</b> sur ${ORIGINES.length} te ${
-                    nbOrigines > 1 ? 'sont' : 'est'
-                  } ouverte${nbOrigines > 1 ? 's' : ''}.</p>
-                  ${
-                    b.relanceUtilisee
-                      ? '<p class="note">Tu as déjà utilisé ta relance. Il faudra faire avec !</p>'
-                      : `<p class="note">Les règles autorisent le MJ à te laisser relancer un seul score. Le nouveau résultat remplace l'ancien, même s'il est pire.</p>
-                         <div class="choix-ligne">${CARACS.map(
-                           (c) => `<button class="secondaire relance" data-carac="${c}">Relancer ${NOM_CARAC[c]}</button>`,
-                         ).join('')}</div>`
-                  }`
-            }`
-          : `<p><button id="lancer">Lancer les dés</button></p>`
+        b.jets && !anim
+          ? `<p>Avec ces scores, <b>${nbOrigines} origine${nbOrigines > 1 ? 's' : ''}</b> sur ${ORIGINES.length} te ${
+              nbOrigines > 1 ? 'sont' : 'est'
+            } ouverte${nbOrigines > 1 ? 's' : ''}.</p>
+            <p class="note">${
+              b.relanceUtilisee
+                ? 'Tu as déjà utilisé ta relance. Il faudra faire avec !'
+                : "Les règles autorisent le MJ à te laisser relancer un seul score. Le nouveau résultat remplace l'ancien, même s'il est pire."
+            }</p>`
+          : ''
       }`;
+  };
+
+  const lancerCarac = (c: Carac) => {
+    const d = lancer(6);
+    b.tirages[c] = d + 7;
+    b.relanceEnCours = c;
+    b.animation = { faces: 6, valeurs: [d] };
+    b.jets = CARACS.every((x) => b.tirages[x] !== undefined) ? ({ ...b.tirages } as Scores) : undefined;
   };
 
   const lierCaracs = () => {
     app.querySelector('#lancer')?.addEventListener('click', () => {
-      const des = lancerPlusieurs(5, 6);
-      b.jets = Object.fromEntries(CARACS.map((c, i) => [c, des[i] + 7])) as Scores;
-      b.animation = { faces: 6, valeurs: des };
+      lancerCarac(CARACS.find((c) => b.tirages[c] === undefined)!);
       render();
     });
     app.querySelectorAll<HTMLButtonElement>('.relance').forEach((btn) =>
       btn.addEventListener('click', () => {
-        const c = btn.dataset.carac as Carac;
-        const d = lancer(6);
-        b.jets![c] = d + 7;
         b.relanceUtilisee = true;
-        b.relanceEnCours = c;
-        b.animation = { faces: 6, valeurs: [d] };
+        lancerCarac(btn.dataset.carac as Carac);
         // Les scores ont changé : les choix qui en dépendent sont à refaire.
         reinitialiserDepuis('origine');
         render();
@@ -411,8 +425,20 @@ export const ecranCreation = (app: HTMLElement, retourAccueil: () => void) => {
     return `
       <h2>Les compétences</h2>
       <p>Ton héros sait déjà faire certaines choses (ou en subit d'autres). Clique sur une compétence pour lire sa description.</p>
-      <h3>Ce que tu as déjà</h3>
-      ${competences(acquises())}
+      <div class="colonnes">
+        <div>
+          <h3>Ce que tu as déjà</h3>
+          ${competences(acquises())}
+        </div>
+        <div>
+          <h3>Tes caractéristiques</h3>
+          <div class="mini-caracs">${CARACS.map((c) => {
+            const s = scoresOrigine()[c];
+            return `<div title="${echapper(descriptionCarac(c, s))}"><span>${NOM_CARAC[c]}</span><b>${s}</b></div>`;
+          }).join('')}</div>
+          <p class="note">Une compétence notée (AD) ou (INT) s'appuie sur cette caractéristique lors des épreuves.</p>
+        </div>
+      </div>
       ${reserves
         .map((r, i) => {
           const choisies = b.choix[i] ?? [];

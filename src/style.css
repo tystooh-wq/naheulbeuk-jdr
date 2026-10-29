@@ -257,6 +257,81 @@ input[type='text'] {
   }
 }
 
+.liste-caracs {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 16px 0;
+}
+
+.ligne-carac {
+  display: grid;
+  grid-template-columns: 130px 64px 48px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  background: var(--carte);
+  border: 1px solid var(--bordure);
+  border-radius: 6px;
+  padding: 8px 14px;
+}
+
+.ligne-carac.a-venir {
+  background: transparent;
+  border-style: dashed;
+}
+
+.ligne-carac .nom {
+  font-family: 'Cinzel', Georgia, serif;
+  font-weight: 600;
+}
+
+.ligne-carac .valeur {
+  font-size: 1.8rem;
+  font-weight: 600;
+  color: var(--rouge);
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.ligne-carac .texte {
+  font-style: italic;
+}
+
+button.petit {
+  font-size: 0.8rem;
+  padding: 2px 10px;
+  margin-left: 6px;
+  font-style: normal;
+}
+
+.mini-caracs {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.mini-caracs div {
+  display: flex;
+  justify-content: space-between;
+  border-bottom: 1px dotted var(--bordure);
+  padding: 2px 0;
+}
+
+.mini-caracs b {
+  color: var(--rouge);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 600px) {
+  .ligne-carac {
+    grid-template-columns: 1fr 56px 40px;
+  }
+
+  .ligne-carac .texte {
+    grid-column: 1 / -1;
+  }
+}
+
 /* Cartes d'origine et de métier */
 .grille {
   display: grid;

@@ -144,3 +144,13 @@ describe('doublons', () => {
     expect(f.competences.naissance).toContain('Bourre-pif');
   });
 });
+
+describe('descriptions des caractéristiques', () => {
+  it('chaque score de 8 à 13 a son texte, et les extrêmes sont gérés', async () => {
+    const { descriptionCarac } = await import('../src/rules/descriptions');
+    expect(descriptionCarac('COU', 8)).toMatch(/^Mauviette/);
+    expect(descriptionCarac('AD', 10)).toContain('oublie le cirque');
+    expect(descriptionCarac('CHA', 5)).toMatch(/En pire\.$/);
+    expect(descriptionCarac('FO', 15)).toContain('tavernes');
+  });
+});
