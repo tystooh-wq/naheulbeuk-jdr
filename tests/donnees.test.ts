@@ -32,8 +32,9 @@ describe('données officielles', () => {
     expect(FICHES[creature('Orque standard').fiche!]).toMatch(/pieds/);
   });
 
-  it('seuls quelques objets restent sans source officielle', () => {
-    expect(OBJETS.filter((o) => o.estime).map((o) => o.id)).toEqual(['baton', 'outils-crochetage']);
+  it('seuls quelques objets restent sans source officielle (et les trophées de butin)', () => {
+    const trophees = ['peau-coyote', 'corne-bouc', 'dard-scorpion', 'queue-rat', 'jambon-mutant', 'plumes-chapon', 'oeuf-chapon', 'dent-ogre', 'cuir-aurochs', 'laine-brebiphant', 'musc-dantragor', 'fourrure-morshleg', 'ecaille-dragon', 'gri-gri-orque', 'babiole-gobeline'];
+    expect(OBJETS.filter((o) => o.estime && !trophees.includes(o.id)).map((o) => o.id)).toEqual(['baton', 'champignons-orange', 'outils-crochetage']);
     expect(new Set(OBJETS.map((o) => o.id)).size).toBe(OBJETS.length);
   });
 });

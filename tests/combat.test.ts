@@ -139,3 +139,14 @@ describe('fin du combat', () => {
     expect(heros(c).ev).toBe(0);
   });
 });
+
+describe('encaisser', () => {
+  it('on prend le coup sans défense, mais on garde son attaque', () => {
+    const c = creerCombat(nouvellePartie(perso), rencontre(1, 1));
+    const a = attaquer(c, 'e1', 'heros', 3, { encaisser: true, desDegats: [4] });
+    expect(a.defense).toBeUndefined();
+    expect(a.sansDefense).toMatch(/encaisse/);
+    expect(heros(c).rate).toBe(0);
+    expect(a.degats!.blessure).toBe(Math.max(0, 4 - heros(c).pr));
+  });
+});

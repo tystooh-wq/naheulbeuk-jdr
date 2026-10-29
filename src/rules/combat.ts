@@ -2,6 +2,7 @@ import { calculerFiche } from './creation';
 import { lancer, type Rng } from './des';
 import { lancerExpression, valeursCombat, type Partie } from './partie';
 import { singulier, type Rencontre } from './rencontres';
+import { fouiller, type Fouille } from './butin';
 
 // Combat au contact, règles V4 (chapitres 8 et 10) :
 // - initiative : le plus grand Courage frappe le premier, l'Adresse départage, « Chercher des noises » passe devant ;
@@ -198,7 +199,7 @@ export const attaquer = (
   idAttaquant: string,
   idCible: string,
   de: number,
-  options: { defense?: { mode: ModeDefense; de: number }; rng?: Rng; desDegats?: number[] } = {},
+  options: { defense?: { mode: ModeDefense; de: number }; encaisser?: boolean; rng?: Rng; desDegats?: number[] } = {},
 ): Action => {
   const a = combattant(c, idAttaquant);
   const cible = combattant(c, idCible);
@@ -214,6 +215,8 @@ export const attaquer = (
   const critique = action.issue === 'critique';
   if (critique) action.sansDefense = 'attaque critique, impossible à parer';
   else if (cible.defendu) action.sansDefense = 'déjà occupé à se défendre pendant cet assaut';
+  // Encaisser : on serre les dents sans parer ni esquiver, mais on garde son attaque suivante.
+  else if (options.encaisser) action.sansDefense = 'encaisse le coup en serrant les dents';
   else {
     // Les monstres parent ; ceux qui ne le peuvent pas (PRD nulle) esquivent comme ils peuvent.
     const mode: ModeDefense = options.defense?.mode ?? (valeurDefense(cible, 'parade', a) === null ? 'esquive' : 'parade');
@@ -306,15 +309,5 @@ export const xpGagnee = (c: Combat) =>
     .filter((x) => x.etat === 'mort' || x.etat === 'fui')
     .reduce((s, x) => s + x.xp, 0);
 
-/**
- * Butin des ennemis vaincus (estimation du prototype, rien d'officiel) : les humanoïdes ont quelques
- * pièces sur eux, les bêtes rien. Brigands 1D6 PO chacun, orques 1D3, ogres et trolls 2D6.
- */
-export const butin = (c: Combat, nom: string, rng?: Rng): number => {
-  const vaincus = ennemis(c).filter((x) => x.etat === 'mort').length;
-  const expr = /brigand/i.test(nom) ? '1D' : /orque/i.test(nom) ? 'D3' : /ogre|troll/i.test(nom) ? '2D' : null;
-  if (!expr) return 0;
-  let or = 0;
-  for (let i = 0; i < vaincus; i++) or += expr === 'D3' ? lancer(3, rng) : lancerExpression(expr, rng).total;
-  return or;
-};
+/** Fouille chaque ennemi resté à terre (ceux qui ont fui emportent leurs affaires). */
+export const butin = (c: Combat, rng?: Rng): Fouille[] => ennemis(c).filter((x) => x.etat === 'mort').map((x) => fouiller(x.nom, rng));

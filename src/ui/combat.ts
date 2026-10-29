@@ -19,6 +19,7 @@ import {
   type Combattant,
   type ModeDefense,
 } from '../rules/combat';
+import type { Fouille } from '../rules/butin';
 import { lancer } from '../rules/des';
 import { objet } from '../rules/objets';
 import { boirePotion, noter, type Partie } from '../rules/partie';
@@ -35,6 +36,9 @@ export interface BilanCombat {
   xp: number;
   or: number;
   perdu: number;
+  /** Objets ramassés sur les vaincus (déjà dans le sac). */
+  objets: string[];
+  fouilles: Fouille[];
 }
 
 type Attente =
@@ -85,7 +89,7 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
     </${tag}>`;
   };
 
-  const potions = () => [...new Set(p.sac.filter((id) => objet(id).type === 'potion'))];
+  const potions = () => [...new Set(p.sac.filter((id) => objet(id).type === 'potion' && !!objet(id).soin))];
 
   const panneauJoueur = () => {
     if (!attente) return '';
@@ -109,15 +113,28 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
         <p class="actions-lieu">
           <button data-defense="parade" ${parade === null ? `disabled title="${pourquoi}"` : ''}>🎲 Parer (PRD ${parade ?? '—'})</button>
           <button data-defense="esquive" ${esquive === null ? 'disabled title="Trop d\'armure pour esquiver"' : ''}>🎲 Esquiver (AD ${esquive ?? '—'})</button>
+          <button class="secondaire" data-defense="encaisser">🛡 Encaisser</button>
         </p>
-        <p class="note">${pourquoi ? `${pourquoi.charAt(0).toUpperCase() + pourquoi.slice(1)}. ` : ''}Esquiver t'éloigne : tu rates ta prochaine attaque, sauf esquive critique.</p></div>`;
+        <p class="note">${pourquoi ? `${pourquoi.charAt(0).toUpperCase() + pourquoi.slice(1)}. ` : ''}Esquiver t'éloigne : tu rates ta prochaine attaque, sauf esquive critique. Encaisser : tu prends le coup (moins ton armure), mais tu restes au contact pour frapper.</p></div>`;
     }
     const b = attente.bilan;
     const titre = { victoire: 'Victoire !', defaite: 'Tu tombes…', fuite: 'Tu as pris la fuite' }[b.fin];
     return `<div class="a-toi bilan"><p><b>${titre}</b></p>
-      <ul>${b.xp ? `<li>${b.xp} points d'expérience</li>` : ''}${b.or ? `<li>${b.or} pièces d'or ramassées sur les corps</li>` : ''}<li>${
+      <ul>${b.xp ? `<li>${b.xp} points d'expérience</li>` : ''}<li>${
         b.perdu > 0 ? `${b.perdu} PV perdus dans la bagarre` : 'Pas une égratignure'
       }</li></ul>
+      ${
+        b.fouilles.length
+          ? `<p><b>Tu fouilles les corps</b> <span class="note">(D20 du MJ sur la table de butin)</span></p><ul class="fouilles">${b.fouilles
+              .map(
+                (f) =>
+                  `<li>${echapper(f.ennemi)} ${f.de ? de(f.de, 'petit') : ''} ${
+                    [f.objet ? `<b>${echapper(objet(f.objet).nom)}</b>` : '', f.or ? `${f.or} PO` : ''].filter(Boolean).join(', ') || 'rien'
+                  }</li>`,
+              )
+              .join('')}</ul>${b.or ? `<p>En tout : <b>${b.or} PO</b>${b.objets.length ? ` et ${b.objets.length} objet${b.objets.length > 1 ? 's' : ''} dans ton sac` : ''}.</p>` : ''}`
+          : ''
+      }
       <p><button id="fin-combat">Continuer</button></p></div>`;
   };
 
@@ -234,15 +251,18 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
     synchroniser();
     const fin = c.fin!;
     const xp = fin === 'defaite' ? 0 : xpGagnee(c);
-    const or = fin === 'victoire' ? butin(c, r.ligne.nom) : 0;
-    const bilan: BilanCombat = { fin, xp, or, perdu: evDepart - p.ev };
+    const fouilles = fin === 'victoire' ? butin(c) : [];
+    const or = fouilles.reduce((s, f) => s + f.or, 0);
+    const objets = fouilles.flatMap((f) => (f.objet ? [f.objet] : []));
+    p.sac.push(...objets);
+    const bilan: BilanCombat = { fin, xp, or, perdu: evDepart - p.ev, objets, fouilles };
     p.xp = (p.xp ?? 0) + xp;
     p.or += or;
     const qui = r.nombre > 1 ? `${r.nombre} ${r.ligne.nom}` : r.ligne.nom;
     noter(
       p,
       fin === 'victoire'
-        ? `vainc ${qui} en ${c.assaut} assaut${c.assaut > 1 ? 's' : ''} (+${xp} XP${or ? `, +${or} PO` : ''}).`
+        ? `vainc ${qui} en ${c.assaut} assaut${c.assaut > 1 ? 's' : ''} (+${xp} XP${or ? `, +${or} PO` : ''}${objets.length ? `, ${objets.map((o) => objet(o).nom).join(', ')}` : ''}).`
         : fin === 'fuite'
           ? `s'enfuit en plein combat contre ${qui}.`
           : `tombe sous les coups de ${qui}.`,
@@ -348,6 +368,13 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
       if (attente?.type !== 'defense') return (occupe = false);
       const { attaquant, de: deAt } = attente;
       attente = null;
+      if (el.dataset.defense === 'encaisser') {
+        const a = attaquer(c, attaquant, 'heros', deAt, { encaisser: true });
+        await montrer(a, { attaque: true });
+        apres();
+        if (!c.fin) await attendre(600);
+        return avancer();
+      }
       const mode = el.dataset.defense as ModeDefense;
       const d = lancer(20);
       // On lance d'abord le dé de défense, puis on rejoue l'action complète.

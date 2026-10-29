@@ -1,7 +1,8 @@
 import { CREATURES, FICHES, type Creature } from '../rules/bestiaire';
 import { toutesCompetences } from '../rules/creation';
 import { METIERS } from '../rules/metiers';
-import { formatMods, OBJETS, type Objet } from '../rules/objets';
+import { TABLES_BUTIN } from '../rules/butin';
+import { formatMods, OBJETS, type Emplacement, type Objet } from '../rules/objets';
 import { ORIGINES } from '../rules/origines';
 import { trajet, longueur } from '../rules/rues';
 import { CARACS, type Criteres } from '../rules/types';
@@ -26,9 +27,10 @@ const RUBRIQUES: [Rubrique, string][] = [
 
 const TYPES_OBJET: [Objet['type'], string][] = [
   ['arme', 'Armes'],
-  ['armure', 'Armures'],
+  ['armure', 'Protections'],
   ['potion', 'Potions'],
   ['materiel', 'Matériel'],
+  ['service', 'Services, logement, immobilier'],
 ];
 
 /** Recherche sans accents ni majuscules. */
@@ -41,10 +43,23 @@ const criteres = (c: Criteres) =>
 
 const vendeurs = (id: string) => LIEUX.filter((l) => l.boutique?.stock.includes(id)).map((l) => l.nom);
 
+const NOM_EMPLACEMENT: Record<Emplacement, string> = {
+  torse: 'torse',
+  tete: 'tête',
+  bras: 'bras',
+  jambes: 'jambes',
+  mains: 'mains',
+  pieds: 'pieds',
+  bouclier: 'bouclier',
+  complete: 'armure complète',
+};
+
+const prixTexte = (prix: number) => (prix === 0 ? 'gratuit' : prix < 1 ? `${Math.round(prix * 10)} PA` : `${prix} PO`);
+
 const ligneObjet = (o: Objet) => {
   const effets = [
     o.degats ? `Dégâts ${o.degats}` : '',
-    o.pr ? `PR ${o.pr}` : '',
+    o.type === 'armure' ? `PR ${o.pr ?? 0}${o.emplacement && o.emplacement !== 'torse' ? ` (${NOM_EMPLACEMENT[o.emplacement]})` : ''}` : '',
     o.soin ? `Rend ${o.soin} PV` : '',
     o.mains ? `${o.mains} main${o.mains > 1 ? 's' : ''}` : '',
     o.bourrin ? 'arme de bourrin' : '',
@@ -52,13 +67,14 @@ const ligneObjet = (o: Objet) => {
     formatMods(o.mods),
   ].filter(Boolean);
   const v = vendeurs(o.id);
+  const butins = TABLES_BUTIN.filter((t) => t.lots.some((l) => l.objet === o.id)).map((t) => t.famille);
   return {
-    texte: `${o.nom} ${o.description} ${effets.join(' ')} ${v.join(' ')}`,
+    texte: `${o.nom} ${o.description} ${o.categorie ?? ''} ${effets.join(' ')} ${v.join(' ')}`,
     html: `<details class="ency-ligne">
-      <summary><b>${echapper(o.nom)}</b>${o.estime ? ' <span class="pastille">(estimé)</span>' : ''}<span class="ency-chiffres">${o.prix} PO</span></summary>
+      <summary><b>${echapper(o.nom)}</b>${o.estime ? ' <span class="pastille">(estimé)</span>' : ''}<span class="ency-chiffres">${prixTexte(o.prix)}</span></summary>
       <p>${echapper(o.description)}</p>
-      <p class="note">${echapper(effets.join(' · ') || 'Aucun effet de jeu.')}</p>
-      <p class="note">En vente : ${v.length ? echapper(v.join(', ')) : 'nulle part à Waldorg'} · identifiant <code>${o.id}</code></p>
+      <p class="note">${echapper(effets.join(' · ') || 'Aucun effet appliqué par le jeu pour l\'instant.')}${o.effets && o.effets !== o.description ? ` · tableau : ${echapper(o.effets)}` : ''}${o.rupture ? ` · rupture ${echapper(o.rupture)}` : ''}</p>
+      <p class="note">En vente : ${v.length ? echapper(v.join(', ')) : 'nulle part à Waldorg'}${butins.length ? ` · butin : ${echapper(butins.join(', '))}` : ''} · ${echapper(o.source ?? 'objet du jeu')} · <code>${o.id}</code></p>
     </details>`,
   };
 };
@@ -88,10 +104,17 @@ const groupes = (entrees: [string, { texte: string; html: string }[]][], q: stri
 const contenu = (r: Rubrique, q: string): string => {
   switch (r) {
     case 'objets':
-      return groupes(
-        TYPES_OBJET.map(([type, titre]) => [titre, OBJETS.filter((o) => o.type === type).map(ligneObjet)]),
+      return `<p class="note">${OBJETS.length} objets : les tableaux officiels d'équipement en entier, plus les trophées de butin. Les boutiques n'en vendent qu'une partie.</p>${groupes(
+        TYPES_OBJET.flatMap(([type, titre]) => {
+          const parCategorie = new Map<string, Objet[]>();
+          for (const o of OBJETS.filter((x) => x.type === type)) {
+            const cle = o.categorie || (o.estime ? 'Trouvailles et trophées' : 'Divers');
+            parCategorie.set(cle, [...(parCategorie.get(cle) ?? []), o]);
+          }
+          return [...parCategorie].map(([cat, os]) => [`${titre} · ${cat}`, os.map(ligneObjet)] as [string, { texte: string; html: string }[]]);
+        }),
         q,
-      );
+      )}`;
     case 'bestiaire': {
       const parGroupe = new Map<string, Creature[]>();
       for (const c of CREATURES) {

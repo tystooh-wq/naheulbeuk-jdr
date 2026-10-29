@@ -4,10 +4,47 @@ import { objet, type Objet } from './objets';
 
 // L'état d'une partie en cours : le héros, sa bourse, son sac et où il se trouve.
 
+/** Ce que le héros porte : une arme, et une protection par localisation (règles : pas d'empilement). */
 export interface Equipement {
   arme?: string;
+  /** Torse, ou armure complète (qui couvre alors tout). */
   armure?: string;
+  tete?: string;
+  bras?: string;
+  jambes?: string;
+  mains?: string;
+  pieds?: string;
+  bouclier?: string;
 }
+
+export type CleEquipement = keyof Equipement;
+
+export const EMPLACEMENTS: [CleEquipement, string][] = [
+  ['arme', 'Arme'],
+  ['armure', 'Torse'],
+  ['tete', 'Tête'],
+  ['bras', 'Bras'],
+  ['jambes', 'Jambes'],
+  ['mains', 'Mains'],
+  ['pieds', 'Pieds'],
+  ['bouclier', 'Bouclier'],
+];
+
+/** L'emplacement où va un objet, ou null s'il ne s'équipe pas. */
+export const emplacementDe = (o: Objet): CleEquipement | null => {
+  if (o.type === 'arme') return 'arme';
+  if (o.type !== 'armure') return null;
+  const e = o.emplacement ?? 'torse';
+  return e === 'torse' || e === 'complete' ? 'armure' : e;
+};
+
+const porte = (p: Partie): Objet[] =>
+  EMPLACEMENTS.map(([k]) => p.equipe[k])
+    .filter((id): id is string => !!id)
+    .map(objet);
+
+/** Protection totale : la somme des pièces portées. */
+export const protectionTotale = (p: Partie) => porte(p).reduce((s, o) => s + (o.type === 'armure' ? (o.pr ?? 0) : 0), 0);
 
 export type EtatQuete = 'acceptee' | 'terminee';
 
@@ -44,6 +81,10 @@ export interface Partie {
   voyage?: Voyage;
   /** Points d'expérience gagnés (absent dans les vieilles sauvegardes). */
   xp?: number;
+  /** Points de mauvaise conduite : racket, vol… Le monde finit par s'en souvenir. */
+  mauvaiseConduite?: number;
+  /** Faits marquants qui peuvent revenir plus tard (« marchand-rackette »…). */
+  marques?: string[];
   quetes: Record<string, EtatQuete>;
   journal: string[];
   /** Le récit d'arrivée a été lu. */
@@ -128,9 +169,10 @@ export const peutManier = (f: Fiche, o: Objet): string | null => {
 };
 
 /** Renvoie la raison pour laquelle le héros ne peut pas porter cette armure, ou null. */
-export const peutPorter = (f: Fiche, o: Objet): string | null => {
+export const peutPorter = (f: Fiche, o: Objet, prAilleurs = 0): string | null => {
   if (o.type !== 'armure') return null;
-  if (f.prMax !== null && (o.pr ?? 0) > f.prMax) return `Ton armure est limitée à PR ${f.prMax}.`;
+  if (f.prMax !== null && (o.pr ?? 0) + prAilleurs > f.prMax)
+    return `Ton armure est limitée à PR ${f.prMax} en tout${prAilleurs ? ` (tu portes déjà PR ${prAilleurs} ailleurs)` : ''}.`;
   if (f.origine.id === 'barbare' && o.id === 'tenue-lourde') return "Un Barbare ne porte pas d'armure complète.";
   return null;
 };
@@ -150,8 +192,8 @@ export interface ValeursCombat {
 export const valeursCombat = (p: Partie): ValeursCombat => {
   const f = calculerFiche(p.perso);
   const arme = p.equipe.arme ? objet(p.equipe.arme) : undefined;
-  const armure = p.equipe.armure ? objet(p.equipe.armure) : undefined;
-  const mod = (k: 'AT' | 'PRD' | 'CHA' | 'COU' | 'AD') => (arme?.mods?.[k] ?? 0) + (armure?.mods?.[k] ?? 0);
+  const pieces = porte(p);
+  const mod = (k: 'AT' | 'PRD' | 'CHA' | 'COU' | 'AD') => pieces.reduce((s, o) => s + (o.mods?.[k] ?? 0), 0);
   // Les Nains manient les armes à une main humaines à deux mains : +1 aux dégâts (livret p. 5).
   const bonusNain = arme && f.origine.id === 'nain' && arme.mains === 1 && !arme.id.startsWith('hache') ? 1 : 0;
   const bonus = f.bonusDegats + bonusNain;
@@ -161,7 +203,7 @@ export const valeursCombat = (p: Partie): ValeursCombat => {
   return {
     at: f.at + mod('AT'),
     prd: f.prd + mod('PRD'),
-    pr: armure?.pr ?? 0,
+    pr: protectionTotale(p),
     degats: `${des}${total === 0 ? '' : total > 0 ? `+${total}` : total}`,
     cha: f.caracs.CHA + mod('CHA'),
     cou: f.caracs.COU + mod('COU'),
@@ -188,23 +230,39 @@ export const vendre = (p: Partie, id: string, prix: number): string | null => {
   return null;
 };
 
-/** Équipe une arme ou une armure du sac ; l'ancienne retourne dans le sac. */
+/** Équipe une arme ou une protection du sac ; ce qui occupait la place retourne dans le sac. */
 export const equiper = (p: Partie, id: string): string | null => {
   const o = objet(id);
   const f = calculerFiche(p.perso);
-  const refus = o.type === 'arme' ? peutManier(f, o) : o.type === 'armure' ? peutPorter(f, o) : "Ça ne s'équipe pas.";
+  const cle = emplacementDe(o);
+  if (!cle) return "Ça ne s'équipe pas.";
+  // Une armure complète couvre toutes les localisations ; une pièce séparée la remplace.
+  const complete = o.emplacement === 'complete';
+  const liberes: CleEquipement[] = complete
+    ? ['armure', 'tete', 'bras', 'jambes', 'mains', 'pieds']
+    : cle !== 'arme' && cle !== 'bouclier' && p.equipe.armure && objet(p.equipe.armure).emplacement === 'complete'
+      ? [cle, 'armure']
+      : [cle];
+  const prAilleurs = porte(p)
+    .filter((x) => !liberes.some((k) => p.equipe[k] === x.id))
+    .reduce((s, x) => s + (x.type === 'armure' ? (x.pr ?? 0) : 0), 0);
+  const refus = o.type === 'arme' ? peutManier(f, o) : peutPorter(f, o, prAilleurs);
   if (refus) return refus;
+  if (cle === 'bouclier' && p.equipe.arme && objet(p.equipe.arme).mains === 2) return 'Impossible de tenir un bouclier avec une arme à deux mains.';
+  if (cle === 'arme' && o.mains === 2 && p.equipe.bouclier) return "Il faut deux mains pour cette arme : retire d'abord ton bouclier.";
   const i = p.sac.indexOf(id);
   if (i < 0) return "Tu n'as pas cet objet dans ton sac.";
   p.sac.splice(i, 1);
-  const emplacement = o.type === 'arme' ? 'arme' : 'armure';
-  const ancien = p.equipe[emplacement];
-  if (ancien) p.sac.push(ancien);
-  p.equipe[emplacement] = id;
+  for (const k of liberes) {
+    const ancien = p.equipe[k];
+    if (ancien) p.sac.push(ancien);
+    p.equipe[k] = undefined;
+  }
+  p.equipe[cle] = id;
   return null;
 };
 
-export const desequiper = (p: Partie, emplacement: keyof Equipement) => {
+export const desequiper = (p: Partie, emplacement: CleEquipement) => {
   const ancien = p.equipe[emplacement];
   if (!ancien) return;
   p.sac.push(ancien);

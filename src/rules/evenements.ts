@@ -2,6 +2,7 @@ import { calculerFiche } from './creation';
 import { lancer, type Rng } from './des';
 import type { Terrain } from './monde';
 import { epreuve, lancerExpression, soigner, valeursCombat, type Partie } from './partie';
+import { TABLE_TERRES_SAUVAGES, type LigneRencontre, type Rencontre } from './rencontres';
 
 // Événements écrits pour les routes autour de Waldorg. Ils ne viennent pas des règles officielles :
 // ce sont les « surprises » du MJ, bonnes ou mauvaises, tirées au hasard pendant le voyage.
@@ -10,6 +11,8 @@ export interface Resultat {
   texte: string;
   /** Heures perdues (ou gagnées) sur le trajet. */
   heures?: number;
+  /** L'événement tourne à la bagarre : le combat suit, puis `victoire` s'applique si le héros gagne. */
+  combat?: { rencontre: Rencontre; victoire?: (p: Partie) => string };
 }
 
 export interface Choix {
@@ -27,8 +30,42 @@ export interface Evenement {
   texte: string;
   /** Terrains où il peut arriver (tous par défaut). */
   terrains?: Terrain[];
+  /** L'événement n'arrive que si la partie le permet (suite d'une histoire, mauvaise conduite…). */
+  condition?: (p: Partie) => boolean;
+  /** Une suite d'histoire en attente passe devant les événements ordinaires (une chance sur deux). */
+  prioritaire?: boolean;
   choix: Choix[];
 }
+
+/** Marque une mauvaise action : le monde s'en souviendra. */
+export const malConduire = (p: Partie, marque: string, points = 1) => {
+  p.mauvaiseConduite = (p.mauvaiseConduite ?? 0) + points;
+  p.marques = [...new Set([...(p.marques ?? []), marque])];
+};
+
+export const aMarque = (p: Partie, marque: string) => !!p.marques?.includes(marque);
+
+const oterMarque = (p: Partie, marque: string) => {
+  p.marques = (p.marques ?? []).filter((m) => m !== marque);
+};
+
+/** Le marchand blessé, s'il faut en venir aux mains. Il est faible, mais il défend sa bourse. */
+export const MARCHAND_BLESSE: LigneRencontre = {
+  d20: 0,
+  rencontre: 'Marchand blessé',
+  nombre: '1',
+  nom: 'Marchand blessé',
+  at: 7,
+  prd: 5,
+  ev: 6,
+  pr: 0,
+  degats: '1D-1',
+  cou: 7,
+  xp: 2,
+  notes: 'Blessé à la jambe, armé d\'un bâton',
+};
+
+const brigands = (nombre: number): Rencontre => ({ ligne: TABLE_TERRES_SAUVAGES[4], d20: 5, nombre });
 
 const perdre = (p: Partie, n: number) => {
   p.ev -= n;
@@ -206,6 +243,61 @@ export const EVENEMENTS: Evenement[] = [
         },
       },
       { libelle: 'Lui souhaiter bonne chance', effet: () => ({ texte: '« Merci… pour rien… » Tu entends encore ses gémissements au loin.' }) },
+      {
+        libelle: 'Le racketter : la bourse ou la vie (épreuve de Charisme)',
+        jet: { faces: 20, pour: "l'épreuve de Charisme", valeur: (p) => valeursCombat(p).cha },
+        effet: (p, rng) => {
+          const e = epreuve(valeursCombat(p).cha, rng);
+          if (e.reussi) {
+            const or = lancerExpression('2D+10', rng).total;
+            p.or += or;
+            malConduire(p, 'marchand-rackette');
+            return {
+              texte: `Dé : ${e.de}. Il blêmit, sort la bourse de sa chaussette et te la lance : ${or} PO. « On se reverra, crapule. Je n'oublie jamais un visage. »`,
+            };
+          }
+          return {
+            texte: `Dé : ${e.de}. « Plutôt crever ! » Il attrape un bâton et se relève en grimaçant. Il est blessé, mais il va défendre sa bourse.`,
+            combat: {
+              rencontre: { ligne: MARCHAND_BLESSE, d20: 0, nombre: 1 },
+              victoire: (p) => {
+                const or = lancerExpression('2D+10', rng).total;
+                p.or += or;
+                malConduire(p, 'marchand-rackette', 2);
+                return `Tu fouilles la chaussette du marchand inconscient : ${or} PO. Quelqu'un finira bien par le trouver… et par entendre son histoire.`;
+              },
+            },
+          };
+        },
+      },
+    ],
+  },
+  {
+    id: 'vengeance',
+    titre: 'Le marchand se souvient',
+    texte: 'Une silhouette boiteuse te barre la route, flanquée de deux brutes. « Tiens, tiens. Je t\'avais dit qu\'on se reverrait. Les gars, c\'est lui. »',
+    condition: (p) => aMarque(p, 'marchand-rackette'),
+    prioritaire: true,
+    choix: [
+      {
+        libelle: 'Rendre l\'argent, et un peu plus (30 PO)',
+        possible: (p) => (p.or < 30 ? "Tu n'as pas assez d'or." : null),
+        effet: (p) => {
+          p.or -= 30;
+          oterMarque(p, 'marchand-rackette');
+          return { texte: '« Avec les intérêts. Bien. » Il compte les pièces, crache par terre et s\'en va. Les brutes ont l\'air déçues.' };
+        },
+      },
+      {
+        libelle: 'Se battre',
+        effet: (p) => {
+          oterMarque(p, 'marchand-rackette');
+          return {
+            texte: 'Le marchand recule à l\'abri d\'un arbre. Les deux brutes dégainent.',
+            combat: { rencontre: brigands(2), victoire: () => 'Le marchand détale en boitant. Celui-là, tu ne le reverras plus.' },
+          };
+        },
+      },
     ],
   },
   {
@@ -223,14 +315,24 @@ export const EVENEMENTS: Evenement[] = [
           return { texte: `Dé : ${d}. Ça a le goût de vieille éponge. Il ne se passe rien.` };
         },
       },
+      {
+        libelle: 'En ramasser, ça pourrait servir',
+        effet: (p) => {
+          p.sac.push('champignons-orange');
+          return { texte: 'Tu en remplis un mouchoir. Un alchimiste ou un cuisinier saura peut-être quoi en faire. Ou un empoisonneur.' };
+        },
+      },
       { libelle: 'Ne pas y toucher', effet: () => ({ texte: 'Sage décision. Probablement.' }) },
     ],
   },
 ];
 
-export const tirerEvenement = (terrain: Terrain, rng?: Rng): Evenement => {
-  const possibles = EVENEMENTS.filter((e) => !e.terrains || e.terrains.includes(terrain));
-  return possibles[lancer(possibles.length, rng) - 1];
+export const tirerEvenement = (terrain: Terrain, rng?: Rng, p?: Partie): Evenement => {
+  const possibles = EVENEMENTS.filter((e) => (!e.terrains || e.terrains.includes(terrain)) && (e.condition ? !!p && e.condition(p) : true));
+  const suites = possibles.filter((e) => e.prioritaire);
+  if (suites.length && lancer(2, rng) === 1) return suites[lancer(suites.length, rng) - 1];
+  const ordinaires = possibles.filter((e) => !e.prioritaire);
+  return ordinaires[lancer(ordinaires.length, rng) - 1];
 };
 
 export type Controle = { type: 'rien' } | { type: 'rencontre' } | { type: 'evenement'; evenement: Evenement };
@@ -243,10 +345,10 @@ export type Controle = { type: 'rien' } | { type: 'rencontre' } | { type: 'evene
  */
 export const INTERVALLE_CONTROLE = 2.5;
 
-export const controler = (terrain: Terrain, nuit: boolean, rng?: Rng, horsPiste = false): Controle => {
+export const controler = (terrain: Terrain, nuit: boolean, rng?: Rng, horsPiste = false, p?: Partie): Controle => {
   const d = lancer(6, rng);
   // Hors des routes, loin des patrouilles et des villages : rencontres et embûches deux fois plus probables.
   if (d === 1 || (horsPiste && d === 2)) return { type: 'rencontre' };
-  if (!nuit && (horsPiste ? d <= 4 : d === 2)) return { type: 'evenement', evenement: tirerEvenement(terrain, rng) };
+  if (!nuit && (horsPiste ? d <= 4 : d === 2)) return { type: 'evenement', evenement: tirerEvenement(terrain, rng, p) };
   return { type: 'rien' };
 };

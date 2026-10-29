@@ -3,6 +3,8 @@ import { formatMods, objet, type Objet } from '../rules/objets';
 import {
   boirePotion,
   desequiper,
+  EMPLACEMENTS,
+  type CleEquipement,
   equiper,
   evMax,
   formatHeure,
@@ -111,8 +113,9 @@ export const ligneObjet = (p: Partie, o: Objet, droite: string) => {
 
 export const panneauSac = (p: Partie, message?: string) => {
   const v = valeursCombat(p);
-  const emplacement = (titre: string, cle: 'arme' | 'armure') => {
+  const emplacement = (titre: string, cle: CleEquipement) => {
     const id = p.equipe[cle];
+    if (!id && cle !== 'arme' && cle !== 'armure') return '';
     return ligneObjet(
       p,
       id ? objet(id) : { id: '', nom: 'Rien', type: 'materiel', prix: 0, description: cle === 'arme' ? 'Tu te bats à mains nues (1D-2).' : 'Aucune protection.' },
@@ -129,8 +132,7 @@ export const panneauSac = (p: Partie, message?: string) => {
       <div><b>${v.pr}</b><span>Protection</span></div>
       <div><b>${v.cha}</b><span>Charisme</span></div>
     </div>
-    ${emplacement('Arme', 'arme')}
-    ${emplacement('Armure', 'armure')}
+    ${EMPLACEMENTS.map(([cle, titre]) => emplacement(cle === 'armure' && p.equipe.armure && objet(p.equipe.armure).emplacement === 'complete' ? 'Armure complète' : titre, cle)).join('')}
     <h3 style="margin-top:16px">Dans le sac</h3>
     ${
       ids.length
@@ -141,7 +143,7 @@ export const panneauSac = (p: Partie, message?: string) => {
               const bouton =
                 o.type === 'arme' || o.type === 'armure'
                   ? `<button class="secondaire petit equiper" data-id="${id}">Équiper</button>`
-                  : o.type === 'potion'
+                  : o.type === 'potion' && o.soin
                     ? `<button class="secondaire petit boire" data-id="${id}">Boire</button>`
                     : '';
               return ligneObjet(p, o, `<span class="pastille">×${nb}</span> ${bouton}`);
@@ -168,7 +170,7 @@ export const lierSac = (app: HTMLElement, p: Partie, message: (html: string) => 
     message(refus ? `<span class="alerte">${echapper(refus)}</span>` : `Tu t'équipes : <b>${echapper(o.nom)}</b>.`);
   });
   sur('.retirer', (el) => {
-    desequiper(p, el.dataset.emplacement as 'arme' | 'armure');
+    desequiper(p, el.dataset.emplacement as CleEquipement);
     message('Rangé dans le sac.');
   });
   sur('.boire', (el) => {

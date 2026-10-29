@@ -21,6 +21,7 @@ import { avecDe, lancer, type Rng } from '../rules/des';
 import { controler, INTERVALLE_CONTROLE, type Evenement, type Resultat } from '../rules/evenements';
 import { bivouaquer, dormir, evMax, formatHeure, noter, passerTemps, soigner, valeursCombat, type Partie } from '../rules/partie';
 import { parle, resoudre, singulier, TABLE_TERRES_SAUVAGES, TACTIQUES, tirerNombre, tirerRencontre, type Issue, type Rencontre, type Tactique } from '../rules/rencontres';
+import { objet } from '../rules/objets';
 import { QUETE_GOBELINS } from '../rules/waldorg';
 import { bandeau, boutonsVitesse, lierSac, lierVitesse, majHorloge, panneauJournal, panneauSac, vitesse } from './commun';
 import { animerDes, de, echapper } from './outils';
@@ -230,7 +231,9 @@ export const ecranMonde = (app: HTMLElement, p: Partie, s: Sorties) => {
       const b = f.bilan;
       corps += `<div class="recit">${
         b.fin === 'victoire'
-          ? `Le combat est fini : tu restes seul debout. ${b.xp} points d'expérience${b.or ? ` et ${b.or} pièces d'or` : ''}.`
+          ? `Le combat est fini : tu restes seul debout. ${b.xp} points d'expérience${b.or ? `, ${b.or} pièces d'or` : ''}${
+              b.objets.length ? `, et dans ton sac : ${b.objets.map((o) => objet(o).nom).join(', ')}` : ''
+            }.`
           : "Tu as réussi à t'enfuir, le souffle court."
       }${b.perdu > 0 ? ` Tu y as laissé ${b.perdu} PV.` : ''}</div>
       <p><button id="suite">Continuer</button></p>`;
@@ -273,7 +276,9 @@ export const ecranMonde = (app: HTMLElement, p: Partie, s: Sorties) => {
         })
         .join('')}</p>`;
     } else {
-      corps += `<div class="recit">${echapper(resultat.texte)}</div><p><button id="suite">Continuer</button></p>`;
+      corps += `<div class="recit">${echapper(resultat.texte)}</div><p>${
+        resultat.combat ? '<button id="combat-evenement">⚔ Combattre</button>' : '<button id="suite">Continuer</button>'
+      }</p>`;
     }
     return cadreFenetre(position(), 'En chemin', echapper(ev.titre), `${formatHeure(p.heure)}, en chemin`, corps, false);
   };
@@ -450,7 +455,7 @@ export const ecranMonde = (app: HTMLElement, p: Partie, s: Sorties) => {
       }
       if (p.voyage.fait >= p.voyage.prochainControle - 1e-6) {
         p.voyage.prochainControle += INTERVALLE_CONTROLE;
-        const c = controler(terrainApres(it, p.voyage.fait), false, undefined, p.voyage.horsPiste);
+        const c = controler(terrainApres(it, p.voyage.fait), false, undefined, p.voyage.horsPiste, p);
         if (c.type !== 'rien') {
           enMarche = false;
           centre = pt;
@@ -595,6 +600,26 @@ export const ecranMonde = (app: HTMLElement, p: Partie, s: Sorties) => {
         f.bilan = bilan;
         fenetre = bilan.fin === 'defaite' ? { type: 'mort' } : f;
         if (bilan.fin === 'defaite') p.ev = 0;
+        sauver();
+        render();
+      });
+    });
+
+    sur('#combat-evenement', () => {
+      if (fenetre?.type !== 'evenement' || !fenetre.resultat?.combat) return;
+      const f = fenetre;
+      const { rencontre, victoire } = f.resultat!.combat!;
+      ecranCombat(app, p, rencontre, (bilan) => {
+        if (bilan.fin === 'defaite') {
+          p.ev = 0;
+          fenetre = { type: 'mort' };
+        } else {
+          const suite =
+            bilan.fin === 'victoire'
+              ? `Tu l'emportes (+${bilan.xp} XP${bilan.or ? `, ${bilan.or} PO` : ''}${bilan.objets.length ? `, ${bilan.objets.length} objet${bilan.objets.length > 1 ? 's' : ''}` : ''}). ${victoire?.(p) ?? ''}`
+              : "Tu t'enfuis sans demander ton reste.";
+          f.resultat = { texte: `${f.resultat!.texte} ${suite}` };
+        }
         sauver();
         render();
       });

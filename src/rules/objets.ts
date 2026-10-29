@@ -4,7 +4,12 @@
 // Les objets marqués `estime` n'apparaissent dans aucun tableau : leurs valeurs sont provisoires.
 // Les objets à moins d'une pièce d'or sont vendus par lots.
 
-export type TypeObjet = 'arme' | 'armure' | 'potion' | 'materiel';
+import CATALOGUE from './catalogue.json';
+
+export type TypeObjet = 'arme' | 'armure' | 'potion' | 'materiel' | 'service';
+
+/** Où se porte une protection. Les armures complètes couvrent tout (torse, tête, bras, jambes, mains, pieds). */
+export type Emplacement = 'torse' | 'tete' | 'bras' | 'jambes' | 'mains' | 'pieds' | 'bouclier' | 'complete';
 
 export type Modif = 'AT' | 'PRD' | 'COU' | 'CHA' | 'AD';
 
@@ -26,6 +31,17 @@ export interface Objet {
   /** Points de vie rendus (potions). */
   soin?: string;
   estime?: boolean;
+  /** Protections : où elles se portent (torse par défaut). */
+  emplacement?: Emplacement;
+  /** Tableau officiel et section d'origine, pour l'encyclopédie. */
+  source?: string;
+  categorie?: string;
+  /** Effets tels qu'écrits dans le tableau (malus, bonus, durée…). */
+  effets?: string;
+  /** Point de rupture (« 1à4 », « Non »). */
+  rupture?: string;
+  /** Hors des boutiques : on ne le trouve que sur un cadavre ou dans un coffre. */
+  catalogueSeul?: boolean;
 }
 
 export const OBJETS: Objet[] = [
@@ -77,6 +93,23 @@ export const OBJETS: Objet[] = [
   { id: 'potion-soin-forte', nom: 'Potion de soin effet majeur', type: 'potion', prix: 100, soin: '15', description: 'La vraie potion des aventuriers prudents. Rend 15 PV.' },
 
   // --- Matériel (Matériel et services V3.0) ----------------------------------
+  { id: 'champignons-orange', nom: 'Champignons orange', type: 'materiel', prix: 2, estime: true, description: "Ramassés au bord du chemin. Comestibles ? Hallucinogènes ? Mortels ? Un alchimiste le saurait." },
+  // --- Trophées de chasse et babioles (butin des combats ; valeurs estimées, à revendre) --------
+  { id: 'peau-coyote', nom: 'Peau de coyote', type: 'materiel', prix: 3, estime: true, description: 'Mitée, mais un tanneur en donnera quelque chose.' },
+  { id: 'corne-bouc', nom: 'Corne de bouc', type: 'materiel', prix: 4, estime: true, description: "Torsadée et pointue. Les sorciers en font de la poudre, les ménestrels des cors." },
+  { id: 'dard-scorpion', nom: 'Dard de scorpion', type: 'materiel', prix: 6, estime: true, description: 'Encore plein de venin. À manipuler avec des gants, ou avec les doigts de quelqu\'un d\'autre.' },
+  { id: 'queue-rat', nom: 'Queue de rat pesteux', type: 'materiel', prix: 1, estime: true, description: 'Certains apothicaires les achètent. Ne demande pas pourquoi.' },
+  { id: 'jambon-mutant', nom: 'Jambon de cochon mutant', type: 'materiel', prix: 6, estime: true, description: 'Il a trois couennes et brille un peu dans le noir. Ça se mange, paraît-il.' },
+  { id: 'plumes-chapon', nom: 'Plumes de chapon fanghien', type: 'materiel', prix: 5, estime: true, description: 'Très recherchées pour les chapeaux de ménestrel.' },
+  { id: 'oeuf-chapon', nom: 'Œuf de chapon fanghien', type: 'materiel', prix: 15, estime: true, description: "Gros comme une tête de nain. Une omelette pour dix, ou un poussin très en colère." },
+  { id: 'dent-ogre', nom: "Dent d'ogre", type: 'materiel', prix: 8, estime: true, description: 'Jaune, énorme, et un peu cariée. Un trophée qui impressionne en taverne.' },
+  { id: 'cuir-aurochs', nom: "Cuir d'aurochs", type: 'materiel', prix: 20, estime: true, description: 'Épais et solide : de quoi faire un plastron chez un bon artisan.' },
+  { id: 'laine-brebiphant', nom: 'Laine de brebiphant', type: 'materiel', prix: 12, estime: true, description: 'Un ballot de laine grise, chaude, et qui sent la trompe.' },
+  { id: 'musc-dantragor', nom: 'Glande à musc de dantragor', type: 'materiel', prix: 25, estime: true, description: "Les parfumeurs de Glargh se l'arrachent. Le reste du monde la fuit." },
+  { id: 'fourrure-morshleg', nom: 'Fourrure de morshleg', type: 'materiel', prix: 30, estime: true, description: 'Longue, rousse, et pleine de choses vivantes.' },
+  { id: 'ecaille-dragon', nom: 'Écaille de jeune dragon', type: 'materiel', prix: 60, estime: true, description: 'Dure comme l\'acier et irisée. Un forgeron nain saurait quoi en faire.' },
+  { id: 'gri-gri-orque', nom: "Gri-gri d'orque", type: 'materiel', prix: 2, estime: true, description: 'Un os, trois plumes et une ficelle. Porte bonheur, ou pas.' },
+  { id: 'babiole-gobeline', nom: 'Babiole gobeline', type: 'materiel', prix: 1, estime: true, description: 'Un bouton, une cuillère tordue, une dent. Le trésor d\'un gobelin.' },
   { id: 'sac', nom: 'Sac à dos de base', type: 'materiel', prix: 4, description: 'Charge maximale : 10 kilos.' },
   { id: 'briquet', nom: 'Briquet', type: 'materiel', prix: 1, description: "Ne supporte pas l'immersion. Sinon, le MJ se barre." },
   { id: 'couverture', nom: "Couverture d'aventurier", type: 'materiel', prix: 2, description: 'En extérieur, permet une récupération normale.' },
@@ -91,8 +124,130 @@ export const OBJETS: Objet[] = [
   { id: 'instrument', nom: 'Flûte en bois', type: 'materiel', prix: 20, description: 'Instrument qui produit un son correct.' },
 ];
 
-export const objet = (id: string): Objet => {
+// --- Le catalogue complet ----------------------------------------------------------
+// Tous les objets des tableaux officiels (scripts/catalogue.py). Ceux que le jeu décrit déjà à la main
+// ci-dessus gardent leur fiche ; les autres sont convertis tels quels.
+
+interface LigneCatalogue {
+  id: string;
+  nom: string;
+  fichier: string;
+  type: TypeObjet;
+  categorie: string;
+  prix: number;
+  degats?: string | null;
+  pr?: number | null;
+  effets?: string;
+  rupture?: string | null;
+  emplacement?: Emplacement;
+  deuxMains?: boolean;
+  duree?: string | null;
+}
+
+/** Objets décrits à la main qui existent aussi dans le catalogue : on ne les compte qu'une fois. */
+const DOUBLONS: Record<string, string> = {
+  gourdin: 'bonne-branche-gourdin-pied-de-chaise',
+  'couteau-qualite': 'couteau-de-qualite',
+  'poignard-base': 'poignard-de-base',
+  'dague-base': 'dague-de-base',
+  'dague-qualite': 'dague-bonne-qualite',
+  'epee-perrave': 'epee-rapiere-sabre-1-main-perrave',
+  'epee-correcte': 'epee-rapiere-sabre-1-main-correcte',
+  'epee-bonne': 'epee-rapiere-sabre-1-main-bonne-qualite',
+  'hache-correcte': 'hache-1-main-correcte',
+  'marteau-correct': 'marteau-masse-1-main-correcte',
+  'lance-base': 'lance-de-base',
+  'epee-2m-base': 'epee-2-mains-de-base',
+  'hache-2m-grossiere': 'hache-2-mains-grossiere',
+  'baton-sorcier-perrave': 'baton-de-sorcier-perrave-niveau-1',
+  'baton-sorcier': 'baton-de-sorcier-de-qualite-moyenne',
+  'vetements-rembourres': 'gambison-de-base-avec-manches',
+  'veste-cuir': 'veste-toile-renforcee-avec-manches',
+  'gambison-correct': 'gambison-correct-avec-manches',
+  'plastron-cuir': 'plastron-de-cuir-de-base',
+  'plastron-cuir-bouilli': 'plastron-de-cuir-bouilli-correct',
+  'plastron-cuir-renforce': 'plastron-de-cuir-renforce-metal',
+  'cotte-sans-manches': 'cotte-de-mailles-basique-sans-manches',
+  'potion-soin': 'potion-de-soin-effet-leger',
+  'potion-plaies': 'potion-de-reduction-des-plaies',
+  'potion-soin-forte': 'potion-de-soin-effet-majeur',
+  sac: 'sac-a-dos-de-base',
+  briquet: 'briquet',
+  couverture: 'couverture-d-aventurier-2-kilos',
+  gourde: 'outre-de-cuir-1-litre',
+  chaussettes: 'chaussettes-he-chaussette',
+  rations: 'ration-complete-de-voyage-1-repas',
+  corde: 'corde-standard-le-metre',
+  torche: 'torche',
+  lampe: 'lampe-a-huile',
+  matelas: 'matelas-de-camping-3-kilos',
+  instrument: 'flute-en-bois',
+};
+
+const MODIFS: Modif[] = ['AT', 'PRD', 'COU', 'CHA', 'AD'];
+
+/**
+ * Lit les modificateurs permanents d'une colonne d'effets (« AT-2 PRD-4 CHA-1 · COU+1 »). On écarte ceux
+ * qui ne valent que dans un cas précis : au jet (« AD+1* »), entre parenthèses (« AD+1 (discrétion) »)
+ * ou réservés aux Nains (« Nain : AT+1 »).
+ */
+export const lireMods = (effets = ''): Partial<Record<Modif, number>> | undefined => {
+  const texte = effets.split(/Nain :|\/ Nain/)[0];
+  const mods: Partial<Record<Modif, number>> = {};
+  for (const m of texte.matchAll(/\b(AT\/PRD|AT|PRD|AD|CHA|COU)([+-]\d+)(?![\d*])(?!\s*\()/g)) {
+    const v = Number(m[2]);
+    for (const k of m[1] === 'AT/PRD' ? (['AT', 'PRD'] as Modif[]) : [m[1] as Modif]) if (MODIFS.includes(k)) mods[k] = (mods[k] ?? 0) + v;
+  }
+  return Object.keys(mods).length ? mods : undefined;
+};
+
+const legere = (l: LigneCatalogue) => /Lames courtes|Bâtons|Récupération/.test(l.categorie) || /dague|poignard|couteau|gourdin|bâton/i.test(l.nom);
+
+const depuisCatalogue = (l: LigneCatalogue): Objet => {
+  const o: Objet = {
+    id: l.id,
+    nom: l.nom,
+    type: l.type,
+    prix: l.prix,
+    description: [l.effets, l.duree && l.duree !== 'Permanent' ? `durée : ${l.duree}` : ''].filter(Boolean).join(' · ') || l.categorie,
+    source: l.fichier,
+    categorie: l.categorie,
+    effets: l.effets,
+    rupture: l.rupture ?? undefined,
+    catalogueSeul: true,
+  };
+  if (l.type === 'arme') {
+    // « 1D+2/1D+3* » : la seconde valeur est pour le jet ; « 2D+6 (feu) » : on garde les dés.
+    o.degats = (l.degats ?? '1D').split(/[/ ]/)[0].replace('1+poison', '1');
+    o.mains = l.deuxMains ? 2 : 1;
+    o.bourrin = !!l.deuxMains && /Lames 2|Haches 2|Marteaux 2/.test(l.categorie);
+    o.legere = legere(l);
+    o.mods = lireMods(l.effets);
+  }
+  if (l.type === 'armure') {
+    o.pr = l.pr ?? 0;
+    o.emplacement = l.emplacement ?? 'torse';
+    o.mods = lireMods(l.effets);
+  }
+  if (l.type === 'potion') {
+    const soin = /Récup\. (\d+) ?PV/.exec(l.effets ?? '');
+    if (soin) o.soin = soin[1];
+  }
+  return o;
+};
+
+const dejaDecrits = new Set(Object.values(DOUBLONS));
+for (const [id, cat] of Object.entries(DOUBLONS)) {
   const o = OBJETS.find((x) => x.id === id);
+  const l = (CATALOGUE as LigneCatalogue[]).find((x) => x.id === cat);
+  if (o && l) Object.assign(o, { source: l.fichier, categorie: l.categorie, effets: l.effets, rupture: l.rupture ?? undefined });
+}
+OBJETS.push(...(CATALOGUE as LigneCatalogue[]).filter((l) => !dejaDecrits.has(l.id)).map(depuisCatalogue));
+
+const PAR_ID = new Map(OBJETS.map((o) => [o.id, o]));
+
+export const objet = (id: string): Objet => {
+  const o = PAR_ID.get(id);
   if (!o) throw new Error(`Objet inconnu : ${id}`);
   return o;
 };
