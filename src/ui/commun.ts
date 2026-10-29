@@ -9,13 +9,20 @@ import {
   equiper,
   evMax,
   formatHeure,
+  gainsPossibles,
+  monterNiveau,
+  niveau,
+  niveauEnAttente,
   noter,
+  PALIERS_XP,
   peutManier,
+  type GainNiveau,
   peutPorter,
   valeursCombat,
   type Partie,
 } from '../rules/partie';
-import { de, echapper } from './outils';
+import { lancer } from '../rules/des';
+import { animerDes, de, echapper } from './outils';
 
 // Éléments partagés par la ville et la carte du monde : bandeau du héros, sac, journal, vitesse.
 
@@ -71,7 +78,8 @@ export const bandeau = (p: Partie, vue: string, nomCarte: string) => {
       <span title="Énergie vitale">❤ <b>${p.ev}</b>/${evMax(p)}</span>
       <span title="Bourse (1 PO = 100 PA = 1000 PC)">● <b>${formatOr(p.or)}</b></span>
       <span title="Points de destin">✦ <b>${p.perso.destin}</b></span>
-      <span title="Expérience">★ <b>${p.xp ?? 0}</b> XP</span>
+      <span title="Niveau et expérience (prochain niveau à ${PALIERS_XP[niveau(p)] ?? '—'} XP)">★ niv. <b>${niveau(p)}</b> · ${p.xp ?? 0} XP</span>
+      ${niveauEnAttente(p) ? `<button class="petit" id="monter-niveau">⬆ Passer niveau ${niveau(p) + 1} !</button>` : ''}
       <span title="Jour et heure" id="horloge">${p.heure >= 20 || p.heure < 6 ? '☾' : '☼'} jour <b>${p.jour}</b>, ${formatHeure(p.heure)}</span>
     </div>
     <div class="onglets">
@@ -174,10 +182,69 @@ export const lierSac = (app: HTMLElement, p: Partie, message: (html: string) => 
     desequiper(p, el.dataset.emplacement as CleEquipement);
     message('Rangé dans le sac.');
   });
+  sur('#monter-niveau', () => ouvrirNiveau(p, (texte) => message(texte)));
   sur('.boire', (el) => {
     const r = boirePotion(p, el.dataset.id!);
     if (typeof r === 'string') return message(echapper(r));
     noter(p, `boit une potion et récupère ${r.rendu} PV.`);
     message(`${r.des.map((d) => de(d)).join('')} Glou glou… Tu récupères <b>${r.rendu} PV</b>.`);
   });
+};
+
+// --- Passage de niveau --------------------------------------------------------------
+
+const NOM_GAIN: Record<GainNiveau, string> = {
+  FO: 'Force',
+  AD: 'Adresse',
+  COU: 'Courage',
+  INT: 'Intelligence',
+  AT: 'Attaque',
+  PRD: 'Parade',
+};
+
+/** Fenêtre du passage de niveau : le joueur lance son D6 d'énergie vitale, puis choisit son gain. */
+const ouvrirNiveau = (p: Partie, fini: (texte: string) => void) => {
+  const fenetre = document.createElement('div');
+  fenetre.className = 'ency';
+  fenetre.setAttribute('role', 'dialog');
+  const prochain = niveau(p) + 1;
+  const gains = gainsPossibles(p);
+  let de: number | undefined;
+  const dessiner = () => {
+    fenetre.innerHTML = `<div class="page ency-page niveau">
+      <h2>Niveau ${prochain} !</h2>
+      <p>L'aventure, ça forge. Règles V4 : à chaque niveau, +1D6 en énergie vitale, puis ${
+        prochain % 2 === 0 ? 'un point dans une caractéristique (niveau pair)' : "un point d'Attaque ou de Parade (niveau impair)"
+      }.</p>
+      <div class="recit lancer-joueur">Énergie vitale : lance le D6.
+        <div>${de === undefined ? `<span class="de a-lancer" id="de-niveau">?</span><button id="lancer-niveau">Lancer le D6</button>` : `<span class="de">${de}</span> <b>+${de} PV max</b>`}</div></div>
+      ${
+        de === undefined
+          ? ''
+          : `<p>Choisis ton gain :</p><p class="actions-lieu">${gains.map((g) => `<button data-gain="${g}">${NOM_GAIN[g]} +1</button>`).join('')}</p>`
+      }
+    </div>`;
+    fenetre.querySelector('#lancer-niveau')?.addEventListener('click', (e) => {
+      (e.target as HTMLButtonElement).disabled = true;
+      const v = lancer(6);
+      animerDes([fenetre.querySelector<HTMLElement>('#de-niveau')!], 6, [v]).then(() => {
+        de = v;
+        dessiner();
+      });
+    });
+    fenetre.querySelectorAll<HTMLElement>('[data-gain]').forEach((b) =>
+      b.addEventListener('click', () => {
+        const gain = b.dataset.gain as GainNiveau;
+        const refus = monterNiveau(p, de!, gain);
+        fenetre.remove();
+        document.body.classList.remove('ency-ouverte');
+        if (refus) return fini(echapper(refus));
+        noter(p, `passe au niveau ${prochain} (+${de} PV max, ${NOM_GAIN[gain]} +1).`);
+        fini(`Tu passes au <b>niveau ${prochain}</b> : +${de} PV max et ${NOM_GAIN[gain]} +1.`);
+      }),
+    );
+  };
+  dessiner();
+  document.body.append(fenetre);
+  document.body.classList.add('ency-ouverte');
 };

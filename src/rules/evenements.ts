@@ -2,7 +2,7 @@ import { calculerFiche } from './creation';
 import { lancer, type Rng } from './des';
 import type { Terrain } from './monde';
 import { epreuve, lancerExpression, soigner, valeursCombat, type Partie } from './partie';
-import { TABLE_TERRES_SAUVAGES, type LigneRencontre, type Rencontre } from './rencontres';
+import { TABLE_TERRES_SAUVAGES, TABLES, type LigneRencontre, type Rencontre, type Zone } from './rencontres';
 
 // Événements écrits pour les routes autour de Waldorg. Ils ne viennent pas des règles officielles :
 // ce sont les « surprises » du MJ, bonnes ou mauvaises, tirées au hasard pendant le voyage.
@@ -345,10 +345,11 @@ export type Controle = { type: 'rien' } | { type: 'rencontre' } | { type: 'evene
  */
 export const INTERVALLE_CONTROLE = 2.5;
 
-export const controler = (terrain: Terrain, nuit: boolean, rng?: Rng, horsPiste = false, p?: Partie): Controle => {
+export const controler = (terrain: Terrain, nuit: boolean, rng?: Rng, horsPiste = false, p?: Partie, zone?: Zone): Controle => {
   const d = lancer(6, rng);
   // Hors des routes, loin des patrouilles et des villages : rencontres et embûches deux fois plus probables.
-  if (d === 1 || (horsPiste && d === 2)) return { type: 'rencontre' };
+  // En campagne paisible, une rencontre sur deux n'a finalement pas lieu.
+  if (d === 1 || (horsPiste && d === 2)) return zone && TABLES[zone].paisible && lancer(2, rng) === 2 ? { type: 'rien' } : { type: 'rencontre' };
   if (!nuit && (horsPiste ? d <= 4 : d === 2)) return { type: 'evenement', evenement: tirerEvenement(terrain, rng, p) };
   return { type: 'rien' };
 };

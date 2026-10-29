@@ -212,6 +212,38 @@ export const valeursCombat = (p: Partie): ValeursCombat => {
   };
 };
 
+// --- Expérience et niveaux -------------------------------------------------------
+
+/** Table des niveaux (règles V4, 14) : XP nécessaire pour atteindre chaque niveau. */
+export const PALIERS_XP = [0, 100, 300, 600, 1000, 1500, 2100, 2800, 3600, 4500, 5500, 6600, 7800, 9100, 10500];
+
+export const niveauPour = (xp: number) => PALIERS_XP.filter((s) => xp >= s).length;
+
+export const niveau = (p: Partie) => p.perso.progression?.niveau ?? 1;
+
+/** Le héros a assez d'XP pour passer au niveau suivant. */
+export const niveauEnAttente = (p: Partie) => niveauPour(p.xp ?? 0) > niveau(p);
+
+export type GainNiveau = 'FO' | 'AD' | 'COU' | 'INT' | 'AT' | 'PRD';
+
+/** Ce qu'on peut augmenter au prochain niveau : une caractéristique aux niveaux pairs, AT ou PRD aux impairs. */
+export const gainsPossibles = (p: Partie): GainNiveau[] => ((niveau(p) + 1) % 2 === 0 ? ['FO', 'AD', 'COU', 'INT'] : ['AT', 'PRD']);
+
+/** Passe un niveau (règles V4, 15) : +1D6 EV (dé du joueur) et le gain choisi. */
+export const monterNiveau = (p: Partie, deEv: number, gain: GainNiveau): string | null => {
+  if (!niveauEnAttente(p)) return "Pas assez d'expérience.";
+  if (!gainsPossibles(p).includes(gain)) return 'Ce gain ne correspond pas à ce niveau.';
+  const prog = p.perso.progression ?? { niveau: 1, ev: 0, caracs: {}, at: 0, prd: 0 };
+  prog.niveau += 1;
+  prog.ev += deEv;
+  if (gain === 'AT') prog.at += 1;
+  else if (gain === 'PRD') prog.prd += 1;
+  else prog.caracs[gain] = (prog.caracs[gain] ?? 0) + 1;
+  p.perso.progression = prog;
+  p.ev += deEv;
+  return null;
+};
+
 // --- Commerce ------------------------------------------------------------------
 
 export const prixVente = (o: Objet, taux: number) => Math.max(0.001, arrondirOr(o.prix * taux));

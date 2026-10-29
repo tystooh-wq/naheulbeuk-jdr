@@ -108,6 +108,19 @@ export interface Personnage {
   or: number;
   /** Détail des jets de fortune, pour l'affichage. */
   jetsOr: number[][];
+  /** Gains des passages de niveau (règles V4, 15). */
+  progression?: Progression;
+}
+
+export interface Progression {
+  niveau: number;
+  /** EV gagnée (1D6 par niveau). */
+  ev: number;
+  /** Points ajoutés aux caractéristiques (niveaux pairs). */
+  caracs: Partial<Scores>;
+  /** Points ajoutés à l'attaque et à la parade (niveaux impairs). */
+  at: number;
+  prd: number;
 }
 
 export const origineParId = (id: string): Origine => {
@@ -182,11 +195,15 @@ export const calculerFiche = (p: Personnage): Fiche => {
   const a = p.ajustements;
 
   const caracs = caracsFinales(scoresApresOrigine(p.jets, origine, p.versionHB), metier, a);
+  const prog = p.progression;
+  for (const [k, v] of Object.entries(prog?.caracs ?? {})) caracs[k as Carac] += v ?? 0;
 
   const evOrigine = version?.ev ?? origine.ev;
-  const ev = metier.ev(evOrigine, origine.id);
+  const ev = metier.ev(evOrigine, origine.id) + (prog?.ev ?? 0);
 
   let [at, prd] = metier.atPrd ?? origine.atPrd ?? [8, 10];
+  at += prog?.at ?? 0;
+  prd += prog?.prd ?? 0;
 
   if (metier.ajustement === 'guerrier') {
     if (a.guerrierEchange === 'AT>PRD') { at -= 1; prd += 1; }

@@ -12,6 +12,7 @@ import {
   lieuMonde,
   positionApres,
   terrainApres,
+  zoneEn,
   type Itineraire,
   type LieuMonde,
   type Point,
@@ -19,7 +20,7 @@ import {
 } from '../rules/monde';
 import { avecDe, lancer, type Rng } from '../rules/des';
 import { controler, INTERVALLE_CONTROLE, type Evenement, type Resultat } from '../rules/evenements';
-import { bivouaquer, dormir, evMax, formatHeure, noter, passerTemps, soigner, valeursCombat, type Partie } from '../rules/partie';
+import { bivouaquer, dormir, evMax, niveau, formatHeure, noter, passerTemps, soigner, valeursCombat, type Partie } from '../rules/partie';
 import { parle, resoudre, singulier, TABLE_TERRES_SAUVAGES, TACTIQUES, tirerNombre, tirerRencontre, type Issue, type Rencontre, type Tactique } from '../rules/rencontres';
 import { objet } from '../rules/objets';
 import { QUETE_GOBELINS } from '../rules/waldorg';
@@ -33,13 +34,15 @@ import { sauvegarderPartie } from './sauvegarde';
 // La carte de la Terre de Fangh : on s'y déplace de lieu en lieu le long des pistes, l'horloge tourne,
 // la nuit oblige à bivouaquer et le MJ glisse des rencontres en chemin.
 
-const ICONES: Record<TypeLieuMonde, string> = { ville: '♜', village: '⌂', campement: '▲', grotte: '◆', bac: '≈' };
+const ICONES: Record<TypeLieuMonde, string> = { ville: '♜', village: '⌂', campement: '▲', grotte: '◆', bac: '≈', donjon: '♖', mine: '⚒' };
 const LEGENDE: [TypeLieuMonde, string][] = [
   ['ville', 'Cité'],
   ['village', 'Village'],
   ['campement', 'Campement'],
   ['bac', 'Bac'],
   ['grotte', 'Grottes'],
+  ['donjon', 'Donjon'],
+  ['mine', 'Mine'],
 ];
 
 /** Durée réelle d'une heure de marche à la vitesse ×1. */
@@ -247,7 +250,7 @@ export const ecranMonde = (app: HTMLElement, p: Partie, s: Sorties) => {
     const stats = `<p class="pastille">Chacun : AT ${l.at} · PRD ${l.prd} · EV ${l.ev} · PR ${l.pr} · dégâts ${echapper(l.degats)} · COU ${l.cou}${l.notes ? ` · ${echapper(l.notes)}` : ''}</p>`;
     let corps = `<p>${f.nuit ? 'Au milieu de la nuit, des bruits près du camp…' : 'Sur le chemin, tu tombes nez à nez avec'} <b>${echapper(nom)}</b>. ${r.nombre > 1 ? 'Ils ont' : 'Ça a'} l'air hostile.</p>
       ${stats}
-      <p class="note">Table « Rencontres en terre sauvage 1 », D20 : ${r.d20}. Tu peux te battre, ou tenter de t'en sortir par une épreuve.</p>
+      <p class="note">Table « ${echapper(r.table ?? 'Rencontres en terre sauvage 1')} », D20 : ${r.d20}. Tu peux te battre, ou tenter de t'en sortir par une épreuve.</p>
       ${r.nombre >= 3 ? `<p class="note">Conseil du MJ : seul contre ${r.nombre}, même un héros finit en charpie. Trois au plus te tomberont dessus à la fois, et tu ne pares qu'un coup par assaut.</p>` : ''}`;
     const contexte = { type: 'rencontre' as const, id: l.nom, titre: l.rencontre };
     if (f.idee) {
@@ -484,11 +487,11 @@ export const ecranMonde = (app: HTMLElement, p: Partie, s: Sorties) => {
       }
       if (p.voyage.fait >= p.voyage.prochainControle - 1e-6) {
         p.voyage.prochainControle += INTERVALLE_CONTROLE;
-        const c = controler(terrainApres(it, p.voyage.fait), false, undefined, p.voyage.horsPiste, p);
+        const c = controler(terrainApres(it, p.voyage.fait), false, undefined, p.voyage.horsPiste, p, zoneEn(position()));
         if (c.type !== 'rien') {
           enMarche = false;
           centre = pt;
-          fenetre = c.type === 'rencontre' ? { type: 'rencontre', r: tirerRencontre(), nuit: false } : { type: 'evenement', ev: c.evenement };
+          fenetre = c.type === 'rencontre' ? { type: 'rencontre', r: tirerRencontre(undefined, zoneEn(position()), niveau(p)), nuit: false } : { type: 'evenement', ev: c.evenement };
           sauver();
           return render();
         }
@@ -500,9 +503,9 @@ export const ecranMonde = (app: HTMLElement, p: Partie, s: Sorties) => {
 
   /** Bivouac de nuit : le MJ vérifie d'abord si quelque chose rôde autour du camp. */
   const installerBivouac = () => {
-    const c = controler(terrainActuel(), true, undefined, !!p.voyage?.horsPiste);
+    const c = controler(terrainActuel(), true, undefined, !!p.voyage?.horsPiste, p, zoneEn(position()));
     if (c.type === 'rencontre') {
-      fenetre = { type: 'rencontre', r: tirerRencontre(), nuit: true };
+      fenetre = { type: 'rencontre', r: tirerRencontre(undefined, zoneEn(position()), niveau(p)), nuit: true };
       return render();
     }
     dormirDehors();

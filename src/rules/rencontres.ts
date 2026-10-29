@@ -1,4 +1,5 @@
 import TABLE from './rencontres-terres-sauvages.json';
+import FORET from './rencontres-foret1.json';
 import { lancer, type Rng } from './des';
 import { epreuve, lancerExpression, valeursCombat, type Partie } from './partie';
 
@@ -23,12 +24,52 @@ export interface LigneRencontre {
 }
 
 export const TABLE_TERRES_SAUVAGES = TABLE as LigneRencontre[];
+export const TABLE_FORET = FORET as LigneRencontre[];
+
+/** Les grandes régions de la carte, chacune avec sa table de rencontres et son niveau de danger. */
+export type Zone = 'campagne' | 'terres-sauvages' | 'foret';
+
+/**
+ * Campagne paisible (Valtordu, Loubet) : table composée pour le jeu à partir des lignes les plus faibles
+ * des tables officielles « Terre sauvage 1 » et « Forêt 1 ». Les rencontres y sont aussi deux fois plus rares.
+ */
+const CAMPAGNE: [number, LigneRencontre][] = [
+  [1, TABLE_FORET[0]],
+  [4, TABLE_TERRES_SAUVAGES[2]],
+  [6, TABLE_TERRES_SAUVAGES[1]],
+  [7, TABLE_TERRES_SAUVAGES[0]],
+  [9, TABLE_FORET[3]],
+  [11, TABLE_FORET[2]],
+  [14, TABLE_TERRES_SAUVAGES[4]],
+  [15, TABLE_FORET[4]],
+  [16, TABLE_TERRES_SAUVAGES[3]],
+  [17, TABLE_TERRES_SAUVAGES[8]],
+  [18, TABLE_TERRES_SAUVAGES[7]],
+  [19, TABLE_FORET[11]],
+  [20, TABLE_TERRES_SAUVAGES[9]],
+];
+
+export const TABLES: Record<Zone, { nom: string; ligne: (d20: number) => LigneRencontre; paisible?: boolean }> = {
+  campagne: { nom: 'Campagne paisible (table du jeu)', ligne: (d) => CAMPAGNE.find(([max]) => d <= max)![1], paisible: true },
+  'terres-sauvages': { nom: 'Rencontres en terre sauvage 1', ligne: (d) => TABLE_TERRES_SAUVAGES[d - 1] },
+  foret: { nom: 'Rencontres en forêt 1', ligne: (d) => TABLE_FORET[d - 1] },
+};
+
+export const NOM_ZONE: Record<Zone, string> = { campagne: 'campagne paisible', 'terres-sauvages': 'terres sauvages', foret: 'forêt' };
 
 export interface Rencontre {
   ligne: LigneRencontre;
   nombre: number;
   d20: number;
+  /** Nom de la table tirée (pour l'affichage). */
+  table?: string;
 }
+
+/**
+ * Un héros seul de bas niveau ne croise pas une armée : au plus « niveau + 1 » petites bêtes
+ * (EV 10 ou moins), et au plus « niveau » adversaires plus costauds.
+ */
+export const plafondGroupe = (l: LigneRencontre, niveau: number) => Math.max(1, l.ev <= 10 ? niveau + 1 : niveau);
 
 export const tirerNombre = (expr: string, rng?: Rng): number => {
   let m = /^(\d+) à (\d+)$/.exec(expr);
@@ -40,10 +81,10 @@ export const tirerNombre = (expr: string, rng?: Rng): number => {
   return Number(expr) || 1;
 };
 
-export const tirerRencontre = (rng?: Rng): Rencontre => {
+export const tirerRencontre = (rng?: Rng, zone: Zone = 'terres-sauvages', niveau = 1): Rencontre => {
   const d20 = lancer(20, rng);
-  const ligne = TABLE_TERRES_SAUVAGES[d20 - 1];
-  return { ligne, d20, nombre: tirerNombre(ligne.nombre, rng) };
+  const ligne = TABLES[zone].ligne(d20);
+  return { ligne, d20, table: TABLES[zone].nom, nombre: Math.min(tirerNombre(ligne.nombre, rng), plafondGroupe(ligne, niveau)) };
 };
 
 /** Le nom d'un seul membre de la bande : « coyotes affamés » → « Coyote affamé » (l'Aurochs, seul, reste un Aurochs). */
@@ -53,7 +94,7 @@ export const singulier = (l: LigneRencontre) => {
 };
 
 /** Brigands, orques, ogres et trolls parlent (plus ou moins) : on peut négocier. Les bêtes, on les intimide. */
-export const parle = (l: LigneRencontre) => /brigand|orque|ogre|troll/i.test(l.nom);
+export const parle = (l: LigneRencontre) => /brigand|orque|ogre|troll|kobold|marchand/i.test(l.nom);
 
 export type Tactique = 'fuir' | 'negocier' | 'intimider';
 

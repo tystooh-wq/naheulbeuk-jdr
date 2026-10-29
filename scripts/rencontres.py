@@ -13,6 +13,12 @@ def nombre(texte):
     return (m.group(1), m.group(2)) if m else ('1', texte)
 
 
+def entier(v, defaut=1):
+    """« 10 à 60 » → 10 ; « * » (valeur spéciale du bestiaire) → défaut."""
+    m = re.match(r'\d+', v)
+    return int(m.group()) if m else defaut
+
+
 def main():
     source, sortie = sys.argv[1:3]
     lignes = []
@@ -23,8 +29,8 @@ def main():
             nb, nom = nombre(rencontre)
             lignes.append({
                 'd20': int(d20), 'rencontre': rencontre, 'nombre': nb, 'nom': nom,
-                'at': int(at), 'prd': int(prd), 'ev': int(ev), 'pr': int(pr),
-                'degats': degats, 'cou': int(cou), 'xp': int(xp), 'notes': ' '.join(notes),
+                'at': entier(at), 'prd': entier(prd, 0), 'ev': entier(ev), 'pr': entier(pr, 0),
+                'degats': degats, 'cou': entier(cou), 'xp': entier(xp), 'notes': ' '.join(notes),
             })
     assert [l['d20'] for l in lignes] == list(range(1, 21)), 'table incomplète'
     json.dump(lignes, open(sortie, 'w', encoding='utf-8'), ensure_ascii=False, indent=1)
