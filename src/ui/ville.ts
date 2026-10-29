@@ -19,6 +19,7 @@ import { longueur, pointA, trajet } from '../rules/rues';
 import { LIEUX, QUETE_GOBELINS, RUMEURS_LOUCHES, RUMEURS_NORMALES, lieu, type Lieu, type TypeLieu } from '../rules/waldorg';
 import { bandeau, boutonsVitesse, lierSac, lierVitesse, ligneObjet, panneauJournal, panneauSac, vitesse } from './commun';
 import { animerDes, de, echapper } from './outils';
+import { marchander, type Marchandage } from '../rules/marchandage';
 import { sauvegarderPartie } from './sauvegarde';
 
 // Lettres sur le plan, dans l'esprit des symboles des cartes MJ (A, E, T…).
@@ -47,9 +48,8 @@ const LEGENDE: [TypeLieu, string][] = [
 ];
 
 interface Visite {
-  /** Remise (négative) ou majoration obtenue en marchandant, en fraction. */
-  marchandage?: number;
-  jetMarchandage?: number;
+  /** Résultat du marchandage pendant cette visite. */
+  marchandage?: Marchandage;
   /** Le joueur a choisi de marchander et doit lancer son dé. */
   marchandageEnCours?: boolean;
   message?: string;
@@ -96,7 +96,18 @@ export const ecranVille = (
 
   // --- Panneau du lieu -----------------------------------------------------------
 
-  const prixAchat = (o: Objet, l: Lieu) => Math.max(1, Math.round(o.prix * (l.boutique!.prix) * (1 + (visite.marchandage ?? 0))));
+  const prixAchat = (o: Objet, l: Lieu) => Math.max(1, Math.round(o.prix * (l.boutique!.prix) * (1 + (visite.marchandage?.taux ?? 0))));
+
+  const texteMarchandage = (m: Marchandage) => {
+    if (m.critique === 'remise')
+      return `<b>Réussite critique !</b> Le marchand est sous le charme (D6 du MJ : ${m.deMJ}) : <b>30 % de remise</b> pendant cette visite.`;
+    if (m.critique === 'cadeau')
+      return `<b>Réussite critique !</b> Le marchand t'a à la bonne (D6 du MJ : ${m.deMJ}) : 10 % de remise, ${
+        m.cadeau ? `et il glissera <b>${echapper(objet(m.cadeau).nom)}</b> en cadeau avec ton premier achat.` : 'et il t\'a déjà fait un cadeau.'
+      }`;
+    if (m.maladresse) return '<b>Maladresse !</b> Le marchand se sent insulté : +25 % pendant cette visite.';
+    return m.reussi ? 'Réussi : 10 % de remise pendant cette visite.' : 'Raté : le marchand est vexé, +10 % pendant cette visite.';
+  };
 
   const panneauBoutique = (l: Lieu) => {
     const b = l.boutique!;
@@ -105,13 +116,11 @@ export const ecranVille = (
       <h3>À vendre</h3>
       ${
         visite.marchandageEnCours
-          ? `<div class="recit lancer-joueur">Épreuve de Charisme : il faut faire <b>${valeursCombat(p).cha} ou moins</b> sur le D20 pour obtenir 10 % de remise. Raté, le marchand se vexe et ajoute 10 %.
+          ? `<div class="recit lancer-joueur">Épreuve de Charisme : il faut faire <b>${valeursCombat(p).cha} ou moins</b> sur le D20 pour obtenir 10 % de remise. Raté, le marchand se vexe et ajoute 10 %. Un 1, c'est la réussite critique : grosse remise ou cadeau.
               <div>${de('?', 'a-lancer" id="de-joueur')}<button id="lancer-marchandage">Lancer le D20</button></div></div>`
           : visite.marchandage === undefined
           ? `<p><button class="secondaire petit" id="marchander">Marchander (épreuve de Charisme)</button></p>`
-          : `<p class="note">Marchandage : ${de(visite.jetMarchandage!)} ${
-              visite.marchandage < 0 ? 'Réussi : 10 % de remise pendant cette visite.' : 'Raté : le marchand est vexé, +10 % pendant cette visite.'
-            }</p>`
+          : `<p class="note">Marchandage : ${de(visite.marchandage.de)} ${texteMarchandage(visite.marchandage)}</p>`
       }
       ${b.stock
         .map((id) => {
@@ -355,8 +364,7 @@ export const ecranVille = (
       animerDes([app.querySelector<HTMLElement>('#de-joueur')!], 20, [d]).then(() =>
         setTimeout(() => {
           visite.marchandageEnCours = false;
-          visite.jetMarchandage = d;
-          visite.marchandage = epreuve(valeursCombat(p).cha, undefined, d).reussi ? -0.1 : 0.1;
+          visite.marchandage = marchander(valeursCombat(p).cha, lieu(p.lieu).boutique!.stock, d);
           render();
         }, 350),
       );
@@ -364,8 +372,18 @@ export const ecranVille = (
     sur('.acheter', (el) => {
       const o = objet(el.dataset.id!);
       const refus = acheter(p, o.id, Number(el.dataset.prix));
-      if (!refus) noter(p, `achète ${o.nom} pour ${el.dataset.prix} PO.`);
-      message(refus ? echapper(refus) : `Tu achètes <b>${echapper(o.nom)}</b> pour ${el.dataset.prix} PO. Il est dans ton sac.`);
+      if (refus) return message(echapper(refus));
+      noter(p, `achète ${o.nom} pour ${el.dataset.prix} PO.`);
+      let texte = `Tu achètes <b>${echapper(o.nom)}</b> pour ${el.dataset.prix} PO. Il est dans ton sac.`;
+      const m = visite.marchandage;
+      if (m?.cadeau) {
+        const c = objet(m.cadeau);
+        p.sac.push(c.id);
+        noter(p, `reçoit ${c.nom} en cadeau du marchand.`);
+        texte += ` En prime, le marchand te glisse <b>${echapper(c.nom)}</b> avec un clin d'œil.`;
+        m.cadeau = undefined;
+      }
+      message(texte);
     });
     sur('.vendre', (el) => {
       const o = objet(el.dataset.id!);
