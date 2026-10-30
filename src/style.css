@@ -1799,3 +1799,50 @@ button.pion {
   max-width: min(100%, 62vh);
   margin-inline: auto;
 }
+
+/* Création : choix de la méthode et répartition des scores */
+.choix-mode {
+  flex-direction: column;
+}
+
+.choix-mode label {
+  align-items: flex-start;
+  padding: 8px 12px;
+}
+
+.choix-mode input:checked + span {
+  font-weight: 400;
+  color: inherit;
+}
+
+.choix-mode input:checked + span b {
+  color: var(--rouge);
+}
+
+.reserve-des {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 12px 0 4px;
+}
+
+.score-reserve {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 1.3rem;
+}
+
+.score-reserve.place {
+  opacity: 0.35;
+}
+
+select.placer {
+  font: inherit;
+  font-size: 1.1rem;
+  padding: 4px 6px;
+  border: 1px solid var(--bordure);
+  border-radius: 4px;
+  background: var(--carte);
+  color: inherit;
+}

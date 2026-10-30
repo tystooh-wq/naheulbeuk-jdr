@@ -32,6 +32,15 @@ interface Brouillon {
   /** Scores déjà tirés, une caractéristique après l'autre. */
   tirages: Partial<Scores>;
   relanceUtilisee: boolean;
+  /**
+   * Classique (règles officielles, pour les rôlistes confirmés) : un dé par caractéristique, dans l'ordre, une relance.
+   * Répartition : cinq dés d'abord, puis le joueur place chaque résultat où il veut, sans relance.
+   */
+  mode: 'repartition' | 'classique';
+  /** Répartition : les cinq scores tirés (dé + 7). */
+  reserve?: number[];
+  /** Répartition : pour chaque caractéristique, l'indice du score de la réserve qui lui est donné. */
+  places: Partial<Record<Carac, number>>;
   origineId?: string;
   versionHB?: number;
   metierId?: string;
@@ -52,7 +61,7 @@ export const ecranCreation = (
   retourAccueil: () => void,
   terminee: (p: Personnage, enregistre: boolean) => void,
 ) => {
-  const b: Brouillon = { etape: 'Identité', nom: '', tirages: {}, relanceUtilisee: false, choix: [], ajustements: {} };
+  const b: Brouillon = { etape: 'Identité', nom: '', tirages: {}, relanceUtilisee: false, mode: 'repartition', places: {}, choix: [], ajustements: {} };
 
   const origine = () => (b.origineId ? origineParId(b.origineId) : undefined);
   const metier = () => (b.metierId ? metierParId(b.metierId) : undefined);
@@ -209,8 +218,59 @@ export const ecranCreation = (
 
   // --- Étape 2 : caractéristiques ------------------------------------------
 
+  const rienTire = () => !b.reserve && CARACS.every((c) => b.tirages[c] === undefined);
+
+  /** Le choix de la méthode, tant qu'aucun dé n'est lancé. */
+  const choixMode = () =>
+    rienTire()
+      ? `<div class="choix-ligne choix-mode">
+          <label><input type="radio" name="mode" value="repartition" ${b.mode === 'repartition' ? 'checked' : ''}/><span><b>Répartition</b> · on lance les cinq dés, puis tu places chaque résultat dans la caractéristique de ton choix. Pas de relance.</span></label>
+          <label><input type="radio" name="mode" value="classique" ${b.mode === 'classique' ? 'checked' : ''}/><span><b>Classique</b> (rôlistes confirmés) · un dé par caractéristique, dans l'ordre, comme dans les règles officielles, avec une seule relance.</span></label>
+        </div>`
+      : `<p class="note">Méthode : <b>${b.mode === 'repartition' ? 'répartition' : 'classique'}</b>.</p>`;
+
+  const resumeOrigines = () => {
+    const n = ORIGINES.filter((o) => raisonsOrigine(b.jets!, o).length === 0).length;
+    return `<p>Avec ces scores, <b>${n} origine${n > 1 ? 's' : ''}</b> sur ${ORIGINES.length} te ${n > 1 ? 'sont' : 'est'} ouverte${n > 1 ? 's' : ''}.</p>`;
+  };
+
+  /** Mode répartition : cinq dés, puis un menu par caractéristique pour y placer un des résultats. */
+  const etapeRepartition = () => {
+    const anim = b.animation;
+    const reserve = b.reserve;
+    const utilises = new Set(Object.values(b.places));
+    const ligne = (c: Carac) => {
+      const i = b.places[c];
+      const score = i === undefined ? undefined : reserve![i];
+      const options = (reserve ?? [])
+        .map((v, j) => (utilises.has(j) && j !== i ? '' : `<option value="${j}" ${j === i ? 'selected' : ''}>${v}</option>`))
+        .join('');
+      return `<div class="ligne-carac ${score === undefined ? 'a-venir' : ''}">
+        <div class="nom">${NOM_CARAC[c]}</div>
+        <div>${reserve && !anim ? `<select class="placer" data-carac="${c}" aria-label="Score de ${NOM_CARAC[c]}"><option value="">—</option>${options}</select>` : de('?')}</div>
+        <div class="valeur">${score ?? '—'}</div>
+        <div class="texte">${score === undefined ? '' : echapper(descriptionCarac(c, score))}</div>
+      </div>`;
+    };
+    return `
+      <h2>Les caractéristiques</h2>
+      <p>On lance un D6 par caractéristique, et on ajoute 7. Un score de 8 est très bas, 10 est dans la moyenne, 13 est exceptionnel.</p>
+      ${choixMode()}
+      ${
+        reserve
+          ? `<div class="reserve-des">${reserve
+              .map((v, j) => `<span class="score-reserve ${utilises.has(j) && !anim ? 'place' : ''}">${de(anim ? '?' : v - 7, anim ? 'a-animer' : '')}<b>${anim ? '…' : v}</b></span>`)
+              .join('')}</div>
+             ${anim ? '' : `<p class="note">Choisis pour chaque caractéristique le score qu'elle reçoit. ${utilises.size ? '<button class="secondaire petit" id="vider">Tout reprendre</button>' : ''}</p>`}`
+          : '<p><button id="lancer-tout">Lancer les cinq dés</button></p>'
+      }
+      <div class="liste-caracs">${CARACS.map(ligne).join('')}</div>
+      ${b.jets && !anim ? resumeOrigines() : ''}`;
+  };
+
   /** Un dé par caractéristique, lancé l'un après l'autre pour le suspense. */
   const etapeCaracs = () => {
+    if (b.mode === 'repartition') return etapeRepartition();
     const anim = b.animation;
     const prochaine = CARACS.find((c) => b.tirages[c] === undefined);
     const nbOrigines = b.jets ? ORIGINES.filter((o) => raisonsOrigine(b.jets!, o).length === 0).length : 0;
@@ -239,6 +299,7 @@ export const ecranCreation = (
     return `
       <h2>Les caractéristiques</h2>
       <p>On lance un D6 pour chaque caractéristique, et on ajoute 7. Un score de 8 est très bas, 10 est dans la moyenne, 13 est exceptionnel.</p>
+      ${choixMode()}
       <div class="liste-caracs">${CARACS.map(ligne).join('')}</div>
       ${
         b.jets && !anim
@@ -262,7 +323,42 @@ export const ecranCreation = (
     b.jets = CARACS.every((x) => b.tirages[x] !== undefined) ? ({ ...b.tirages } as Scores) : undefined;
   };
 
+  /** Répartition : les scores placés deviennent les caractéristiques quand les cinq sont placés. */
+  const majPlaces = () => {
+    const complet = CARACS.every((c) => b.places[c] !== undefined);
+    const jets = complet ? (Object.fromEntries(CARACS.map((c) => [c, b.reserve![b.places[c]!]])) as Scores) : undefined;
+    if (JSON.stringify(jets) !== JSON.stringify(b.jets)) reinitialiserDepuis('origine');
+    b.jets = jets;
+  };
+
   const lierCaracs = () => {
+    app.querySelectorAll<HTMLInputElement>('input[name=mode]').forEach((r) =>
+      r.addEventListener('change', () => {
+        b.mode = r.value as Brouillon['mode'];
+        render();
+      }),
+    );
+    app.querySelector('#lancer-tout')?.addEventListener('click', () => {
+      const des = CARACS.map(() => lancer(6));
+      b.reserve = des.map((d) => d + 7);
+      b.animation = { faces: 6, valeurs: des };
+      render();
+    });
+    app.querySelectorAll<HTMLSelectElement>('select.placer').forEach((sel) =>
+      sel.addEventListener('change', () => {
+        const c = sel.dataset.carac as Carac;
+        if (sel.value === '') delete b.places[c];
+        else b.places[c] = Number(sel.value);
+        majPlaces();
+        render();
+        app.querySelector<HTMLSelectElement>(`select.placer[data-carac="${c}"]`)?.focus();
+      }),
+    );
+    app.querySelector('#vider')?.addEventListener('click', () => {
+      b.places = {};
+      majPlaces();
+      render();
+    });
     app.querySelector('#lancer')?.addEventListener('click', () => {
       lancerCarac(CARACS.find((c) => b.tirages[c] === undefined)!);
       render();
