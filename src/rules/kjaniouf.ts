@@ -1,0 +1,276 @@
+import type { Lieu } from './waldorg';
+
+// Kjaniouf, « Comptoir du Centre », ville de marchands près de l'embouchure de l'Elibed. Lieux d'après
+// « Kjaniouf pour le MJ » (numéros de la carte du MJ) ; positions en % du plan joueur (même cadrage).
+
+const MATERIEL = ['sac', 'briquet', 'couverture', 'gourde', 'chaussettes', 'rations', 'corde', 'torche', 'lampe', 'matelas'];
+
+export const LIEUX_KJANIOUF: Lieu[] = [
+  {
+    id: 'porte',
+    nom: 'Avenue Caddyro, entrée nord',
+    type: 'porte',
+    x: 27,
+    y: 3,
+    quartier: 'Avenue Caddyro',
+    description:
+      "Kjaniouf n'a pas de rempart, mais des tours et des postes de garde partout. On entre sans payer, et on est tout de suite remarqué : les gardes d'ici sont plus nombreux et plus aguerris qu'ailleurs, à cause des barbares, des pirates mauves et des voleurs.",
+  },
+  {
+    id: 'mairie',
+    nom: 'La mairie (1)',
+    type: 'emplois',
+    x: 34.5,
+    y: 18.5,
+    quartier: "Grand'Place",
+    description:
+      "Le seigneur Jean-Yves Chafouin, un peu mégalomane, a fait poser deux statues de lui sur les places et rebaptisé le port à son nom. Il gère bien la ville, et sa mairie affiche des missions pour qui veut servir la grandeur de Kjaniouf (et de Chafouin).",
+  },
+  {
+    id: 'port',
+    nom: 'Port-Chafouin (2) et capitainerie (35)',
+    type: 'info',
+    x: 25,
+    y: 62,
+    quartier: 'Port-Chafouin',
+    description: "Bateaux de fret, de pêche, le bac pour traverser l'Elibed et la capitainerie pour affréter un navire vers la mer d'Embarh.",
+    action: {
+      bouton: 'Demander un bateau à la capitainerie',
+      texte:
+        "Le capitaine de port feuillette un registre. « Pour la mer d'Embarh, c'est 40 pièces d'or et vous ramez à l'aller. Pour la traversée, le bac, c'est 2 pièces d'argent. Et ne traînez pas sur les quais la nuit : les pirates mauves aiment bien les touristes. »",
+    },
+  },
+  {
+    id: 'broucar',
+    nom: 'Auberge du Gros Broucar (3)',
+    type: 'auberge',
+    x: 40,
+    y: 48.5,
+    quartier: 'Rue des Négociants',
+    description:
+      "L'auberge que tous les habitants conseillent : propre, bien tenue, des missions honnêtes et un bon lit. Un broucar empaillé de deux mètres orne la salle commune ; le grand-père du patron l'aurait pêché à la sortie de la Piblotte.",
+    auberge: { repas: 2, chambre: 4, confort: 'normal' },
+    rumeurs: 'normales',
+  },
+  {
+    id: 'universite',
+    nom: 'Université Nouvelle de Magie du Centre (12)',
+    type: 'info',
+    x: 48.5,
+    y: 18,
+    quartier: 'Rue du Square',
+    description: "Une université moderne, fière d'enseigner une magie « du Centre », par opposition à celle de Waldorg qu'on trouve ici un peu prétentieuse.",
+    action: {
+      bouton: 'Visiter l’université',
+      texte: "Un étudiant te montre l'amphithéâtre. « Ici on fait de la magie pratique : sorts de commerce, sorts anti-vol, sorts de conservation du poisson. C'est moins glorieux qu'une boule de feu, mais ça paie le loyer. »",
+    },
+  },
+  {
+    id: 'fortin',
+    nom: 'Fortin de Kjaniouf (19)',
+    type: 'info',
+    x: 37,
+    y: 64,
+    quartier: 'Port-Chafouin',
+    description: "Ici on entraîne les miliciens de la ville et des villages. Les gardes de Kjaniouf sont réputés : il faut bien, avec tous ces marchands à protéger.",
+    action: {
+      bouton: 'Parler au sergent instructeur',
+      texte: "« Des barbares viennent vendre des peaux et repartent parfois avec des poules qui ne sont pas à eux. Les pirates mauves ont attaqué les docks l'an dernier. Si tu sais te battre, le bureau des emplois paie bien pour des escortes de caravanes. »",
+    },
+  },
+  {
+    id: 'braav',
+    nom: "Grand Temple de Braav' du Centre (20)",
+    type: 'info',
+    x: 83,
+    y: 72.5,
+    quartier: 'Les Lucioles',
+    description: "Un temple imposant, lieu de pèlerinage pour les adeptes du dieu de la bravoure. Les pèlerins s'y bousculent avec des armes qu'ils n'ont jamais utilisées.",
+    action: {
+      bouton: "Prier Braav'",
+      texte: "Un prêtre en armure te bénit d'une claque dans le dos. « Braav' aime ceux qui foncent. Il aime moins ceux qui réfléchissent. » Tu te sens plein de courage, et un peu bête.",
+    },
+  },
+  {
+    id: 'emplois',
+    nom: 'Bureau des emplois (21)',
+    type: 'emplois',
+    x: 41,
+    y: 38,
+    quartier: 'Place des Zuvils',
+    description: "Escortes de caravanes, gardes de nuit sur les docks, chasse aux rats dans les entrepôts : à Kjaniouf, le travail ne manque pas.",
+  },
+  {
+    id: 'eclair-bleu',
+    nom: "L'Éclair Bleu (24)",
+    type: 'boutique',
+    x: 57.5,
+    y: 21,
+    quartier: 'Place Glouk',
+    description: "Le plus grand magasin d'objets magiques de cette partie du pays : articles de sorcellerie, potions et grimoires.",
+    boutique: {
+      stock: ['potion-soin', 'potion-soin-forte', 'potion-plaies', 'potion-de-mana-des-bitos', 'potion-de-mana-rouge', 'baton-sorcier-perrave', 'baton-sorcier'],
+      prix: 1,
+      rachat: 0.5,
+      rachete: ['potion', 'arme'],
+    },
+  },
+  {
+    id: 'anti-piege',
+    nom: "L'Anti-Piège (25)",
+    type: 'boutique',
+    x: 70,
+    y: 46.5,
+    quartier: 'Impasse Mouarf',
+    description: "Le grand magasin pour aventuriers de la région. Le vendeur jure que tout est garanti contre les pièges. La garantie ne couvre pas les pièges.",
+    boutique: {
+      stock: [...MATERIEL, 'outils-crochetage', 'instrument', 'dague-qualite', 'dague-recourbee', 'epee-correcte', 'epee-bonne', 'glaive-allonge', 'hache-correcte', 'marteau-correct', 'gambison-correct', 'plastron-cuir-bouilli', 'plastron-cuir-renforce', 'tenue-eclaireur', 'arc-court-de-qualite-correcte', 'arbalete-de-qualite-correcte', 'fleches-lot', 'carreaux-lot'],
+      prix: 1,
+      rachat: 0.4,
+      rachete: ['materiel', 'arme', 'armure'],
+    },
+  },
+  {
+    id: 'grand-hotel',
+    nom: 'Grand Hôtel de Kjaniouf (26)',
+    type: 'auberge',
+    x: 59,
+    y: 42,
+    quartier: 'Parvis Rouge',
+    description: 'Nobles en voyage et riches marchands. Les draps sont en soie et le portier évalue ta bourse avant de te dire bonjour.',
+    auberge: { repas: 4, chambre: 10, confort: 'excellent' },
+  },
+  {
+    id: 'goudillor',
+    nom: 'Établissement Goudillor (30)',
+    type: 'boutique',
+    x: 84,
+    y: 34,
+    quartier: 'Promenade du Canal',
+    description:
+      "La manufacture des fameuses Goudilles, biscuits exportés dans toute la Terre de Fangh. La recette est secrète depuis des siècles ; les frères Yan et Jules Goudillor la gardent jalousement. Le magasin vend des paquets de Goudilles, qui se gardent très bien en voyage.",
+    boutique: { stock: ['rations'], prix: 0.8 },
+  },
+  {
+    id: 'turlada',
+    nom: 'Brasserie Turlada (32)',
+    type: 'bar',
+    x: 9,
+    y: 43,
+    quartier: 'Rue Zang',
+    description: "On y brasse la Turlada Ambrée et la Turlada Fraise, deux bières de renom qu'on peut revendre cher, même à des nains.",
+    chope: 1,
+  },
+  {
+    id: 'criee',
+    nom: 'Grand marché aux poissons (33)',
+    type: 'marche',
+    x: 43.5,
+    y: 76.5,
+    quartier: 'La Criée',
+    description: "Poissons d'eau douce et de mer, crustacés et bestioles aquatiques non identifiées. Ça ne voyage pas bien, sauf le poisson séché.",
+    boutique: { stock: ['rations', 'corde', 'gourde'], prix: 0.8, rachat: 0.3, rachete: ['materiel'] },
+  },
+  {
+    id: 'gros-melons',
+    nom: 'Les Gros Melons (34)',
+    type: 'bar',
+    x: 77,
+    y: 50.5,
+    quartier: 'Les Docks',
+    description:
+      "Le bistrot de Francine, célèbre dans toute la région pour son étonnante poitrine et sa langue bien pendue. Il est fortement déconseillé d'essayer de la toucher. Brigands, mauvaises fréquentations et curieux s'y retrouvent, autour de la meilleure Turlada ambrée de la région.",
+    chope: 1,
+    rumeurs: 'louches',
+  },
+  {
+    id: 'azathrelle',
+    nom: "Tour bleue d'Azathrelle (36)",
+    type: 'info',
+    x: 77,
+    y: 87,
+    quartier: 'Ruelle des Saligots',
+    description: "La haute tour de la magicienne Azathrelle, niveau 11. Elle n'aime pas la concurrence, ni les visiteurs, ni beaucoup de choses.",
+    action: {
+      bouton: 'Frapper à la porte de la tour',
+      texte: "Un œil magique apparaît dans la porte. « Vous êtes mage ? Non ? Tant mieux. Revenez quand vous aurez quelque chose d'intéressant à vendre. Un œil de basilic, par exemple. » L'œil disparaît.",
+    },
+  },
+  {
+    id: 'guerisseur',
+    nom: 'Guérisseur',
+    type: 'soins',
+    x: 63,
+    y: 46,
+    quartier: 'Parvis Rouge',
+    description: "Spécialiste des blessures de marins et des coups de couteau du samedi soir. Il travaille vite et facture bien.",
+    prixSoin: 2,
+    boutique: { stock: ['potion-soin', 'potion-plaies'], prix: 1, rachat: 0.5, rachete: ['potion'] },
+  },
+  {
+    id: 'forge',
+    nom: 'Forgeron',
+    type: 'boutique',
+    x: 64,
+    y: 72,
+    quartier: 'Rue de la Grande Crue',
+    description: "Il ferre les chevaux des caravanes et vend des armes aux gardes. Ses lames sont honnêtes, ses prix un peu moins.",
+    boutique: {
+      stock: ['dague-base', 'epee-correcte', 'epee-bonne', 'hache-correcte', 'marteau-correct', 'lance-base', 'batarde', 'gambison-correct', 'plastron-cuir-renforce', 'cotte-sans-manches', 'javelot-de-base'],
+      prix: 1.05,
+      rachat: 0.35,
+      rachete: ['arme', 'armure'],
+    },
+  },
+  {
+    id: 'jolifanfan',
+    nom: 'Club Jolifanfan (5)',
+    type: 'info',
+    x: 93.5,
+    y: 7.5,
+    quartier: 'Les Villas',
+    description:
+      "Club privé tenu par Fanfan. Les riches de la ville y ont leurs entrées, on y parle de sujets interdits loin des oreilles indiscrètes. Les Borginas et Charles de Martigan y passent leurs soirées.",
+    action: {
+      bouton: "Essayer d'entrer au club",
+      texte: "Fanfan te regarde par le judas. « Mon chou, c'est un club privé. Il faut être membre, ou riche, ou très drôle. Tu n'as l'air d'aucun des trois. » Il referme le judas avec un clin d'œil.",
+    },
+  },
+];
+
+export const RUMEURS_KJANIOUF = [
+  "Les pirates mauves préparent un coup sur les docks. Ils l'ont déjà fait, ils recommenceront.",
+  "La recette des Goudilles est enfermée dans un coffre que seuls les frères Goudillor savent ouvrir. Il paraît que la Guilde des Voleurs du Centre a un plan.",
+  "Le seigneur Chafouin veut une troisième statue de lui. Plus grande. La ville cherche un sculpteur, et des contribuables.",
+  "Francine des Gros Melons est très amie avec le patron de la brasserie Turlada. Très, très amie.",
+  "Des barbares sont en ville. Ils achètent du sel et vendent des peaux, et tout le monde compte ses poules.",
+  "Des marins vendent des drogues étranges de pays lointains, sur les docks, la nuit. La garde ferme les yeux, pour quelques pièces.",
+  "Azathrelle n'aime pas la concurrence. Le dernier mage qui a ouvert boutique en ville est reparti sous forme de crapaud.",
+];
+
+/** Rues de Kjaniouf relevées sur le plan, en % (voir valtordu.ts pour le principe). */
+export const RESEAU_KJANIOUF = {
+  noeuds: {
+    nord: [27, 2], cad1: [30, 12], grandplace: [34, 25], zuvils: [42, 31], inv1: [50, 38], inv2: [56, 46], neg1: [36, 42], neg2: [47, 45],
+    lamp0: [8, 16], lamp1: [19, 23], simp: [13, 36], runes1: [27, 30], runes2: [29, 41], zang: [22, 46], turlada: [11, 42], port: [27, 57],
+    def1: [37, 55], def2: [45, 62], criee: [48, 70], marteaux: [53, 58], crue1: [58, 71], crue2: [65, 64], bonne: [63, 53], parvis: [65, 41],
+    picol: [57, 32], etrang: [64, 28], glouk: [60, 13], square: [48, 12], canal1: [70, 10], canal2: [70, 24], sanss: [73, 38], canal3: [79, 40],
+    docks: [80, 51], prun1: [78, 7], prun2: [86, 8], villas: [92, 12], yaga: [90, 53], pontF: [66, 75], marchands1: [67, 84], sud: [67, 93],
+    saligots: [78, 82], mijaurees: [89, 79],
+  } as Record<string, [number, number]>,
+  aretes: [
+    ['nord', 'cad1'], ['cad1', 'grandplace'], ['grandplace', 'zuvils'], ['zuvils', 'inv1'], ['inv1', 'inv2'], ['zuvils', 'neg1'], ['neg1', 'neg2'],
+    ['neg2', 'inv2'], ['cad1', 'lamp1'], ['lamp1', 'lamp0'], ['lamp1', 'simp'], ['simp', 'turlada'], ['grandplace', 'runes1'], ['runes1', 'runes2'],
+    ['runes2', 'zang'], ['zang', 'turlada'], ['zang', 'port'], ['runes2', 'neg1'], ['port', 'def1'], ['def1', 'def2'], ['neg1', 'def1'],
+    ['def2', 'criee'], ['def2', 'marteaux'], ['marteaux', 'inv2'], ['criee', 'crue1'], ['crue1', 'crue2'], ['crue2', 'bonne'], ['bonne', 'inv2'],
+    ['inv2', 'parvis'], ['inv1', 'picol'], ['picol', 'etrang'], ['etrang', 'glouk'], ['glouk', 'square'], ['square', 'cad1'], ['glouk', 'canal1'],
+    ['canal1', 'canal2'], ['canal2', 'sanss'], ['parvis', 'sanss'], ['sanss', 'canal3'], ['canal3', 'docks'], ['bonne', 'docks'], ['canal1', 'prun1'],
+    ['prun1', 'prun2'], ['prun2', 'villas'], ['docks', 'yaga'], ['crue2', 'pontF'], ['pontF', 'marchands1'], ['marchands1', 'sud'],
+    ['marchands1', 'saligots'], ['saligots', 'mijaurees'], ['mijaurees', 'yaga'],
+  ] as [string, string][],
+  acces: {
+    porte: 'nord', mairie: 'grandplace', port: 'port', broucar: 'neg1', universite: 'square', fortin: 'def1', braav: 'mijaurees', emplois: 'zuvils',
+    'eclair-bleu': 'glouk', 'anti-piege': 'docks', 'grand-hotel': 'parvis', goudillor: 'canal3', turlada: 'turlada', criee: 'criee',
+    'gros-melons': 'docks', azathrelle: 'saligots', guerisseur: 'inv2', forge: 'pontF', jolifanfan: 'villas',
+  } as Record<string, string>,
+};

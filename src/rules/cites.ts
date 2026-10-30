@@ -1,8 +1,17 @@
+import { LIEUX_CHNAFON, RESEAU_CHNAFON, RUMEURS_CHNAFON } from './chnafon';
+import { LIEUX_FQUIEPOU, RESEAU_FQUIEPOU, RUMEURS_FQUIEPOU } from './fquiepou';
+import { LIEUX_GLARGH, RESEAU_GLARGH, RUMEURS_GLARGH } from './glargh';
+import { LIEUX_JAMBFER, RESEAU_JAMBFER, RUMEURS_JAMBFER } from './jambfer';
+import { LIEUX_KJANIOUF, RESEAU_KJANIOUF, RUMEURS_KJANIOUF } from './kjaniouf';
+import { LIEUX_LOUBET, RESEAU_LOUBET, RUMEURS_LOUBET } from './loubet';
+import { LIEUX_MLIUEJ, RESEAU_MLIUEJ, RUMEURS_MLIUEJ } from './mliuej';
+import { LIEUX_TULAMOR, RESEAU_TULAMOR, RUMEURS_TULAMOR } from './tulamor';
 import { longueur, pointA, RAPPORT_PLAN, trajet, type Point } from './rues';
 import { LIEUX_VALTORDU, RESEAU_VALTORDU, RUMEURS_VALTORDU } from './valtordu';
 import { LIEUX, RUMEURS_LOUCHES, RUMEURS_NORMALES, type Lieu } from './waldorg';
 
-// Les villes jouables, avec leur plan : Waldorg (la capitale) et Valtordu (le village des débutants).
+// Les villes jouables, avec leur plan officiel : Waldorg (la capitale), Valtordu (le village des débutants)
+// et les autres villes et villages cartographiés de la Terre de Fangh.
 
 export interface Cite {
   id: string;
@@ -55,6 +64,134 @@ export const CITES: Cite[] = [
     ],
     heuresTraversee: 0.4,
     sortie: "Quitter Valtordu par le chemin de l'Est",
+  },
+  {
+    id: 'loubet',
+    nom: 'Loubet',
+    sousTitre: "La ville sans histoires, sur la Glandebruine. Il ne s'y passe rien, et c'est sa fierté.",
+    lieux: LIEUX_LOUBET,
+    rapport: 1600 / 1131,
+    reseau: RESEAU_LOUBET,
+    lieuMonde: 'loubet',
+    rumeurs: { normales: RUMEURS_LOUBET, louches: RUMEURS_LOUBET },
+    arrivee: [
+      "{nom} descend la route de Valtordu entre deux champs de choux. Loubet somnole au bord de la Glandebruine : un chat traverse la rue, s'arrête au milieu, et décide que ça ne vaut pas la peine de continuer.",
+      "Un vieux assis devant sa porte te regarde passer. « Un aventurier ? Ici ? » Il réfléchit longuement. « Le musée du Fauteuil est ouvert. Enfin, je crois. »",
+    ],
+    heuresTraversee: 0.35,
+    sortie: 'Quitter Loubet par la route de Valtordu',
+  },
+  {
+    id: 'fquiepou',
+    nom: 'Fquiepou',
+    sousTitre: "« Joyau de l'Est », la ville du savon, au confluent de la Syé et de la Zoc. Riche, propre, et jalouse de ses recettes.",
+    lieux: LIEUX_FQUIEPOU,
+    rapport: 2304 / 3219,
+    reseau: RESEAU_FQUIEPOU,
+    lieuMonde: 'fquiepou',
+    rumeurs: { normales: RUMEURS_FQUIEPOU, louches: RUMEURS_FQUIEPOU },
+    arrivee: [
+      "{nom} arrive par la route de Waldorg, entre les fermes et les champs. Pas de rempart à Fquiepou : juste une odeur de savon qui flotte sur toute la ville, et des tours de guet le long du fleuve contre les pirates d'eau douce.",
+      "Un enfant te tend un prospectus : « Savonnerie Gilbert, la vraie recette ! » Un autre, plus loin, t'en tend un autre : « Savonnerie Marcellin, la VRAIE vraie recette ! »",
+    ],
+    heuresTraversee: 0.6,
+    sortie: 'Quitter Fquiepou par la route de Waldorg',
+  },
+  {
+    id: 'kjaniouf',
+    nom: 'Kjaniouf',
+    sousTitre: "Le « Comptoir du Centre », ville de marchands près de l'embouchure de l'Elibed. On y vend de tout, on y vole de tout.",
+    lieux: LIEUX_KJANIOUF,
+    rapport: 1600 / 1131,
+    reseau: RESEAU_KJANIOUF,
+    lieuMonde: 'kjaniouf',
+    rumeurs: { normales: RUMEURS_KJANIOUF, louches: RUMEURS_KJANIOUF },
+    arrivee: [
+      "{nom} entre à Kjaniouf par l'avenue Caddyro. Pas de rempart, mais des tours et des gardes partout, qui te regardent comme un voleur potentiel. Ce qui, à Kjaniouf, est un compliment.",
+      "Sur la Grand'Place, une statue du seigneur Jean-Yves Chafouin te contemple d'un air satisfait. Un marchand te propose des Goudilles « parfum rare ».",
+    ],
+    heuresTraversee: 0.7,
+    sortie: 'Quitter Kjaniouf par l’avenue Caddyro',
+  },
+  {
+    id: 'tulamor',
+    nom: 'Tulamor',
+    sousTitre: 'La « Croisée des grandes routes », au sud de la forêt de Schlipak. Saucisses sèches, dinde fumée et monstres errants.',
+    lieux: LIEUX_TULAMOR,
+    rapport: 2269 / 1604,
+    reseau: RESEAU_TULAMOR,
+    lieuMonde: 'tulamor',
+    rumeurs: { normales: RUMEURS_TULAMOR, louches: RUMEURS_TULAMOR },
+    arrivee: [
+      "{nom} passe le poste de garde de la route Farfelue et traverse la Spirloutte. Tulamor sent la saucisse sèche, la dinde fumée et l'alcool de la distillerie Kelkannie.",
+      "Un soldat t'arrête : « Avec Marzol, tu fais pas ton mariolle ! » Puis il te laisse passer en ricanant.",
+    ],
+    heuresTraversee: 0.5,
+    sortie: 'Quitter Tulamor par la route Farfelue',
+  },
+  {
+    id: 'mliuej',
+    nom: 'Mliuej',
+    sousTitre: 'La « Cité de la bière », au pied des montagnes du Nord. Plus de 500 bières, et des rues larges pour les ivrognes.',
+    lieux: LIEUX_MLIUEJ,
+    rapport: 1600 / 1130,
+    reseau: RESEAU_MLIUEJ,
+    lieuMonde: 'mliuej',
+    rumeurs: { normales: RUMEURS_MLIUEJ, louches: RUMEURS_MLIUEJ },
+    arrivee: [
+      "{nom} arrive à Mliuej par l'avenue d'Odilderay, juste à l'heure où toute la ville quitte les brasseries pour les tavernes. Un « bouchon » de badauds à demi ivres t'emporte jusqu'au marché aux bières.",
+      "Un nain te tape sur l'épaule. « Première fois ? Commence par la Goulize, finis par la Kanterbouref, et ne t'approche pas du Tabouret à l'Envers. »",
+    ],
+    heuresTraversee: 0.6,
+    sortie: "Quitter Mliuej par l'avenue d'Odilderay",
+  },
+  {
+    id: 'chnafon',
+    nom: 'Chnafon',
+    sousTitre: "Une ville fortifiée sur la rive ouest du lac de Zblouf. Ses habitants sont fâchés avec tout le monde, et ses gardes ont faim de pièces.",
+    lieux: LIEUX_CHNAFON,
+    rapport: 1600 / 1130,
+    reseau: RESEAU_CHNAFON,
+    lieuMonde: 'chnafon',
+    rumeurs: { normales: RUMEURS_CHNAFON, louches: RUMEURS_CHNAFON },
+    arrivee: [
+      "{nom} arrive à la porte ouest de Chnafon. Une pancarte porte le nom de la ville ; quelqu'un a ajouté en dessous « À vos souhaits ».",
+      "Le garde tend la main. « Droit de passage. » Il n'y a pas de tarif affiché. Il n'y en a jamais eu.",
+    ],
+    heuresTraversee: 0.5,
+    sortie: 'Quitter Chnafon par la porte ouest',
+  },
+  {
+    id: 'glargh',
+    nom: 'Glargh',
+    sousTitre: "La « capitale de l'aventure », à l'embouchure de l'Elibed. Moines, marchands, gladiateurs, et tout ce qui se vend, même ce qui n'existe pas.",
+    lieux: LIEUX_GLARGH,
+    rapport: 2000 / 1399,
+    reseau: RESEAU_GLARGH,
+    lieuMonde: 'glargh',
+    rumeurs: { normales: RUMEURS_GLARGH, louches: RUMEURS_GLARGH },
+    arrivee: [
+      "{nom} entre dans Glargh par la rue de l'Est, au milieu des chariots, des camelots de la place des Kundars et des supporters de Brute-Balle qui chantent faux.",
+      "Un marchand te prend par le bras : « Une relique authentique de Crôm ? Un billet pour le Stade ? Un plan de la ville avec les toilettes ? » Bienvenue à Glargh.",
+    ],
+    heuresTraversee: 1.2,
+    sortie: "Quitter Glargh par la rue de l'Est",
+  },
+  {
+    id: 'jambfer',
+    nom: 'Jambfer',
+    sousTitre: "La mine de Jambfer, cité naine sous les montagnes du Nord. Tout le monde y est chiant et radin, et tout est payant.",
+    lieux: LIEUX_JAMBFER,
+    rapport: 2200 / 1555,
+    reseau: RESEAU_JAMBFER,
+    lieuMonde: 'jambfer',
+    rumeurs: { normales: RUMEURS_JAMBFER, louches: RUMEURS_JAMBFER },
+    arrivee: [
+      "{nom} grimpe au-dessus du village de Birtek jusqu'au poste de garde de la galerie piétonnière. Les gardes nains examinent ton équipement en marmonnant, puis encaissent la taxe d'entrée.",
+      "Une centaine de mètres de galerie plus loin, l'air devient une soupe de fumées et d'odeurs. Il n'y a aucun panneau en langage commun : demander son chemin, c'est payant.",
+    ],
+    heuresTraversee: 0.15,
+    sortie: "Ressortir de la mine par la galerie de l'extérieur",
   },
 ];
 

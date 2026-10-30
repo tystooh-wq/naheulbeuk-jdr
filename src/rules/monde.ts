@@ -171,12 +171,9 @@ export const LIEUX_MONDE: LieuMonde[] = [
     x: 537,
     y: 1333,
     zone: 'campagne',
-    planAVenir: true,
-    guerisseur: 1,
+    ville: 'loubet',
     description:
       "Le village sans aventure, sur la rivière Glandebruine, en aval de Valtordu. Son seul fait d'armes : un gamin de huit ans (le futur Ranger) y a réparé un fauteuil à bascule. Ville-étape sur la route du sud. Une vieille rebouteuse y soigne pour pas cher.",
-    auberge: { nom: "L'Auberge du Fauteuil", repas: 1, chambre: 2, confort: 'normal' },
-    rations: 4,
   },
   {
     id: 'varig',
@@ -226,13 +223,9 @@ export const LIEUX_MONDE: LieuMonde[] = [
     x: 882,
     y: 888,
     zone: 'campagne',
-    planAVenir: true,
-    echoppe: true,
-    guerisseur: 2,
+    ville: 'chnafon',
     description:
       "Une ville fortifiée au bord du lac de Zblouf, avec son château, son école de magie, sa guilde des voleurs et sa guilde des marchands (qui ne s'aiment pas). À la porte, les gardes demandent parfois un « droit de passage ».",
-    auberge: { nom: 'La Chaise Boiteuse', repas: 1, chambre: 2, confort: 'normal' },
-    rations: 4,
   },
   {
     id: 'boladar',
@@ -252,13 +245,9 @@ export const LIEUX_MONDE: LieuMonde[] = [
     x: 780,
     y: 695,
     zone: 'campagne',
-    planAVenir: true,
-    echoppe: true,
-    guerisseur: 2,
+    ville: 'mliuej',
     description:
       "La capitale de la bière ! Quatre brasseries, une école de brassage, un marché aux bières et des nains partout. Le Temple de la Bière n'est pas un lieu de culte, quoique.",
-    auberge: { nom: 'Les 16 Chopines', repas: 2, chambre: 6, confort: 'excellent' },
-    rations: 4,
   },
   {
     id: 'birtek',
@@ -278,7 +267,7 @@ export const LIEUX_MONDE: LieuMonde[] = [
     x: 725,
     y: 465,
     zone: 'foret',
-    planAVenir: true,
+    ville: 'jambfer',
     description:
       "La cité souterraine des nains, berceau du Nain de la compagnie des Fiers de Hache. Tous les PNJ y sont chiants et radins, mais la bière est bonne et les haches excellentes.",
   },
@@ -332,13 +321,9 @@ export const LIEUX_MONDE: LieuMonde[] = [
     x: 1172,
     y: 1205,
     zone: 'campagne',
-    planAVenir: true,
-    echoppe: true,
-    guerisseur: 2,
+    ville: 'tulamor',
     description:
       "Un village important au sud de la forêt de Schlipak, carrefour des routes Glargh-Zoyek-Noghall et Kjaniouf-Plorodou-Chnafon-Mliuej. Plaque tournante commerciale, avec la magicienne Barmizva, le tailleur de gemmes Kurvil et Francis, le patron du bazar, toujours au courant des affaires louches.",
-    auberge: { nom: 'Le Carrefour', repas: 1, chambre: 2, confort: 'normal' },
-    rations: 4,
   },
   {
     id: 'doduville',
@@ -378,13 +363,9 @@ export const LIEUX_MONDE: LieuMonde[] = [
     x: 1568,
     y: 1070,
     zone: 'terres-sauvages',
-    planAVenir: true,
-    echoppe: true,
-    guerisseur: 2,
+    ville: 'glargh',
     description:
       "La grande cité du centre, sur le fleuve Elibed : musée, temples de Braav', de Caddyro et de Dlul, grand comptoir marchand, librairie pour sorciers, entrepôts des bateliers et police fluviale. On y trouve de tout, surtout des ennuis.",
-    auberge: { nom: 'La Fourchette Vaillante', repas: 1, chambre: 2, confort: 'normal' },
-    rations: 4,
   },
   {
     id: 'bardol',
@@ -404,13 +385,9 @@ export const LIEUX_MONDE: LieuMonde[] = [
     x: 1570,
     y: 1285,
     zone: 'terres-sauvages',
-    planAVenir: true,
-    echoppe: true,
-    guerisseur: 2,
+    ville: 'kjaniouf',
     description:
       "Le « Comptoir du Centre », près de l'embouchure du fleuve Elibed. Marchands, poissons, docks animés la nuit et goudilles, ces célèbres biscuits. Les gardes y sont aguerris : les Pirates Mauves attaquent parfois.",
-    auberge: { nom: 'La Goudille Dorée', repas: 1, chambre: 2, confort: 'normal' },
-    rations: 4,
   },
   {
     id: 'bourg-de-baie',
@@ -439,13 +416,9 @@ export const LIEUX_MONDE: LieuMonde[] = [
     type: 'ville',
     x: 2530,
     y: 955,
-    planAVenir: true,
-    echoppe: true,
-    guerisseur: 2,
+    ville: 'fquiepou',
     description:
       "Le « Joyau de l'Est », au sud du bois N'talamela, sur le fleuve Syé : son savon célèbre (ingrédient magique qui lave aussi n'importe quoi), sa halle aux poissons, ses nains blonds de l'Est et ses sylvains qui les évitent.",
-    auberge: { nom: 'Le Savon Doré', repas: 1, chambre: 2, confort: 'normal' },
-    rations: 4,
   },
 ];
 

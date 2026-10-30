@@ -51,7 +51,7 @@ describe('quêtes', () => {
     expect(accepterQuete(p, 'colis-loubet')).toBeNull();
     expect(p.sac).toContain('colis-ozonuc');
     expect(vendre(p, 'colis-ozonuc', 5)).not.toBeNull();
-    expect(etapesIci(p, 'monde:loubet')).toHaveLength(1);
+    expect(etapesIci(p, 'ville:loubet:herboriste')).toHaveLength(1);
     validerEtape(p, 'colis-loubet');
     expect(p.sac).not.toContain('colis-ozonuc');
     expect(p.sac).toContain('lettre-loubet');

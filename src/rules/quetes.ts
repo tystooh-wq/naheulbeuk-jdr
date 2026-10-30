@@ -87,8 +87,8 @@ export const QUETES: Quete[] = [
       "« Ma collègue de Loubet attend ces herbes depuis trois semaines. Le coursier s'est cassé une jambe, ce qui est ironique pour un client de guérisseur. Tu suis la Glandebruine vers le sud, c'est à une demi-journée. Ne mange pas les herbes. »",
     etapes: [
       {
-        ou: 'monde:loubet',
-        objectif: "Porter le colis d'herbes à la rebouteuse de Loubet, au sud en suivant la rivière.",
+        ou: 'ville:loubet:herboriste',
+        objectif: "Porter le colis d'herbes à la vieille herboriste de Loubet, au sud en suivant la rivière.",
         action: "Remettre le colis d'herbes à la rebouteuse",
         recit:
           "La rebouteuse de Loubet ouvre le colis, renifle, et sourit de toutes ses dents (il en reste quatre). « Enfin ! Dis à Archibald que je lui dois une fiole. » Elle te confie une lettre cachetée pour lui.",

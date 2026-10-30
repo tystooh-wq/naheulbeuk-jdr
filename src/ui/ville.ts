@@ -1,5 +1,13 @@
 import planWaldorg from '../assets/waldorg.jpg';
 import planValtordu from '../assets/valtordu.jpg';
+import planLoubet from '../assets/loubet.jpg';
+import planFquiepou from '../assets/fquiepou.jpg';
+import planKjaniouf from '../assets/kjaniouf.jpg';
+import planTulamor from '../assets/tulamor.jpg';
+import planMliuej from '../assets/mliuej.jpg';
+import planChnafon from '../assets/chnafon.jpg';
+import planGlargh from '../assets/glargh.jpg';
+import planJambfer from '../assets/jambfer.jpg';
 import { calculerFiche } from '../rules/creation';
 import { lancer } from '../rules/des';
 import { objet, type Objet } from '../rules/objets';
@@ -65,7 +73,18 @@ interface Visite {
   message?: string;
 }
 
-const PLANS: Record<string, string> = { waldorg: planWaldorg, valtordu: planValtordu };
+const PLANS: Record<string, string> = {
+  waldorg: planWaldorg,
+  valtordu: planValtordu,
+  loubet: planLoubet,
+  fquiepou: planFquiepou,
+  kjaniouf: planKjaniouf,
+  tulamor: planTulamor,
+  mliuej: planMliuej,
+  chnafon: planChnafon,
+  glargh: planGlargh,
+  jambfer: planJambfer,
+};
 
 export interface SortiesVille {
   ouvrirFiche: () => void;
@@ -101,7 +120,7 @@ export const ecranVille = (app: HTMLElement, p: Partie, sorties: SortiesVille, a
 
   const plan = () => {
     const ici = lieu(p.lieu);
-    return `<div class="plan" id="plan">
+    return `<div class="plan ${c.rapport < 1 ? 'portrait' : ''}" id="plan">
       <img src="${plan_}" alt="Plan de ${echapper(c.nom)}" draggable="false" />
       ${LIEUX.map((l) => {
         const q = marqueQuete(p, ou(l));

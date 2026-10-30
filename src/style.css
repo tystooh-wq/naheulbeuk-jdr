@@ -1793,3 +1793,9 @@ button.pion {
 .combattant.le-heros {
   border-width: 3px;
 }
+
+/* Plan en hauteur (Fquiepou) : on le garde dans l'écran. */
+.plan.portrait {
+  max-width: min(100%, 62vh);
+  margin-inline: auto;
+}
