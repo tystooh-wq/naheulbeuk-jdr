@@ -1685,7 +1685,8 @@ button.combattant:hover {
   display: grid;
   grid-template-columns: repeat(var(--largeur), 1fr);
   gap: 2px;
-  margin: 0 0 12px;
+  max-width: 640px;
+  margin: 0 auto 12px;
   padding: 6px;
   border: 2px solid var(--bordure);
   border-radius: 6px;
