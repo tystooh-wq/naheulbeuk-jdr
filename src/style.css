@@ -2009,3 +2009,8 @@ section.compagnon h3 .note {
     display: none;
   }
 }
+
+.valeurs .modif {
+  color: var(--encre-douce);
+  font-size: 0.85em;
+}

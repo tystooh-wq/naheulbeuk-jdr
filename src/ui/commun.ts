@@ -36,6 +36,7 @@ const horloge = (p: Partie) => {
 import { lancer } from '../rules/des';
 import { caracMagie, ea, eaMax, soinLeger, sortsConnus } from '../rules/magie';
 import { valeursTir } from '../rules/tir';
+import { modEsquive } from '../rules/combat';
 import { animerDes, de, echapper } from './outils';
 
 // Éléments partagés par la ville et la carte du monde : bandeau du héros, sac, journal, vitesse.
@@ -157,20 +158,43 @@ export const ligneObjet = (p: Partie, o: Objet, droite: string) => {
   </div>`;
 };
 
+/** Les cinq caractéristiques du héros : [nom, valeur avec équipement et blessures, valeur de base]. */
+const caracsDuHeros = (p: Partie): [string, number, number][] => {
+  const f = calculerFiche(p.perso);
+  const v = valeursCombat(p);
+  const fo = blessuresActives(p).reduce((s, b) => s + (b.mods.FO ?? 0), 0);
+  return [
+    ['Courage', v.cou, f.caracs.COU],
+    ['Intelligence', f.caracs.INT, f.caracs.INT],
+    ['Charisme', v.cha, f.caracs.CHA],
+    ['Adresse', v.ad, f.caracs.AD],
+    ['Force', f.caracs.FO + fo, f.caracs.FO],
+  ];
+};
+
 export const panneauSac = (p: Partie, message?: string) => {
   const v = valeursCombat(p);
   const t = valeursTir(p);
   const ids = [...new Set(p.sac)];
+  const esquive = modEsquive(v.pr) === null ? null : v.ad + modEsquive(v.pr)!;
   return `<div class="panneau">
     <h2>Sac et équipement</h2>
+    <h3>Caractéristiques</h3>
     <div class="valeurs">
+      ${caracsDuHeros(p)
+        .map(([nom, val, base]) => `<div title="${val === base ? `${nom} ${base}` : `${nom} ${base} de base, ${val - base > 0 ? '+' : ''}${val - base} (équipement, blessures)`}"><b>${val}</b><span>${nom}${val !== base ? ` <span class="modif">(${base})</span>` : ''}</span></div>`)
+        .join('')}
+    </div>
+    <h3>Combat</h3>
+    <div class="valeurs">
+      <div><b>${p.ev}/${evMax(p)}</b><span>Énergie vitale</span></div>
+      ${eaMax(p) ? `<div><b>${ea(p)}/${eaMax(p)}</b><span>Énergie astrale</span></div>` : ''}
       <div><b>${v.at}</b><span>Attaque</span></div>
       <div><b>${v.prd}</b><span>Parade</span></div>
+      <div title="Adresse modifiée par l'armure (règles V4, 8.18)"><b>${esquive === null ? '—' : esquive}</b><span>Esquive</span></div>
       <div><b>${echapper(v.degats)}</b><span>Dégâts</span></div>
       <div><b>${v.pr}</b><span>Protection</span></div>
-      <div><b>${v.cha}</b><span>Charisme</span></div>
       ${t ? `<div><b>${t.ad}</b><span>Tir (AD)</span></div>` : ''}
-      ${eaMax(p) ? `<div><b>${ea(p)}/${eaMax(p)}</b><span>Énergie astrale</span></div>` : ''}
     </div>
     ${poupee(p)}
     <h3 style="margin-top:16px">Dans le sac</h3>
