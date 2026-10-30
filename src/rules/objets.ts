@@ -121,6 +121,7 @@ export const OBJETS: Objet[] = [
 
   // --- Matériel (Matériel et services V3.0) ----------------------------------
   // --- Spécialités de Valtordu (Valtordu pour le MJ, prix sur place) ---------------------------
+  { id: 'feuille-boucher', nom: 'Feuille de boucher des Jobard', type: 'arme', prix: 25, degats: '1D+2', mains: 1, mods: { PRD: -1 }, estime: true, description: "Le grand couperet de la boucherie familiale. Tranche le jarret de porc comme le jarret de gobelin. Pare mal." },
   { id: 'boudin-valtordu', nom: 'Boudin de Valtordu, nature (petit)', type: 'materiel', prix: 1, soin: '2', source: 'Valtordu pour le MJ', categorie: 'Denrées locales', effets: '+1 COU pendant 4 h (non géré)', description: "Très bon et très riche : rend 2 PV au lieu du simple PV d'un repas. Se conserve 3 jours. Ailleurs, il se revend deux fois plus cher." },
   { id: 'boudin-epices', nom: 'Boudin aux épices (petit)', type: 'materiel', prix: 2, soin: '2', source: 'Valtordu pour le MJ', categorie: 'Denrées locales', description: 'Se conserve 7 jours. Rend 2 PV.' },
   { id: 'boudin-oignons', nom: 'Boudin aux oignons (petit)', type: 'materiel', prix: 2, soin: '2', source: 'Valtordu pour le MJ', categorie: 'Denrées locales', description: 'Rend 2 PV. Haleine garantie.' },

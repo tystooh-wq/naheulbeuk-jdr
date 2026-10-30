@@ -1678,3 +1678,117 @@ button.combattant:hover {
 .reputation.compacte .jauge-rep {
   width: 60px;
 }
+
+/* --- Terrain du combat ----------------------------------------------------------- */
+
+.terrain {
+  display: grid;
+  grid-template-columns: repeat(var(--largeur), 1fr);
+  gap: 2px;
+  margin: 0 0 12px;
+  padding: 6px;
+  border: 2px solid var(--bordure);
+  border-radius: 6px;
+  background:
+    repeating-linear-gradient(45deg, rgba(120, 140, 70, 0.08) 0 6px, transparent 6px 12px),
+    linear-gradient(#d9cc97, #c9b77d);
+}
+
+.terrain .case {
+  position: relative;
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid rgba(107, 84, 52, 0.25);
+  border-radius: 3px;
+  background: rgba(251, 244, 226, 0.25);
+  font: inherit;
+}
+
+.terrain button.case.accessible {
+  cursor: pointer;
+  background: rgba(251, 244, 226, 0.85);
+  border: 1px dashed var(--encre);
+}
+
+.terrain button.case.accessible:hover,
+.terrain button.case.accessible:focus-visible {
+  background: #fff6e0;
+  outline: 2px solid var(--rouge);
+}
+
+.pion {
+  position: relative;
+  width: 82%;
+  height: 82%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 50%;
+  border: 2px solid var(--encre);
+  color: #fff;
+  font-family: 'Cinzel', Georgia, serif;
+  font-weight: 700;
+  font-size: clamp(0.6rem, 1.6vw, 0.95rem);
+  box-shadow: 0 2px 3px rgba(0, 0, 0, 0.35);
+  padding: 0;
+}
+
+.pion-heros { background: var(--rouge); }
+.pion-compagnon { background: #2f5d8a; }
+.pion-allie { background: var(--vert); }
+.pion-ennemi { background: #3b3127; }
+
+button.pion {
+  cursor: crosshair;
+  box-shadow: 0 0 0 3px #e0a43a;
+}
+
+.pion.son-tour {
+  outline: 3px solid #e0a43a;
+  outline-offset: 1px;
+}
+
+.pion.touche {
+  animation: touche-pion 0.45s ease-out;
+}
+
+@keyframes touche-pion {
+  0%, 100% { transform: scale(1); }
+  40% { transform: scale(0.8); filter: brightness(1.8); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pion.touche { animation: none; }
+}
+
+.pv-pion {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 4px;
+  background: #8fd46a;
+}
+
+.corps {
+  color: var(--encre-douce);
+  font-size: 1.1rem;
+}
+
+.pion-mini {
+  display: inline-block;
+  min-width: 1.6em;
+  padding: 0 3px;
+  border-radius: 9px;
+  color: #fff;
+  font-style: normal;
+  font-size: 0.75rem;
+  text-align: center;
+}
+
+.combattant.le-heros {
+  border-width: 3px;
+}

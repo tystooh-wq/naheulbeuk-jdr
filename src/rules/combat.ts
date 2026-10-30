@@ -1,7 +1,8 @@
 import { calculerFiche, cleCompetence } from './creation';
 import { lancer, type Rng } from './des';
-import { lancerExpression, valeursCombat, type Partie } from './partie';
-import { singulier, type Rencontre } from './rencontres';
+import { lancerExpression, valeursCombat, type EtatCompagnon, type Partie } from './partie';
+import { singulier, type LigneRencontre, type Rencontre } from './rencontres';
+import { tirCompagnon, vueCompagnon } from './compagnons';
 import { fouiller, type Fouille } from './butin';
 
 // Combat au contact, règles V4 (chapitres 8 et 10) :
@@ -9,8 +10,11 @@ import { fouiller, type Fouille } from './butin';
 // - un Assaut : chacun attaque une fois (D20 ≤ AT) et ne peut parer (D20 ≤ PRD) ou esquiver (D20 ≤ AD) qu'une fois ;
 // - dégâts au D6 moins la Protection, sauf sur une attaque critique ;
 // - 1 au D20 : critique, 20 : maladresse. Les tables de l'écran du MJ sont simplifiées ici (voir `maladresse`) ;
-// - un héros seul ne peut avoir que trois ennemis au contact, les autres attendent derrière ;
+// - trois ennemis au plus au contact d'un même combattant ;
 // - un monstre à 3 PV ou moins peut paniquer et s'enfuir (il rapporte quand même son XP).
+// Placement (choix du jeu, les règles n'ont pas de plateau) : un terrain en cases ; à son tour, chacun peut
+// avancer de PAS cases (diagonales comprises) puis agir. On frappe une case voisine ; on tire ou on lance
+// un sort tant qu'aucun ennemi n'est au contact. Les compagnons et alliés jouent seuls, comme les ennemis.
 
 export type Camp = 'heros' | 'ennemi';
 export type Etat = 'actif' | 'reserve' | 'mort' | 'fui';
@@ -20,6 +24,13 @@ export interface Combattant {
   id: string;
   nom: string;
   camp: Camp;
+  /** Case du terrain (colonne, ligne). */
+  x: number;
+  y: number;
+  /** Compagnon du héros (identifiant de compagnons.ts) : il se bat seul, à ses côtés. */
+  compagnon?: string;
+  /** Allié de passage (des elfes en difficulté…), du côté du héros. */
+  allie?: boolean;
   at: number;
   prd: number;
   ad: number;
@@ -40,7 +51,7 @@ export interface Combattant {
   rate: number;
   /** A déjà paré ou esquivé pendant cet assaut. */
   defendu: boolean;
-  /** Ennemi armé d'un arc ou d'une arbalète : il tire pendant l'approche. */
+  /** Armé d'un arc ou d'une arbalète : il tire tant que personne n'est à son contact. */
   tireur?: { ad: number; degats: string };
   /** Compétences du héros qui jouent en combat (voir talents.ts). */
   talents?: {
@@ -93,8 +104,11 @@ export interface Combat {
   assaut: number;
   journal: string[];
   fin?: 'victoire' | 'defaite' | 'fuite';
-  /** Assauts avant que les ennemis n'arrivent au contact : on peut tirer ou lancer des sorts. */
-  distance: number;
+  /** Taille du terrain, en cases. */
+  largeur: number;
+  hauteur: number;
+  /** Le combattant dont c'est le tour s'est déjà déplacé. */
+  deplace?: boolean;
   /** Assauts avant que l'arme à distance du héros soit rechargée. */
   recharge: number;
   /** L'arme de jet du héros est partie (on la ramasse après une victoire). */
@@ -104,6 +118,10 @@ export interface Combat {
 }
 
 export const AU_CONTACT = 3;
+/** Cases parcourues à chaque tour. */
+export const PAS = 2;
+export const LARGEUR = 10;
+export const HAUTEUR = 5;
 
 const aCompetence = (p: Partie, nom: string) => {
   const c = calculerFiche(p.perso).competences;
@@ -114,14 +132,16 @@ const aCompetence = (p: Partie, nom: string) => {
 export const modEsquive = (pr: number): number | null =>
   pr <= 1 ? 1 : pr === 2 ? 0 : pr <= 4 ? -2 : pr === 5 ? -4 : pr === 6 ? -5 : pr === 7 ? -6 : null;
 
-export const creerHeros = (p: Partie): Combattant => {
+export const creerHeros = (p: Partie, id = 'heros', evMax?: number): Combattant => {
   const v = valeursCombat(p);
   const armee = !!p.equipe.arme;
   const bourrePif = aCompetence(p, 'Bourre-pif');
   return {
-    id: 'heros',
+    id,
     nom: p.perso.nom,
     camp: 'heros',
+    x: 0,
+    y: 0,
     // À mains nues (8.10) : AT −4 et 1D−2 de dégâts, sauf avec Bourre-pif (1D + bonus de FO).
     at: armee || bourrePif ? v.at : v.at - 4,
     prd: v.prd,
@@ -130,7 +150,7 @@ export const creerHeros = (p: Partie): Combattant => {
     cou: v.cou,
     degats: armee ? v.degats : bourrePif ? v.degats.replace(/^1D-2/, '1D') : v.degats,
     ev: p.ev,
-    evMax: calculerFiche(p.perso).ev,
+    evMax: evMax ?? calculerFiche(p.perso).ev,
     xp: 0,
     etat: 'actif',
     sansParade: !armee,
@@ -157,14 +177,22 @@ const tireurDe = (notes: string, degats: string, ad: number) => {
   return { ad: a, degats: d ?? degats.replace('*', '') };
 };
 
-export const creerEnnemis = (r: Rencontre): Combattant[] => {
-  const groupes = [{ ligne: r.ligne, nombre: r.nombre }, ...(r.avec ?? [])];
+/** Un compagnon du héros, avec sa fiche et son équipement. */
+export const creerCompagnon = (p: Partie, e: EtatCompagnon): Combattant => {
+  const x = creerHeros(vueCompagnon(p, e), `c-${e.id}`, e.evMax);
+  const t = tirCompagnon(p, e);
+  return { ...x, compagnon: e.id, tireur: t ? { ad: t.ad, degats: t.degats } : undefined };
+};
+
+const depuisLignes = (groupes: { ligne: LigneRencontre; nombre: number }[], camp: Camp, prefixe: string): Combattant[] => {
   const tous = groupes.flatMap(({ ligne: l, nombre }) => {
     const ad = Number(/AD (\d+)/.exec(l.notes)?.[1] ?? 10);
     const base = singulier(l);
     return Array.from({ length: nombre }, (_, i) => ({
       nom: nombre > 1 ? `${base} ${i + 1}` : base,
-      camp: 'ennemi' as Camp,
+      camp,
+      x: 0,
+      y: 0,
       at: l.at,
       prd: l.prd,
       ad,
@@ -181,8 +209,10 @@ export const creerEnnemis = (r: Rencontre): Combattant[] => {
       defendu: false,
     }));
   });
-  return tous.map((c, i) => ({ ...c, id: `e${i + 1}`, etat: (i < AU_CONTACT ? 'actif' : 'reserve') as Etat }));
+  return tous.map((c, i) => ({ ...c, id: `${prefixe}${i + 1}`, etat: 'actif' as Etat, allie: camp === 'heros' || undefined }));
 };
+
+export const creerEnnemis = (r: Rencontre): Combattant[] => depuisLignes([{ ligne: r.ligne, nombre: r.nombre }, ...(r.avec ?? [])], 'ennemi', 'e');
 
 /** Ordre d'initiative : Courage, puis Adresse ; le héros qui cherche des noises frappe toujours le premier. */
 export const initiative = (cs: Combattant[], noises = false): string[] =>
@@ -193,25 +223,123 @@ export const initiative = (cs: Combattant[], noises = false): string[] =>
     })
     .map((c) => c.id);
 
+/**
+ * Place les deux camps face à face : le héros et les siens à gauche, les ennemis à droite, à autant
+ * d'assauts de marche que l'approche de la rencontre (au contact s'ils attaquent par surprise).
+ */
+const placer = (c: Combat, approche: number) => {
+  const lignes = [2, 1, 3, 0, 4];
+  const ranger = (cs: Combattant[], colonne: number, sens: 1 | -1) =>
+    cs.forEach((x, i) => {
+      x.x = Math.max(0, Math.min(c.largeur - 1, colonne + sens * Math.floor(i / c.hauteur)));
+      x.y = lignes[i % c.hauteur];
+    });
+  const amis = c.combattants.filter((x) => x.camp === 'heros');
+  // Les tireurs restent en retrait, les autres en première ligne.
+  ranger([...amis.filter((x) => !x.tireur || x.id === 'heros'), ...amis.filter((x) => x.tireur && x.id !== 'heros')], 1, -1);
+  ranger(ennemis(c), Math.min(c.largeur - 1, 2 + PAS * approche), 1);
+};
+
 export const creerCombat = (p: Partie, r: Rencontre): Combat => {
-  const combattants = [creerHeros(p), ...creerEnnemis(r)];
+  const compagnons = (p.compagnons ?? []).filter((e) => e.ev > 0).map((e) => creerCompagnon(p, e));
+  const allies = depuisLignes(r.allies ?? [], 'heros', 'a');
+  const ennemisDuCombat = creerEnnemis(r);
+  const combattants = [creerHeros(p), ...compagnons, ...allies, ...ennemisDuCombat];
+  const ordre = initiative(combattants, aCompetence(p, 'Chercher des noises'));
   const c: Combat = {
     combattants,
-    ordre: initiative(combattants, aCompetence(p, 'Chercher des noises')),
+    // Surprise : les ennemis frappent les premiers.
+    ordre: r.surprise ? [...ordre.filter((id) => id.startsWith('e')), ...ordre.filter((id) => !id.startsWith('e'))] : ordre,
     tour: 0,
     assaut: 1,
     journal: [],
-    distance: r.approche ?? 2,
+    largeur: LARGEUR,
+    hauteur: HAUTEUR,
     recharge: 0,
     projectiles: [],
   };
+  placer(c, r.surprise ? 0 : (r.approche ?? 2));
   return c;
 };
 
 export const combattant = (c: Combat, id: string) => c.combattants.find((x) => x.id === id)!;
 export const heros = (c: Combat) => combattant(c, 'heros');
 export const ennemis = (c: Combat) => c.combattants.filter((x) => x.camp === 'ennemi');
-export const auContact = (c: Combat) => ennemis(c).filter((x) => x.etat === 'actif');
+/** Le camp du héros : lui, ses compagnons et ses alliés. */
+export const amis = (c: Combat) => c.combattants.filter((x) => x.camp === 'heros');
+export const enLice = (x: Combattant) => x.etat === 'actif';
+export const adversaires = (c: Combat, x: Combattant) => c.combattants.filter((y) => y.camp !== x.camp && enLice(y));
+
+// --- Le terrain ------------------------------------------------------------------------------------
+
+/** Distance en cases (les diagonales comptent pour une). */
+export const ecart = (a: { x: number; y: number }, b: { x: number; y: number }) => Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
+export const voisins = (a: Combattant, b: Combattant) => ecart(a, b) === 1;
+/** Les adversaires au contact de ce combattant. */
+export const contacts = (c: Combat, x: Combattant) => adversaires(c, x).filter((y) => voisins(x, y));
+/** Ennemis au contact du héros. */
+export const auContact = (c: Combat) => contacts(c, heros(c));
+export const occupant = (c: Combat, x: number, y: number) => c.combattants.find((z) => enLice(z) && z.x === x && z.y === y);
+
+/** Cases où ce combattant peut aller ce tour-ci (sans traverser personne), avec leur distance en pas. */
+export const casesAccessibles = (c: Combat, x: Combattant, pas = PAS): Map<string, number> => {
+  const vues = new Map<string, number>([[`${x.x},${x.y}`, 0]]);
+  let front = [[x.x, x.y]];
+  for (let d = 1; d <= pas; d++) {
+    const suivant: number[][] = [];
+    for (const [cx, cy] of front)
+      for (let dx = -1; dx <= 1; dx++)
+        for (let dy = -1; dy <= 1; dy++) {
+          const nx = cx + dx;
+          const ny = cy + dy;
+          const k = `${nx},${ny}`;
+          if (nx < 0 || ny < 0 || nx >= c.largeur || ny >= c.hauteur || vues.has(k) || occupant(c, nx, ny)) continue;
+          vues.set(k, d);
+          suivant.push([nx, ny]);
+        }
+    front = suivant;
+  }
+  vues.delete(`${x.x},${x.y}`);
+  return vues;
+};
+
+export const deplacer = (c: Combat, id: string, x: number, y: number): boolean => {
+  const z = combattant(c, id);
+  if (!casesAccessibles(c, z).has(`${x},${y}`)) return false;
+  z.x = x;
+  z.y = y;
+  c.deplace = true;
+  return true;
+};
+
+/** Ce que fait un combattant qui joue seul (ennemi, compagnon, allié) : où il va, puis qui il frappe ou vise. */
+export interface Plan {
+  vers?: { x: number; y: number };
+  cible?: string;
+  tir?: boolean;
+}
+
+export const planifier = (c: Combat, x: Combattant): Plan => {
+  const opp = adversaires(c, x);
+  if (!opp.length) return {};
+  // Le plus faible de ceux qui sont au contact (le héros d'abord, pour les ennemis : c'est lui qu'ils veulent).
+  const choisir = (cs: Combattant[]) =>
+    [...cs].sort((a, b) => (x.camp === 'ennemi' ? Number(b.id === 'heros') - Number(a.id === 'heros') : 0) || a.ev - b.ev)[0];
+  const proches = contacts(c, x);
+  if (proches.length) return { cible: choisir(proches).id };
+  if (x.tireur) return { cible: [...opp].sort((a, b) => ecart(x, a) - ecart(x, b))[0].id, tir: true };
+  // Sinon il marche vers l'adversaire le plus proche qui n'a pas déjà trois ennemis sur le dos.
+  const libres = opp.filter((o) => contacts(c, o).length < AU_CONTACT);
+  const cibles = (libres.length ? libres : opp).sort((a, b) => ecart(x, a) - ecart(x, b));
+  const cases = [...casesAccessibles(c, x).keys()].map((k) => k.split(',').map(Number));
+  for (const o of cibles) {
+    const aCote = cases.filter(([cx, cy]) => ecart({ x: cx, y: cy }, o) === 1).sort((a, b) => ecart({ x: a[0], y: a[1] }, x) - ecart({ x: b[0], y: b[1] }, x));
+    if (aCote.length) return { vers: { x: aCote[0][0], y: aCote[0][1] }, cible: o.id };
+  }
+  const o = cibles[0];
+  const meilleure = cases.sort((a, b) => ecart({ x: a[0], y: a[1] }, o) - ecart({ x: b[0], y: b[1] }, o))[0];
+  return meilleure && ecart({ x: meilleure[0], y: meilleure[1] }, o) < ecart(x, o) ? { vers: { x: meilleure[0], y: meilleure[1] } } : {};
+};
 export const acteur = (c: Combat) => combattant(c, c.ordre[c.tour]);
 
 const jet = (de: number, valeur: number): IssueJet =>
@@ -336,38 +464,23 @@ export const verifier = (c: Combat) => {
     if (x.ev <= 0 && (x.etat === 'actif' || x.etat === 'reserve')) {
       x.ev = 0;
       x.etat = 'mort';
-      if (x.camp === 'ennemi') c.journal.push(`${x.nom} s'effondre.`);
+      if (x.id !== 'heros') c.journal.push(x.camp === 'ennemi' ? `${x.nom} s'effondre.` : `${x.nom} tombe, assommé.`);
     }
   }
-  const reserve = ennemis(c).filter((x) => x.etat === 'reserve');
-  while (auContact(c).length < AU_CONTACT && reserve.length) {
-    const r = reserve.shift()!;
-    r.etat = 'actif';
-    c.journal.push(`${r.nom} s'avance au contact.`);
-  }
   if (heros(c).etat === 'mort') c.fin = 'defaite';
-  else if (!ennemis(c).some((x) => x.etat === 'actif' || x.etat === 'reserve')) c.fin = 'victoire';
+  else if (!ennemis(c).some(enLice)) c.fin = 'victoire';
 };
 
 /** Passe au combattant suivant ; un nouvel assaut remet les défenses à zéro. */
 export const tourSuivant = (c: Combat) => {
   c.tour += 1;
+  c.deplace = false;
   if (c.tour >= c.ordre.length) {
     c.tour = 0;
     c.assaut += 1;
     c.combattants.forEach((x) => (x.defendu = false));
     c.recharge = Math.max(0, c.recharge - 1);
-    if (c.distance > 0) {
-      c.distance -= 1;
-      c.journal.push(c.distance ? `Les ennemis approchent : contact dans ${c.distance} assaut${c.distance > 1 ? 's' : ''}.` : 'Les ennemis arrivent au contact !');
-    }
   }
-};
-
-/** Le héros fonce au contact : fini les tirs, place au corps à corps. */
-export const charger = (c: Combat) => {
-  c.distance = 0;
-  c.journal.push(`${heros(c).nom} charge !`);
 };
 
 /**
@@ -432,6 +545,14 @@ export const panique = (c: Combat, x: Combattant, rng?: Rng): boolean => {
 };
 
 /** Le héros tente de fuir en plein combat : épreuve d'Adresse (Appel des renforts : sans épreuve). */
+/** Après la bataille, les compagnons assommés se relèvent avec 1 PV ; leurs PV restants sont gardés. */
+export const bilanCompagnons = (c: Combat, p: Partie) => {
+  for (const e of p.compagnons ?? []) {
+    const x = c.combattants.find((y) => y.compagnon === e.id);
+    if (x) e.ev = Math.max(1, x.ev);
+  }
+};
+
 export const tenterFuite = (c: Combat, de: number): boolean => {
   const h = heros(c);
   const ok = !!h.talents?.renforts || de === 1 || (de !== 20 && de <= h.ad);

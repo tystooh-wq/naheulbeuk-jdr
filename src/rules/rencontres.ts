@@ -1,4 +1,5 @@
 import { aTalent, bonusSituation } from './talents';
+import { calculerFiche } from './creation';
 import { CREATURES } from './bestiaire';
 import TABLE from './rencontres-terres-sauvages.json';
 import FORET from './rencontres-foret1.json';
@@ -69,6 +70,10 @@ export interface Rencontre {
   approche?: number;
   /** Autres adversaires du même combat (un chef et ses sbires, dans un donjon). */
   avec?: { ligne: LigneRencontre; nombre: number }[];
+  /** Combattent du côté du héros (des elfes en difficulté…). */
+  allies?: { ligne: LigneRencontre; nombre: number }[];
+  /** Les adversaires attaquent par surprise : ils frappent les premiers, déjà au contact. */
+  surprise?: boolean;
 }
 
 /**
@@ -103,27 +108,37 @@ export const singulier = (l: LigneRencontre) => {
 /** Brigands, orques, ogres et trolls parlent (plus ou moins) : on peut négocier. Les bêtes, on les intimide. */
 export const parle = (l: LigneRencontre) => /brigand|orque|ogre|troll|kobold|marchand/i.test(l.nom);
 
-export type Tactique = 'fuir' | 'negocier' | 'intimider' | 'menacer';
+export type Tactique = 'fuir' | 'negocier' | 'intimider' | 'menacer' | 'embrouiller';
 
-export const TACTIQUES: Record<Tactique, { libelle: string; carac: 'ad' | 'cha' | 'cou'; nomCarac: string }> = {
+export const TACTIQUES: Record<Tactique, { libelle: string; carac: 'ad' | 'cha' | 'cou' | 'int'; nomCarac: string }> = {
   fuir: { libelle: 'Prendre la fuite', carac: 'ad', nomCarac: 'Adresse' },
   negocier: { libelle: 'Négocier', carac: 'cha', nomCarac: 'Charisme' },
   intimider: { libelle: "Faire peur à la bestiole", carac: 'cou', nomCarac: 'Courage' },
   // Compétence Intimider : faire fuir, au Charisme, un adversaire moins courageux que soi.
   menacer: { libelle: 'Intimider', carac: 'cha', nomCarac: 'Charisme' },
+  // Idée de Sedy : noyer une brute simplette sous la philosophie (« être ou ne pas être ») et filer.
+  embrouiller: { libelle: "L'embrouiller avec de la philosophie", carac: 'int', nomCarac: 'Intelligence' },
 };
+
+/** Les adversaires assez simplets pour se laisser embrouiller. */
+export const embrouillable = (l: LigneRencontre) => /débile|crétin|abruti/i.test(l.nom);
 
 /** Les tactiques possibles face à cette rencontre, compétences comprises. */
 export const tactiquesPossibles = (p: Partie, l: LigneRencontre): Tactique[] => [
   'fuir',
   parle(l) ? 'negocier' : 'intimider',
   ...(aTalent(p, 'Intimider') && valeursCombat(p).cou > l.cou ? (['menacer'] as Tactique[]) : []),
+  ...(embrouillable(l) ? (['embrouiller'] as Tactique[]) : []),
 ];
 
 /** Bonus des compétences pour cette tactique (Fariboles pour négocier…). */
-export const bonusTactique = (p: Partie, t: Tactique) => (t === 'negocier' ? bonusSituation(p, 'negocier') : { total: 0, details: [] });
+export const bonusTactique = (p: Partie, t: Tactique) =>
+  t === 'negocier' ? bonusSituation(p, 'negocier') : t === 'embrouiller' ? { total: -1, details: ['−1 : il faut tenir le fil'] } : { total: 0, details: [] };
 
-export const valeurTactique = (p: Partie, t: Tactique) => valeursCombat(p)[TACTIQUES[t].carac] + bonusTactique(p, t).total;
+export const valeurTactique = (p: Partie, t: Tactique) => {
+  const k = TACTIQUES[t].carac;
+  return (k === 'int' ? calculerFiche(p.perso).caracs.INT : valeursCombat(p)[k]) + bonusTactique(p, t).total;
+};
 
 export interface Coup {
   des: number[];
@@ -136,6 +151,8 @@ export interface Issue {
   epreuve: { de: number; reussi: boolean; valeur: number };
   coups: Coup[];
   perdu: number;
+  /** Raté : l'adversaire attaque par surprise (il faut combattre). */
+  surprise?: boolean;
 }
 
 /**
@@ -149,6 +166,8 @@ export const resoudre = (p: Partie, r: Rencontre, tactique: Tactique, rng?: Rng,
   // Appel des renforts : on fuit sans prendre de coups.
   if (tactique === 'fuir' && aTalent(p, 'Appel des renforts')) e.reussi = true;
   const coups: Coup[] = [];
+  // Embrouiller raté : pas de coups en fuyant, mais l'adversaire, vexé, attaque le premier.
+  if (!e.reussi && tactique === 'embrouiller') return { epreuve: { ...e, valeur }, coups, perdu: 0, surprise: true };
   if (!e.reussi) {
     for (let i = 0; i < Math.min(r.nombre, 3); i++) {
       const jet = lancerExpression(r.ligne.degats, rng);

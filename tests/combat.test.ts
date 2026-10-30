@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   attaquer,
   auContact,
+  contacts,
+  planifier,
   creerCombat,
   creerEnnemis,
   heros,
@@ -47,11 +49,29 @@ describe('mise en place', () => {
     expect(initiative(cs, true)).toEqual(['a', 'b', 'c']);
   });
 
-  it('trois ennemis au plus au contact, les autres attendent', () => {
+  it('les deux camps se font face ; surprise : les ennemis au contact et premiers', () => {
     const c = creerCombat(nouvellePartie(perso), rencontre(9, 4));
-    expect(auContact(c)).toHaveLength(3);
-    expect(c.combattants.filter((x) => x.etat === 'reserve')).toHaveLength(1);
-    expect(auContact(c)[0].nom).toBe('Orque miteux 1');
+    expect(c.combattants.filter((x) => x.camp === 'ennemi').every((x) => x.etat === 'actif' && x.x === 6)).toBe(true);
+    expect(auContact(c)).toHaveLength(0);
+    const s = creerCombat(nouvellePartie(perso), { ...rencontre(9, 2), surprise: true });
+    expect(s.ordre.slice(0, 2)).toEqual(['e1', 'e2']);
+    expect(auContact(s).length).toBeGreaterThan(0);
+  });
+
+  it("pas plus de trois ennemis sur le même combattant : le quatrième contourne s'il peut", () => {
+    const c = creerCombat(nouvellePartie(perso), { ...rencontre(9, 4), surprise: true });
+    const h = heros(c);
+    h.x = 0;
+    h.y = 0;
+    // Trois orques collés au héros dans son coin : il n'y a plus de place pour le quatrième.
+    const [a, b, d, e] = c.combattants.filter((x) => x.camp === 'ennemi');
+    Object.assign(a, { x: 1, y: 0 });
+    Object.assign(b, { x: 0, y: 1 });
+    Object.assign(d, { x: 1, y: 1 });
+    Object.assign(e, { x: 4, y: 3 });
+    expect(contacts(c, h)).toHaveLength(3);
+    expect(planifier(c, a).cible).toBe('heros');
+    expect(planifier(c, e).cible).not.toBe('heros');
   });
 
   it('le bouc ne se pare pas, le scorpion empoisonne', () => {
@@ -111,11 +131,11 @@ describe('un assaut', () => {
 });
 
 describe('fin du combat', () => {
-  it('un mort est remplacé par un ennemi de réserve, puis victoire et XP', () => {
+  it('tous les ennemis à terre : victoire et XP', () => {
     const c = creerCombat(nouvellePartie(perso), rencontre(9, 4));
     combattant(c, 'e1').ev = 0;
     verifier(c);
-    expect(combattant(c, 'e4').etat).toBe('actif');
+    expect(c.fin).toBeUndefined();
     for (const id of ['e2', 'e3', 'e4']) combattant(c, id).ev = 0;
     verifier(c);
     expect(c.fin).toBe('victoire');

@@ -3,6 +3,9 @@ import { objet, OBJETS } from '../rules/objets';
 import { passerTemps, valeursCombat, type Partie } from '../rules/partie';
 import { ligneEnnemi, nomsEnnemis, type Rencontre } from '../rules/rencontres';
 import { animerDes, echapper } from './outils';
+import { changerReputation } from '../rules/reputation';
+import { bonusSituation, type Situation } from '../rules/talents';
+import { IDEES_JEU } from './idees-jeu';
 
 // Les idées des joueurs : un bouton « J'aurais fait autrement » sous chaque choix ouvre une saisie libre.
 // Les idées sont partagées (base de données de l'artifact) quand la page le permet, sinon gardées sur
@@ -25,7 +28,10 @@ export interface Idee {
   contexte: Contexte;
   texte: string;
   date: string;
-  statut: 'proposee' | 'validee' | 'refusee';
+  /** Intégrée : écrite pour de bon dans le jeu (voir `integration`), elle ne se joue plus depuis la base. */
+  statut: 'proposee' | 'validee' | 'refusee' | 'integree';
+  /** Où et comment l'idée a été écrite dans le jeu. */
+  integration?: string;
   /** Locale : gardée seulement dans ce navigateur. */
   locale?: boolean;
   // Réglages du MJ à la validation.
@@ -48,6 +54,15 @@ export interface Idee {
   objetsReussite?: string[];
   /** Un échec tourne à la bagarre. */
   rencontreEchec?: { nom: string; nombre: number } | null;
+  // Effets des idées intégrées au jeu (voir idees-jeu.ts).
+  /** Compétences qui aident à l'épreuve (Chouraver pour un vol…). */
+  situation?: Situation;
+  /** Réputation gagnée ou perdue dans une ville. */
+  reputation?: { ville: string; reussite?: number; echec?: number };
+  /** Mauvaise action, si c'est réussi (le monde s'en souviendra). */
+  malConduite?: number;
+  /** Ne se joue plus une fois réussie. */
+  uneFois?: boolean;
 }
 
 export const NOM_EPREUVE: Record<CaracEpreuve, string> = {
@@ -65,7 +80,7 @@ export const valeurEpreuve = (p: Partie, idee: Idee): number => {
   const v = valeursCombat(p);
   const f = calculerFiche(p.perso);
   const base = { COU: v.cou, INT: f.caracs.INT, CHA: v.cha, AD: v.ad, FO: f.caracs.FO, AT: v.at, PRD: v.prd }[idee.epreuve ?? 'CHA'];
-  return base + (idee.modif ?? 0);
+  return base + (idee.modif ?? 0) + (idee.situation ? bonusSituation(p, idee.situation).total : 0);
 };
 
 // --- Stockage ------------------------------------------------------------------------
@@ -109,9 +124,11 @@ const ecrireLocales = (idees: Idee[]) => {
 
 export const toutesIdees = (): Idee[] => [...partagees, ...lireLocales()].sort((a, b) => b.date.localeCompare(a.date));
 
-/** Idées validées par le MJ pour ce contexte : elles deviennent des choix jouables. */
-export const ideesValidees = (type: TypeContexte, id: string) =>
-  toutesIdees().filter((i) => i.statut === 'validee' && i.contexte.type === type && i.contexte.id === id);
+/** Idées validées par le MJ pour ce contexte, et celles écrites dans le jeu : elles deviennent des choix jouables. */
+export const ideesValidees = (type: TypeContexte, id: string, p?: Partie) =>
+  [...IDEES_JEU, ...toutesIdees()].filter(
+    (i) => i.statut === 'validee' && i.contexte.type === type && i.contexte.id === id && !(p && i.uneFois && p.marques?.includes(`idee:${i.id}`)),
+  );
 
 export const surChangement = (fn: () => void) => auChangement.push(fn);
 const prevenir = () => auChangement.forEach((fn) => fn());
@@ -225,7 +242,7 @@ const NOM_TYPE: Record<TypeContexte, string> = {
   autre: 'Divers',
 };
 
-const STATUT: Record<Idee['statut'], string> = { proposee: 'proposée', validee: 'validée', refusee: 'refusée' };
+const STATUT: Record<Idee['statut'], string> = { proposee: 'proposée', validee: 'validée', refusee: 'refusée', integree: 'intégrée au jeu' };
 
 const OU_PROPOSITION = ['Campagne paisible (Valtordu, Loubet)', 'Terres sauvages', 'Forêt', 'En ville', 'Dans un donjon', "N'importe où"];
 
@@ -449,8 +466,11 @@ const liste = () => {
                     ? ` · ${i.epreuve ? `épreuve de ${NOM_EPREUVE[i.epreuve]}${i.modif ? ` (${i.modif > 0 ? '+' : ''}${i.modif})` : ''}` : 'sans épreuve'}`
                     : ''
                 }</p>
+                ${i.integration ? `<p class="note">✔ ${echapper(i.integration)}</p>` : ''}
                 ${
-                  i.contexte.type === 'proposition'
+                  i.statut === 'integree'
+                    ? ''
+                    : i.contexte.type === 'proposition'
                     ? peutRegler(i) && i.statut === 'proposee'
                       ? `<p class="actions-lieu"><button data-retenir="${echapper(i.id)}">Retenir pour le jeu</button><button class="secondaire" data-refuser="${echapper(i.id)}">Refuser</button></p><p class="note">Une proposition retenue sera écrite dans le jeu à la prochaine version.</p>`
                       : ''
@@ -561,6 +581,10 @@ export const resoudreIdee = (p: Partie, idee: Idee, de?: number): ResultatIdee =
   p.xp = (p.xp ?? 0) + xp;
   if (heures > 0) passerTemps(p, heures);
   p.sac.push(...objets);
+  const rep = idee.reputation ? ((reussi ? idee.reputation.reussite : idee.reputation.echec) ?? 0) : 0;
+  const repChange = rep ? changerReputation(p, idee.reputation!.ville, rep, (idee.libelle ?? idee.texte).toLowerCase()) : 0;
+  if (reussi && idee.malConduite) p.mauvaiseConduite = (p.mauvaiseConduite ?? 0) + idee.malConduite;
+  if (reussi && idee.uneFois) p.marques = [...new Set([...(p.marques ?? []), `idee:${idee.id}`])];
   const effets = [
     signe(pv, 'PV'),
     signe(or, 'PO'),
@@ -568,6 +592,7 @@ export const resoudreIdee = (p: Partie, idee: Idee, de?: number): ResultatIdee =
     signe(xp, 'XP'),
     heures > 0 ? `${heures} h passée${heures > 1 ? 's' : ''}` : '',
     ...objets.map((id) => objet(id).nom),
+    repChange ? `réputation ${repChange > 0 ? '+' : ''}${repChange}` : '',
   ]
     .filter(Boolean)
     .join(', ');
@@ -587,7 +612,7 @@ let ideeLieu: { id: string; resultat?: ResultatIdee } | null = null;
 
 /** Les idées validées pour ce lieu : un bouton chacune, ou l'épreuve et le résultat de celle qu'on joue. */
 export const panneauIdeesLieu = (p: Partie, idLieu: string): string => {
-  const idees = ideesValidees('lieu', idLieu);
+  const idees = ideesValidees('lieu', idLieu, p);
   if (!idees.length) return '';
   const enCours = ideeLieu && idees.find((i) => i.id === ideeLieu!.id);
   if (enCours) {
@@ -600,7 +625,11 @@ export const panneauIdeesLieu = (p: Partie, idLieu: string): string => {
     }</p>`;
   }
   return `<p class="actions-lieu">${idees
-    .map((i) => `<button class="secondaire choix-joueur" data-idee-lieu="${echapper(i.id)}" title="Idée de joueur validée">💡 ${echapper(i.libelle ?? i.texte)}</button>`)
+    .map((i) =>
+      i.id.startsWith('jeu:')
+        ? `<button class="secondaire" data-idee-lieu="${echapper(i.id)}">${echapper(i.libelle ?? i.texte)}${i.epreuve ? ` (${NOM_EPREUVE[i.epreuve]} ${valeurEpreuve(p, i)})` : ''}</button>`
+        : `<button class="secondaire choix-joueur" data-idee-lieu="${echapper(i.id)}" title="Idée de joueur validée">💡 ${echapper(i.libelle ?? i.texte)}</button>`,
+    )
     .join('')}</p>`;
 };
 
@@ -610,14 +639,14 @@ export const panneauIdeesLieu = (p: Partie, idLieu: string): string => {
  */
 export const lierIdeesLieu = (app: HTMLElement, p: Partie, redessiner: () => void, combat: (r: Rencontre) => void) => {
   const jouer = (id: string, de?: number) => {
-    const i = toutesIdees().find((x) => x.id === id);
+    const i = [...IDEES_JEU, ...toutesIdees()].find((x) => x.id === id);
     if (!i) return;
     ideeLieu = { id, resultat: resoudreIdee(p, i, de) };
     redessiner();
   };
   app.querySelectorAll<HTMLElement>('[data-idee-lieu]').forEach((b) =>
     b.addEventListener('click', () => {
-      const i = toutesIdees().find((x) => x.id === b.dataset.ideeLieu);
+      const i = [...IDEES_JEU, ...toutesIdees()].find((x) => x.id === b.dataset.ideeLieu);
       if (!i) return;
       if (!i.epreuve) return jouer(i.id);
       ideeLieu = { id: i.id };

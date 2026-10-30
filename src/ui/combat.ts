@@ -1,15 +1,22 @@
 import {
   acteur,
   attaquer,
+  adversaires,
   auContact,
+  bilanCompagnons,
   butin,
-  charger,
+  casesAccessibles,
   combattant,
+  contacts,
+  deplacer,
+  ecart,
   creerCombat,
   ennemis,
   heros,
+  occupant,
   panique,
   peutSeDefendre,
+  planifier,
   tenterFuite,
   tirer,
   toucherParSort,
@@ -31,12 +38,14 @@ import { degatsSort, ea, eaMax, lancerSort, sort, sortsConnus, valeurSort, type 
 import type { Rencontre } from '../rules/rencontres';
 import { aTalent } from '../rules/talents';
 import { boutonsVitesse, lierVitesse, vitesse } from './commun';
+import { PAS as PAS_HEROS } from '../rules/combat';
 import { boutonAutrement } from './idees';
 import { animerDes, de, echapper } from './outils';
 
-// Le plateau de combat : le héros à gauche, ses ennemis à droite, l'action en cours au milieu.
-// Les dés des ennemis roulent tout seuls ; au tour du joueur, le temps s'arrête jusqu'à ce qu'il
-// choisisse son action et lance ses propres dés (attaque, dégâts, parade ou esquive, fuite).
+// Le plateau de combat : un terrain en cases (le héros et les siens à gauche, les ennemis à droite),
+// les fiches des combattants et l'action en cours. Les dés des ennemis et des compagnons roulent tout
+// seuls ; au tour du joueur, le temps s'arrête : il peut avancer (cases en surbrillance), puis choisir
+// son action et lancer ses propres dés (attaque, dégâts, parade ou esquive, fuite).
 
 export interface BilanCombat {
   fin: 'victoire' | 'defaite' | 'fuite';
@@ -78,7 +87,7 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
   let lachementFait = false;
   const berserkerPossible = () => aTalent(p, 'Berserker') && !rage && Math.floor((p.talents?.berserker ?? -99) / 24) !== p.jour;
   const dague = () => !!p.equipe.arme && /dague|poignard|couteau|surin|stylet/i.test(objet(p.equipe.arme).nom);
-  const lachementPossible = () => aTalent(p, 'Frapper lâchement') && !lachementFait && dague() && c.distance === 0;
+  const lachementPossible = () => aTalent(p, 'Frapper lâchement') && !lachementFait && dague() && auContact(c).length > 0;
 
   const h = () => heros(c);
   const synchroniser = () => (p.ev = Math.max(0, h().ev));
@@ -87,18 +96,19 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
 
   const carteCombattant = (x: Combattant) => {
     const pct = Math.max(0, Math.round((x.ev / x.evMax) * 100));
-    const cible = attente?.type === 'action' && x.camp === 'ennemi' && x.etat === 'actif' && c.distance === 0;
+    const cible = attente?.type === 'action' && x.camp === 'ennemi' && x.etat === 'actif' && voisinDuHeros(x);
     const statut = [
-      x.etat === 'mort' ? 'à terre' : x.etat === 'fui' ? 'en fuite' : '',
+      x.etat === 'mort' ? (x.camp === 'ennemi' ? 'à terre' : 'assommé') : x.etat === 'fui' ? 'en fuite' : '',
       x.rate > 0 && x.etat === 'actif' ? 'déséquilibré' : '',
       x.defendu && x.etat === 'actif' ? 'a déjà paré' : '',
-      x.camp === 'ennemi' && x.etat === 'actif' && c.distance > 0 ? (x.tireur ? 'à distance, arc bandé' : 'approche') : '',
+      x.etat === 'actif' && x.tireur && !contacts(c, x).length ? 'à distance, arc bandé' : '',
+      x.compagnon ? 'compagnon' : x.allie ? 'allié' : '',
     ].filter(Boolean);
     const tag = cible ? 'button' : 'div';
-    return `<${tag} class="combattant cote-${x.camp} etat-${x.etat} ${acteur(c).id === x.id && !c.fin ? 'son-tour' : ''} ${touche === x.id ? 'touche' : ''}" ${
+    return `<${tag} class="combattant cote-${x.camp} ${x.id === 'heros' ? 'le-heros' : ''} etat-${x.etat} ${acteur(c).id === x.id && !c.fin ? 'son-tour' : ''} ${touche === x.id ? 'touche' : ''}" ${
       cible ? `data-cible="${x.id}" title="Attaquer ${echapper(x.nom)}"` : ''
     }>
-      <b>${echapper(x.nom)}</b>
+      <b><i class="pion-mini ${classePion(x)}">${initiales(x)}</i> ${echapper(x.nom)}</b>
       <span class="jauge-ev ${pct <= 30 ? 'basse' : ''}"><span style="width:${pct}%"></span></span>
       <span>❤ ${Math.max(0, x.ev)}/${x.evMax}${x.camp === 'heros' && eaMax(p) ? ` · ✦ ${ea(p)}/${eaMax(p)} PA` : ''}</span>
       <span class="note">AT ${x.at} · PRD ${x.sansParade ? '—' : x.prd} · PR ${x.pr} · ${echapper(x.degats)}</span>
@@ -124,11 +134,12 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
           : '',
       ].join('');
       const cibles = auContact(c);
+      const loin = adversaires(c, x);
       const t = valeursTir(p);
       const tirImpossible = !t ? '' : c.armeLancee ? 'arme déjà lancée' : t.aSec ? 'plus de projectiles' : c.recharge > 0 ? `rechargement : encore ${c.recharge} assaut${c.recharge > 1 ? 's' : ''}` : '';
       const tirs =
-        t && c.distance > 0
-          ? `<p class="actions-lieu">${cibles
+        t && !cibles.length
+          ? `<p class="actions-lieu">${loin
               .map((e) => `<button data-tirer="${e.id}" ${tirImpossible ? 'disabled' : ''}>🏹 Tirer sur ${echapper(e.nom)} (AD ${t.ad})</button>`)
               .join('')}</p>
              <p class="note">${echapper(t.arme.nom)} : dégâts ${echapper(t.degats)}${t.projectile ? `, ${echapper(t.projectile.nom)} (${p.sac.filter((id) => id === t.projectile!.id).length} dans le sac)` : ''}${
@@ -136,26 +147,27 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
             }${tirImpossible ? ` · <b>${tirImpossible}</b>` : ''}</p>`
           : '';
       const sorts = sortsConnus(p).filter((s) => s.enCombat);
-      const boutonsSorts = sorts.length
-        ? `<p class="actions-lieu">${sorts
-            .flatMap((s) =>
-              s.zone
-                ? [`<button class="sort" data-sort="${s.id}" ${ea(p) < s.cout ? 'disabled' : ''}>✨ ${echapper(s.nom)} sur tous (${s.cout} PA, ${valeurSort(p, s)} ou moins)</button>`]
-                : cibles.map((e) => `<button class="sort" data-sort="${s.id}" data-cible-sort="${e.id}" ${ea(p) < s.cout ? 'disabled' : ''}>✨ ${echapper(s.nom)} sur ${echapper(e.nom)} (${s.cout} PA, ${valeurSort(p, s)} ou moins)</button>`),
-            )
-            .join('')}</p>`
-        : '';
-      const consigne =
-        c.distance > 0
-          ? `<p><b>À toi !</b> Les ennemis sont encore à distance : <b>contact dans ${c.distance} assaut${c.distance > 1 ? 's' : ''}</b>. ${(() => {
-              const s = `${t ? 'tire pendant qu\'ils approchent, ' : ''}${sorts.length ? 'lance un sort, ' : ''}attends-les de pied ferme ou charge.`;
-              return s[0].toUpperCase() + s.slice(1);
-            })()}</p>`
-          : `<p><b>À toi !</b> Le temps s'arrête. Choisis ta cible et lance ton D20 : il faut faire <b>${x.at} ou moins</b>.</p>`;
-      const melee =
-        c.distance > 0
-          ? `<p class="actions-lieu"><button class="secondaire" data-charger>⚔ Charger au contact</button><button class="secondaire" data-attendre>⏳ Attendre de pied ferme</button></p>`
-          : `<p class="actions-lieu">${cibles.map((e) => `<button data-cible="${e.id}">🎲 Attaquer ${echapper(e.nom)}</button>`).join('')}</p>`;
+      // On ne lance pas un sort avec un ennemi dans les pattes.
+      const boutonsSorts =
+        sorts.length && !cibles.length
+          ? `<p class="actions-lieu">${sorts
+              .flatMap((s) =>
+                loin.map(
+                  (e) =>
+                    `<button class="sort" data-sort="${s.id}" data-cible-sort="${e.id}" ${ea(p) < s.cout ? 'disabled' : ''}>✨ ${echapper(s.nom)} sur ${echapper(e.nom)}${s.zone ? ' et ses voisins' : ''} (${s.cout} PA, ${valeurSort(p, s)} ou moins)</button>`,
+                ),
+              )
+              .join('')}</p>`
+          : '';
+      const bouger = c.deplace ? '' : `Tu peux d'abord avancer de ${PAS_HEROS} cases (cases claires du terrain). `;
+      const consigne = cibles.length
+        ? `<p><b>À toi !</b> Le temps s'arrête. ${bouger}Choisis ta cible au contact et lance ton D20 : il faut faire <b>${x.at} ou moins</b>.</p>`
+        : `<p><b>À toi !</b> Aucun ennemi au contact. ${bouger}${t ? 'Tu peux tirer, ' : ''}${sorts.length ? 'lancer un sort, ' : ''}${
+            t || sorts.length ? 'ou ' : ''
+          }avancer vers eux et finir ton tour.</p>`;
+      const melee = `<p class="actions-lieu">${cibles.map((e) => `<button data-cible="${e.id}">🎲 Attaquer ${echapper(e.nom)}</button>`).join('')}<button class="secondaire" data-attendre>⏳ ${
+        c.deplace ? 'Finir le tour' : 'Attendre de pied ferme'
+      }</button></p>`;
       return `<div class="a-toi">${consigne}${tirs}${boutonsSorts}${melee}
         ${talents ? `<p class="actions-lieu">${talents}</p>` : ''}
         <p class="actions-lieu">${potions()
@@ -207,9 +219,44 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
       <p>${boutonAutrement({ type: 'combat', id: `bilan:${r.ligne.nom}`, titre: `${titre} (combat contre ${r.ligne.nom})` })}</p></div>`;
   };
 
+  // --- Le terrain -----------------------------------------------------------------
+
+  const voisinDuHeros = (x: Combattant) => contacts(c, h()).some((y) => y.id === x.id);
+  const initiales = (x: Combattant) =>
+    x.id === 'heros' ? '★' : x.nom.split(/\s+/).filter((m) => /^[A-ZÀ-Ý]/.test(m)).map((m) => m[0]).join('').slice(0, 2) + (/\d+$/.exec(x.nom)?.[0] ?? '');
+  const classePion = (x: Combattant) => (x.id === 'heros' ? 'pion-heros' : x.compagnon ? 'pion-compagnon' : x.allie ? 'pion-allie' : 'pion-ennemi');
+
+  const terrain = () => {
+    const tourHeros = attente?.type === 'action' && !c.deplace;
+    const accessibles = tourHeros ? casesAccessibles(c, h()) : new Map<string, number>();
+    const cases: string[] = [];
+    for (let y = 0; y < c.hauteur; y++)
+      for (let x = 0; x < c.largeur; x++) {
+        const z = occupant(c, x, y);
+        const morts = c.combattants.filter((m) => m.etat === 'mort' && m.x === x && m.y === y);
+        const contenu = z
+          ? (() => {
+              const pct = Math.max(0, Math.round((z.ev / z.evMax) * 100));
+              const attaquable = attente?.type === 'action' && z.camp === 'ennemi' && voisinDuHeros(z);
+              const tag = attaquable ? 'button' : 'span';
+              return `<${tag} class="pion ${classePion(z)} ${acteur(c).id === z.id && !c.fin ? 'son-tour' : ''} ${touche === z.id ? 'touche' : ''}" ${
+                attaquable ? `data-cible="${z.id}"` : ''
+              } title="${echapper(`${z.nom} : ${Math.max(0, z.ev)}/${z.evMax} PV`)}">${initiales(z)}<i class="pv-pion" style="width:${pct}%"></i></${tag}>`;
+            })()
+          : morts.length
+            ? '<span class="corps" title="À terre">✝</span>'
+            : '';
+        const k = `${x},${y}`;
+        cases.push(
+          accessibles.has(k) && !z
+            ? `<button class="case accessible" data-case="${k}" aria-label="Aller en ${x + 1}, ${y + 1}">${contenu}</button>`
+            : `<div class="case">${contenu}</div>`,
+        );
+      }
+    return `<div class="terrain" style="--largeur:${c.largeur}" role="grid" aria-label="Terrain du combat">${cases.join('')}</div>`;
+  };
+
   const render = () => {
-    const contact = ennemis(c).filter((x) => x.etat !== 'reserve');
-    const reserve = ennemis(c).filter((x) => x.etat === 'reserve');
     app.innerHTML = `<div class="page page-combat">
       <div class="entete-combat">
         <h2>Combat <span class="note">Assaut ${c.assaut}</span></h2>
@@ -221,11 +268,11 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
           return `<li class="cote-${x.camp} etat-${x.etat} ${acteur(c).id === id && !c.fin ? 'son-tour' : ''}">${echapper(x.nom)}</li>`;
         })
         .join('')}</ol>
+      ${terrain()}
       <div class="plateau">
-        <div class="camp camp-heros">${carteCombattant(h())}</div>
+        <div class="camp camp-heros">${c.combattants.filter((x) => x.camp === 'heros').map(carteCombattant).join('')}</div>
         <div class="centre-combat"><div id="action" class="action-combat" aria-live="polite">${scene}</div>${panneauJoueur()}</div>
-        <div class="camp camp-ennemis">${contact.map(carteCombattant).join('')}
-          ${reserve.length ? `<p class="note">En attente derrière : ${reserve.map((x) => echapper(x.nom)).join(', ')}</p>` : ''}</div>
+        <div class="camp camp-ennemis">${ennemis(c).map(carteCombattant).join('')}</div>
       </div>
       <details class="journal-combat" open><summary>Déroulé</summary><ul>${c.journal
         .slice(-8)
@@ -318,6 +365,7 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
 
   const finir = () => {
     synchroniser();
+    bilanCompagnons(c, p);
     let notes: string[] = [];
     // Berserker : les PV de rage s'en vont avec la fin du combat.
     if (rage) {
@@ -412,7 +460,7 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
         tourSuivant(c);
         continue;
       }
-      if (x.camp === 'heros') {
+      if (x.id === 'heros') {
         attente = { type: 'action' };
         occupe = false;
         render();
@@ -425,21 +473,36 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
         tourSuivant(c);
         continue;
       }
-      // Pendant l'approche, les tireurs tirent et les autres avancent.
-      if (c.distance > 0) {
-        if (x.tireur) {
-          render();
-          await attendre(500);
-          const a = tirer(c, x.id, 'heros', lancer(20), x.tireur);
-          await montrer(a);
-          apres();
-        } else tourSuivant(c);
+      // Ennemis, compagnons et alliés jouent seuls : ils avancent, puis frappent ou tirent.
+      const plan = planifier(c, x);
+      if (plan.vers) {
+        deplacer(c, x.id, plan.vers.x, plan.vers.y);
+        render();
+        await attendre(450);
+      }
+      const cible = plan.cible ? combattant(c, plan.cible) : undefined;
+      if (!cible || (!plan.tir && !contacts(c, x).some((y) => y.id === cible.id))) {
+        if (!plan.vers) message(`${x.nom} attend son heure.`);
+        tourSuivant(c);
         continue;
       }
-      // Tour d'un ennemi : il lance son attaque. S'il touche, le joueur choisit sa défense.
+      if (plan.tir) {
+        render();
+        await attendre(500);
+        const a = tirer(c, x.id, cible.id, lancer(20), x.tireur!);
+        await montrer(a);
+        apres();
+        continue;
+      }
       render();
       await attendre(500);
       const d = lancer(20);
+      if (cible.id !== 'heros') {
+        await montrer(attaquer(c, x.id, cible.id, d));
+        apres();
+        continue;
+      }
+      // Un ennemi attaque le héros : s'il touche, le joueur choisit sa défense.
       if (peutSeDefendre(h(), d, x.at) && (valeurDefense(h(), 'parade', x) !== null || valeurDefense(h(), 'esquive', x) !== null)) {
         const zone = app.querySelector<HTMLElement>('#action')!;
         zone.innerHTML = `<p class="qui"><b>${echapper(x.nom)}</b> attaque <b>${echapper(h().nom)}</b></p>`;
@@ -562,7 +625,9 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
       etape(zone, `<span class="verdict visible ${res.issue}">${echapper(res.texte)}</span> <span class="note">(${ea(p)} PA restants)</span>`);
       c.journal.push(`${h().nom} lance ${s.nom} : ${res.texte}`);
       if (res.issue === 'critique' || res.issue === 'reussi') {
-        const cibles = s.zone ? auContact(c).map((e) => e.id) : [el.dataset.cibleSort!];
+        const visee = combattant(c, el.dataset.cibleSort!);
+        // Un sort de zone touche la cible et les ennemis collés à elle.
+        const cibles = [visee, ...(s.zone ? ennemis(c).filter((e) => e.etat === 'actif' && ecart(e, visee) === 1) : [])].map((e) => e.id);
         await clicDegats(zone, `${degatsSort(p, s)}${s.zone ? ' par cible' : ''}${res.issue === 'critique' ? ', doublés' : ''}`);
         for (const id of cibles) {
           const a = toucherParSort(c, id, degatsSort(p, s), res.issue === 'critique');
@@ -617,20 +682,18 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
       avancer();
     });
 
-    sur('[data-charger]', async () => {
-      if (attente?.type !== 'action') return (occupe = false);
-      attente = null;
-      charger(c);
-      message(`${h().nom} fonce sur l'ennemi !`);
-      apres();
-      await attendre(700);
-      avancer();
+    sur('[data-case]', (el) => {
+      if (attente?.type !== 'action' || c.deplace) return (occupe = false);
+      const [x, y] = el.dataset.case!.split(',').map(Number);
+      deplacer(c, 'heros', x, y);
+      occupe = false;
+      render();
     });
 
     sur('[data-attendre]', async () => {
       if (attente?.type !== 'action') return (occupe = false);
       attente = null;
-      message(`${h().nom} attend de pied ferme.`);
+      message(c.deplace ? `${h().nom} prend position.` : `${h().nom} attend de pied ferme.`);
       apres();
       await attendre(500);
       avancer();

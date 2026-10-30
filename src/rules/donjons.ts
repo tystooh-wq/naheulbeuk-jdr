@@ -1,4 +1,5 @@
 import { creature } from './bestiaire';
+import { ea, eaMax } from './magie';
 import { lancer, type Rng } from './des';
 import { arrondirOr } from './monnaie';
 import { epreuve, lancerExpression, noter, passerTemps, soigner, type Partie } from './partie';
@@ -17,7 +18,7 @@ export interface Ennemis {
 export type Contenu =
   | { type: 'combat'; ennemis: Ennemis[]; texte: string }
   | { type: 'piege'; carac: CaracQuete; modif?: number; degats: string; texte: string; evite: string; subit: string }
-  | { type: 'repos'; pv: number; texte: string };
+  | { type: 'repos'; pv: number; texte: string; /** Points astraux rendus aux mages. */ pa?: number; /** Durée de la pause (30 minutes par défaut). */ heures?: number };
 
 export interface Salle {
   id: string;
@@ -212,7 +213,8 @@ export const DONJONS: Donjon[] = [
         y: 1,
         vers: ['carrefour', 'dortoir', 'antre'],
         description: "Un filet d'eau claire coule de la roche. Même les gobelins ne l'ont pas salie.",
-        contenu: { type: 'repos', pv: 4, texte: "Tu bois, tu te reposes un moment, l'oreille tendue." },
+        // Idée de Sedy : une heure au calme près de l'eau pure rend 10 PA aux mages.
+        contenu: { type: 'repos', pv: 4, pa: 10, heures: 1, texte: "Tu bois, tu te reposes une heure, l'oreille tendue. Le murmure de l'eau pure apaise l'esprit." },
       },
       {
         id: 'antre',
@@ -297,13 +299,15 @@ export const affronterPiege = (
   return { reussi: false, valeur, degats: jet.total, des: jet.des, texte: c.subit };
 };
 
-export const seReposer = (p: Partie): number => {
+export const seReposer = (p: Partie): { pv: number; pa: number } => {
   const e = p.donjon!;
   const s = salle(donjon(e.id), e.salle);
-  if (s.contenu?.type !== 'repos' || e.reglees.includes(s.id)) return 0;
+  if (s.contenu?.type !== 'repos' || e.reglees.includes(s.id)) return { pv: 0, pa: 0 };
   regler(e, s.id);
-  passerTemps(p, 0.5);
-  return soigner(p, s.contenu.pv);
+  passerTemps(p, s.contenu.heures ?? 0.5);
+  const avant = ea(p);
+  if (s.contenu.pa && eaMax(p)) p.ea = Math.min(eaMax(p), avant + s.contenu.pa);
+  return { pv: soigner(p, s.contenu.pv), pa: ea(p) - avant };
 };
 
 export const fouiller = (p: Partie): Salle['tresor'] | null => {

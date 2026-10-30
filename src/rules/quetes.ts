@@ -1,4 +1,5 @@
 import { bonusSituation, type Situation } from './talents';
+import { recruter } from './compagnons';
 import { changerReputation, quetesRefusees, villeDe } from './reputation';
 import { calculerFiche } from './creation';
 import { arrondirOr } from './monnaie';
@@ -42,7 +43,7 @@ export interface Quete {
   /** La proposition, lue avant d'accepter. */
   proposition: string;
   etapes: EtapeQuete[];
-  recompense: { or: number; xp: number; objets?: string[]; texte: string };
+  recompense: { or: number; xp: number; objets?: string[]; texte: string; /** Un compagnon rejoint le groupe (compagnons.ts). */ compagnon?: string };
   /** Coût d'entrée (le Donjon Facile se paie). */
   prix?: number;
   /** Niveau conseillé, affiché avant d'accepter. */
@@ -124,10 +125,11 @@ export const QUETES: Quete[] = [
         ou: 'ville:valtordu:boucherie-jobard',
         objectif: 'Rapporter la recette à Maître Jobard, place des Pendus.',
         action: 'Donner la recette à Maître Jobard',
-        recit: '« Une pincée de QUOI ? Le saligaud ! » Jobard te paie en riant et te glisse deux boudins. « Pas un mot. »',
+        recit:
+          "« Une pincée de QUOI ? Le saligaud ! » Jobard te paie en riant et te glisse deux boudins. « Pas un mot. Et puisque tu sais te débrouiller… emmène mon Gaston. Il rêve d'aventure, et moi de silence dans ma boutique. Il apprendra la vie avec toi. »",
       },
     ],
-    recompense: { or: 20, xp: 30, objets: ['boudin-valtordu', 'boudin-valtordu'], texte: '20 PO et 2 boudins de Valtordu' },
+    recompense: { or: 20, xp: 30, objets: ['boudin-valtordu', 'boudin-valtordu'], compagnon: 'gaston', texte: '20 PO, 2 boudins de Valtordu, et Gaston Jobard rejoint ton groupe' },
   },
   {
     id: 'brigands-tronville',
@@ -280,6 +282,7 @@ export const validerEtape = (p: Partie, id: string): IssueEtape => {
   p.or = arrondirOr(p.or + q.recompense.or);
   p.xp = (p.xp ?? 0) + q.recompense.xp;
   p.sac.push(...(q.recompense.objets ?? []));
+  if (q.recompense.compagnon) recruter(p, q.recompense.compagnon);
   noter(p, `termine la quête « ${q.titre} » (${q.recompense.texte}, +${q.recompense.xp} XP).`);
   const ville = villeDe(q.donneur);
   const renom = ville && changerReputation(p, ville, 2, `quête « ${q.titre} »`) ? ' On parle de toi en ville : ta réputation monte.' : '';

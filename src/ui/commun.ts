@@ -1,4 +1,5 @@
 import { competencesDuHeros, empechement, priseCompetence, talentsDuHeros, TALENTS_ACTIFS, utiliserTalent, type Cadre, type Prise } from '../rules/talents';
+import { lierGroupe, panneauGroupe } from './groupe';
 import { rangReputation, reputation, REPUTATION_MAX, REPUTATION_MIN } from '../rules/reputation';
 import { calculerFiche } from '../rules/creation';
 import { formatOr } from '../rules/monnaie';
@@ -200,6 +201,7 @@ export const panneauSac = (p: Partie, message?: string) => {
             .join('')
         : '<p class="note">Ton sac est vide. Même pas une chaussette.</p>'
     }
+    ${panneauGroupe(p)}
     ${message ? `<div class="recit">${message}</div>` : ''}
   </div>`;
 };
@@ -241,6 +243,7 @@ export const panneauJournal = (p: Partie) => `<div class="panneau">
 export const lierSac = (app: HTMLElement, p: Partie, message: (html: string) => void) => {
   const sur = (sel: string, fn: (el: HTMLElement) => void) =>
     app.querySelectorAll<HTMLElement>(sel).forEach((el) => el.addEventListener('click', () => fn(el)));
+  lierGroupe(app, p, message);
   sur('.equiper', (el) => {
     const o = objet(el.dataset.id!);
     const refus = equiper(p, o.id);

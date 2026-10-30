@@ -1,9 +1,10 @@
-import { bonusSituation, savoir } from './talents';
+import { aTalent, bonusSituation, savoir } from './talents';
+import { dansGroupe, recruter } from './compagnons';
 import { calculerFiche } from './creation';
 import { lancer, type Rng } from './des';
 import type { Terrain } from './monde';
 import { epreuve, lancerExpression, soigner, valeursCombat, type Partie } from './partie';
-import { TABLE_TERRES_SAUVAGES, TABLES, type LigneRencontre, type Rencontre, type Zone } from './rencontres';
+import { ligneEnnemi, TABLE_TERRES_SAUVAGES, TABLES, type LigneRencontre, type Rencontre, type Zone } from './rencontres';
 
 // Événements écrits pour les routes autour de Waldorg. Ils ne viennent pas des règles officielles :
 // ce sont les « surprises » du MJ, bonnes ou mauvaises, tirées au hasard pendant le voyage.
@@ -14,6 +15,8 @@ export interface Resultat {
   heures?: number;
   /** L'événement tourne à la bagarre : le combat suit, puis `victoire` s'applique si le héros gagne. */
   combat?: { rencontre: Rencontre; victoire?: (p: Partie) => string };
+  /** L'histoire continue : « Continuer » ouvre cet événement. */
+  suite?: Evenement;
 }
 
 export interface Choix {
@@ -33,6 +36,10 @@ export interface Evenement {
   texte: string;
   /** Terrains où il peut arriver (tous par défaut). */
   terrains?: Terrain[];
+  /** Zones de rencontre où il peut arriver (forêt…) ; toutes par défaut. */
+  zones?: Zone[];
+  /** Seulement en suite d'un autre événement, jamais tiré au hasard. */
+  suiteSeule?: boolean;
   /** L'événement n'arrive que si la partie le permet (suite d'une histoire, mauvaise conduite…). */
   condition?: (p: Partie) => boolean;
   /** Une suite d'histoire en attente passe devant les événements ordinaires (une chance sur deux). */
@@ -81,27 +88,171 @@ const retirer = (p: Partie, id: string) => {
   return i >= 0;
 };
 
+// La bourse dans le fossé : une fois sur trois, c'est l'appât d'un piège à mâchoires.
+// Idée de Sedy : avec la compétence Détecter, on peut d'abord étudier les alentours.
+const valeurDetecter = (p: Partie) => calculerFiche(p.perso).caracs.INT + bonusSituation(p, 'piege').total;
+const CHOIX_BOURSE = (detecter: boolean): Choix[] => [
+  {
+    libelle: 'La ramasser',
+    jet: { faces: 6, pour: 'voir ce qui arrive (1 ou 2 : il y avait un piège)' },
+    effet: (p, rng) => {
+      const d = lancer(6, rng);
+      const or = lancer(6, rng);
+      p.or += or;
+      if (d > 2) return { texte: `Dé : ${d}. Elle contient ${or} pièces d'or et un bouton de culotte. Tu gardes les deux.` };
+      const blessure = lancer(6, rng);
+      perdre(p, blessure);
+      return { texte: `Dé : ${d}. CLAC ! Un piège à mâchoires caché sous les herbes se referme sur ta main : −${blessure} PV. La bourse contenait quand même ${or} pièces d'or.` };
+    },
+  },
+  ...(detecter
+    ? [
+        {
+          libelle: "Étudier les alentours d'abord (Détecter, épreuve d'Intelligence)",
+          visible: (p: Partie) => aTalent(p, 'Détecter'),
+          jet: { faces: 20 as const, pour: "l'épreuve d'Intelligence", valeur: valeurDetecter },
+          effet: (p: Partie, rng?: Rng) => {
+            const e = epreuve(valeurDetecter(p), rng);
+            if (!e.reussi)
+              return { texte: `Dé : ${e.de}. Tu tournes autour, tu tâtes l'herbe du bout du pied… Rien de suspect. Ou alors c'est très bien caché.`, suite: BOURSE_SANS_DETECTER };
+            const or = lancer(6, rng) + 2;
+            p.or += or;
+            return { texte: `Dé : ${e.de}. Un fil fin, presque invisible, part de la bourse vers un piège à mâchoires enfoui dans l'herbe. Tu le déclenches du bout de ton arme (CLAC !) et ramasses la bourse en toute sécurité : ${or} pièces d'or.` };
+          },
+        },
+      ]
+    : []),
+  { libelle: "Passer ton chemin, c'est sûrement un piège", effet: () => ({ texte: 'Tu ne sauras jamais. Ça va te travailler toute la journée.' }) },
+];
+
+const BOURSE_SANS_DETECTER: Evenement = {
+  id: 'bourse',
+  titre: 'Une bourse dans le fossé',
+  texte: 'La bourse est toujours là, au bord du chemin. Alors ?',
+  suiteSeule: true,
+  choix: CHOIX_BOURSE(false),
+};
+
+// L'écureuil blessé (proposition de Sedy) : un écureuil a vu des gobelins attaquer des elfes.
+// Les compléments du MJ : n'importe qui peut aller voir d'où il vient (une heure à chercher),
+// et laisser les elfes se faire écraser rapporte un peu… et se paie en réputation de salaud.
+const ELFES_SYLVAINS: LigneRencontre = {
+  d20: 0,
+  rencontre: 'Elfes sylvains blessés',
+  nombre: '2',
+  nom: 'Elfes sylvains blessés',
+  at: 10,
+  prd: 9,
+  ev: 10,
+  pr: 2,
+  degats: '1D+2',
+  cou: 10,
+  xp: 0,
+  notes: 'Arc : 1D+2, AD : 13',
+};
+
+const ELFES_EN_DIFFICULTE: Evenement = {
+  id: 'elfes-en-difficulte',
+  titre: 'Les elfes en mauvaise posture',
+  texte:
+    "Dans une clairière, deux Elfes sylvains blessés, dos à un chêne, tiennent tête à quatre gobelins qui ricanent. Ils ont été pris par surprise : l'une a encore son arc, l'autre saigne beaucoup.",
+  suiteSeule: true,
+  choix: [
+    {
+      libelle: 'Aider les elfes',
+      effet: () => ({
+        texte: 'Tu sors des fourrés en hurlant. Les gobelins se retournent ; les elfes reprennent courage.',
+        combat: {
+          rencontre: { ligne: ligneEnnemi('Gobelin')!, nombre: 4, d20: 0, approche: 1, allies: [{ ligne: ELFES_SYLVAINS, nombre: 2 }] },
+          victoire: (p) => {
+            const deja = dansGroupe(p, 'elwyn');
+            if (!deja) recruter(p, 'elwyn');
+            return deja
+              ? 'Les elfes te remercient en chantant (faux).'
+              : "L'archère essuie sa flèche : « Elwyn Courtebranche. Je te dois la vie, et chez nous, ça se rembourse. Je viens avec toi. » Elwyn rejoint ton groupe.";
+          },
+        },
+      }),
+    },
+    {
+      libelle: "Attendre qu'ils se fassent écraser",
+      effet: (p, rng) => {
+        const or = lancer(6, rng) + lancer(6, rng);
+        p.or += or;
+        malConduire(p, 'elfes-abandonnes');
+        return {
+          texte: `Tu attends, caché. Les gobelins finissent par assommer les elfes, les dépouillent et repartent en chantant. Tu fouilles derrière eux : ${or} pièces d'or tombées d'une bourse. Les elfes, eux, se souviendront de ta tête.`,
+          heures: 1,
+        };
+      },
+    },
+    { libelle: 'Ne pas s\'en mêler', effet: () => ({ texte: "Ce ne sont pas tes affaires. Tu fais demi-tour avant qu'on te voie." }) },
+  ],
+};
+
+const RECIT_ECUREUIL: Evenement = {
+  id: 'ecureuil-recit',
+  titre: "Ce que dit l'écureuil",
+  texte: "L'écureuil accepte de te raconter. Il parle vite, avec les pattes, et saute du coq à l'âne (et du gland à la noisette).",
+  suiteSeule: true,
+  choix: [
+    {
+      libelle: "Suivre son récit (épreuve d'Intelligence)",
+      jet: { faces: 20, pour: "l'épreuve d'Intelligence", valeur: (p) => calculerFiche(p.perso).caracs.INT },
+      effet: (p, rng) => {
+        const e = epreuve(calculerFiche(p.perso).caracs.INT, rng);
+        if (!e.reussi) return { texte: `Dé : ${e.de}. Tu comprends « gland », « méchant » et « pas content ». L'écureuil soupire et s'en va boiter ailleurs.` };
+        return {
+          texte: `Dé : ${e.de}. Tu comprends : il vient d'échapper à une rixe entre des gobelins et des elfes, tout près d'ici. Il t'indique la direction d'un coup de queue.`,
+          suite: {
+            id: 'ecureuil-direction',
+            titre: "Ce que dit l'écureuil",
+            texte: 'Des gobelins et des elfes, à deux pas. Que fais-tu ?',
+            suiteSeule: true,
+            choix: [
+              { libelle: 'Se rendre sur les lieux', effet: () => ({ texte: 'Tu suis la direction indiquée, à pas de loup.', suite: ELFES_EN_DIFFICULTE }) },
+              { libelle: 'Ne pas s\'en mêler', effet: () => ({ texte: "Les histoires d'elfes, ça finit toujours en chansons. Tu passes ton chemin." }) },
+            ],
+          },
+        };
+      },
+    },
+  ],
+};
+
 const connaissanceChampignons = (p: Partie) => savoir(p, 'nature') ?? savoir(p, 'cuisine');
 const valeurChampignons = (p: Partie) =>
   calculerFiche(p.perso).caracs.INT + Math.max(bonusSituation(p, 'nature').total, bonusSituation(p, 'cuisine').total);
 
 export const EVENEMENTS: Evenement[] = [
   {
+    id: 'ecureuil',
+    titre: 'Un écureuil blessé',
+    texte: 'Non loin devant toi, un écureuil semble mal en point. Il boite, une oreille déchirée, et jette des regards inquiets derrière lui.',
+    zones: ['foret'],
+    choix: [
+      { libelle: "L'ignorer et continuer", effet: () => ({ texte: "Un écureuil de plus ou de moins… Tu continues d'avancer." }) },
+      {
+        libelle: 'Tenter de comprendre ce qui lui arrive (Comprendre les animaux, épreuve de Charisme)',
+        visible: (p) => aTalent(p, 'Comprendre les animaux'),
+        jet: { faces: 20, pour: "l'épreuve de Charisme", valeur: (p) => valeursCombat(p).cha },
+        effet: (p, rng) => {
+          const e = epreuve(valeursCombat(p).cha, rng);
+          if (!e.reussi) return { texte: `Dé : ${e.de}. L'écureuil te crache une coque de noisette au visage et file dans un arbre.` };
+          return { texte: `Dé : ${e.de}. Tu t'accroupis et lui parles doucement. Il hésite, puis s'approche.`, suite: RECIT_ECUREUIL };
+        },
+      },
+      {
+        libelle: "Aller voir d'où il vient",
+        effet: () => ({ texte: "Tu remontes ses traces (et les gouttes de sang) à travers les fourrés. Au bout d'une heure, des cris, des ricanements…", heures: 1, suite: ELFES_EN_DIFFICULTE }),
+      },
+    ],
+  },
+  {
     id: 'bourse',
     titre: 'Une bourse dans le fossé',
     texte: "Au bord du chemin, une petite bourse en cuir dépasse des herbes. Son propriétaire n'est visible nulle part. Ou alors il est très bien caché.",
-    choix: [
-      {
-        libelle: 'La ramasser',
-        jet: { faces: 6, pour: "compter les pièces d'or" },
-        effet: (p, rng) => {
-          const or = lancer(6, rng);
-          p.or += or;
-          return { texte: `Elle contient ${or} pièces d'or et un bouton de culotte. Tu gardes les deux.` };
-        },
-      },
-      { libelle: "Passer ton chemin, c'est sûrement un piège", effet: () => ({ texte: 'Tu ne sauras jamais. Ça va te travailler toute la journée.' }) },
-    ],
+    choix: CHOIX_BOURSE(true),
   },
   {
     id: 'colporteur',
@@ -349,8 +500,10 @@ export const EVENEMENTS: Evenement[] = [
   },
 ];
 
-export const tirerEvenement = (terrain: Terrain, rng?: Rng, p?: Partie): Evenement => {
-  const possibles = EVENEMENTS.filter((e) => (!e.terrains || e.terrains.includes(terrain)) && (e.condition ? !!p && e.condition(p) : true));
+export const tirerEvenement = (terrain: Terrain, rng?: Rng, p?: Partie, zone?: Zone): Evenement => {
+  const possibles = EVENEMENTS.filter(
+    (e) => !e.suiteSeule && (!e.terrains || e.terrains.includes(terrain)) && (!e.zones || (!!zone && e.zones.includes(zone))) && (e.condition ? !!p && e.condition(p) : true),
+  );
   const suites = possibles.filter((e) => e.prioritaire);
   if (suites.length && lancer(2, rng) === 1) return suites[lancer(suites.length, rng) - 1];
   const ordinaires = possibles.filter((e) => !e.prioritaire);
@@ -372,6 +525,6 @@ export const controler = (terrain: Terrain, nuit: boolean, rng?: Rng, horsPiste 
   // Hors des routes, loin des patrouilles et des villages : rencontres et embûches deux fois plus probables.
   // En campagne paisible, une rencontre sur deux n'a finalement pas lieu.
   if (d === 1 || (horsPiste && d === 2)) return zone && TABLES[zone].paisible && lancer(2, rng) === 2 ? { type: 'rien' } : { type: 'rencontre' };
-  if (!nuit && (horsPiste ? d <= 4 : d === 2)) return { type: 'evenement', evenement: tirerEvenement(terrain, rng, p) };
+  if (!nuit && (horsPiste ? d <= 4 : d === 2)) return { type: 'evenement', evenement: tirerEvenement(terrain, rng, p, zone) };
   return { type: 'rien' };
 };

@@ -54,6 +54,18 @@ export const protectionTotale = (p: Partie) => porte(p).reduce((s, o) => s + (o.
 
 export type EtatQuete = 'acceptee' | 'terminee';
 
+/** Ce qui change d'un compagnon au fil de la partie (sa fiche fixe est dans compagnons.ts). */
+export interface EtatCompagnon {
+  id: string;
+  ev: number;
+  evMax: number;
+}
+
+/** Les compagnons se reposent en même temps que le héros (jamais au-delà de leur maximum, et au moins 1 PV). */
+export const reposCompagnons = (p: Partie, points: number) => {
+  for (const c of p.compagnons ?? []) c.ev = Math.max(1, Math.min(c.evMax, c.ev + points));
+};
+
 /** Un voyage en cours sur la carte du monde, interrompu (nuit, rencontre) ou en marche. */
 export interface Voyage {
   /** Lieux traversés, du départ à l'arrivée. */
@@ -89,6 +101,8 @@ export interface Partie {
   xp?: number;
   /** Points de mauvaise conduite : racket, vol… Le monde finit par s'en souvenir. */
   mauvaiseConduite?: number;
+  /** Compagnons qui voyagent avec le héros (voir compagnons.ts). */
+  compagnons?: EtatCompagnon[];
   /** Réputation dans chaque ville (de −10 à +10), voir reputation.ts. */
   reputation?: Record<string, number>;
   /** Faits marquants qui peuvent revenir plus tard (« marchand-rackette »…). */
@@ -383,6 +397,7 @@ export const dormir = (p: Partie, confort: 'mauvais' | 'normal' | 'excellent'): 
   if (p.heure >= 6) p.jour += 1;
   p.heure = 7;
   reposAstral(p, 8, confort);
+  reposCompagnons(p, { mauvais: 2, normal: 4, excellent: 8 }[confort]);
   return soigner(p, { mauvais: 2, normal: 4, excellent: 8 }[confort]);
 };
 
@@ -445,5 +460,6 @@ export const bivouaquer = (p: Partie): { rendu: number; confort: 'mauvais' | 'no
     const max = calculerFiche(p.perso).ea;
     if (max) p.ea = Math.min(max, (p.ea ?? max) + 4);
   }
+  reposCompagnons(p, points);
   return { rendu: soigner(p, points), confort, mange, matelas };
 };

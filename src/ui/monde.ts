@@ -312,9 +312,14 @@ export const ecranMonde = (app: HTMLElement, p: Partie, s: Sorties) => {
         <p>${boutonAutrement(contexte)}</p>`;
     } else {
       const e = issue.epreuve;
-      corps += `<div class="recit">Épreuve : ${de(e.de)} contre ${e.valeur}. ${
+      corps += issue.surprise
+        ? `<div class="recit">Épreuve : ${de(e.de)} contre ${e.valeur}. Ratée. ${echapper(singulier(l))} ne comprend rien, et ce qu'il ne comprend pas, il le cogne : il attaque par surprise, avec l'initiative !</div>
+          <p><button data-combattre>⚔ Combattre</button></p>`
+        : `<div class="recit">Épreuve : ${de(e.de)} contre ${e.valeur}. ${
         e.reussi
-          ? 'Réussie ! Tu t\'en sors sans une égratignure.'
+          ? f.tactique === 'embrouiller'
+            ? `Réussie ! « Être ou ne pas être ? » ${echapper(singulier(l))} s'assoit, profondément déboussolé par ce problème. Tu en profites pour filer.`
+            : 'Réussie ! Tu t\'en sors sans une égratignure.'
           : `Ratée. Avant que tu ne t'échappes, ${issue.coups.length > 1 ? 'ils frappent' : 'il frappe'} :
             <ul>${issue.coups.map((c, i) => `<li>Coup ${i + 1} : ${c.des.map((d) => de(d, 'petit coup')).join('')} ${c.degats} dégâts, ${c.blessure} après ton armure</li>`).join('')}</ul>
             Tu perds <b>${issue.perdu} PV</b>.`
@@ -770,7 +775,7 @@ export const ecranMonde = (app: HTMLElement, p: Partie, s: Sorties) => {
     sur('[data-combattre]', () => {
       if (fenetre?.type !== 'rencontre') return;
       const f = fenetre;
-      ecranCombat(app, p, f.r, (bilan) => {
+      ecranCombat(app, p, f.issue?.surprise ? { ...f.r, surprise: true } : f.r, (bilan) => {
         f.bilan = bilan;
         fenetre = bilan.fin === 'defaite' ? { type: 'mort' } : f;
         if (bilan.fin === 'defaite') p.ev = 0;
@@ -886,6 +891,11 @@ export const ecranMonde = (app: HTMLElement, p: Partie, s: Sorties) => {
     });
     sur('#suite', () => {
       if (verifierMort()) return;
+      // L'histoire continue (l'écureuil, la bourse…).
+      if (fenetre?.type === 'evenement' && fenetre.resultat?.suite) {
+        fenetre = { type: 'evenement', ev: fenetre.resultat.suite };
+        return render();
+      }
       if (fenetre?.type === 'rencontre' && fenetre.nuit) return dormirDehors();
       if (p.voyage) return marcher();
       fenetre = { type: 'lieu' };

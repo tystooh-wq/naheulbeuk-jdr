@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Personnage } from '../src/rules/creation';
-import { charger, creerCombat, heros, tirer, toucherParSort, tourSuivant } from '../src/rules/combat';
+import { creerCombat, deplacer, ecart, heros, planifier, tirer, toucherParSort } from '../src/rules/combat';
 import { ea, lancerSort, sort, sortsConnus, soinLeger, valeurSort } from '../src/rules/magie';
 import { objet } from '../src/rules/objets';
 import { acheter, dormir, equiper, nouvellePartie } from '../src/rules/partie';
@@ -45,16 +45,17 @@ describe('armes à distance', () => {
     expect(t.degats).toBe('1D+3');
   });
 
-  it("on tire pendant l'approche ; le contact arrive au fil des assauts", () => {
+  it("on tire tant que personne n'est au contact ; l'ennemi avance de deux cases par tour", () => {
     const p = nouvellePartie(perso({}));
     const c = creerCombat(p, { ligne: TABLE_TERRES_SAUVAGES[8], nombre: 1, d20: 9, approche: 2 });
-    expect(c.distance).toBe(2);
+    const e = c.combattants[1];
+    expect(ecart(heros(c), e)).toBe(5);
     const a = tirer(c, 'heros', 'e1', 1, { ad: 10, degats: '1D+2' }, { desDegats: [4] });
     expect(a.degats?.blessure).toBe(6);
-    for (let i = 0; i < c.ordre.length; i++) tourSuivant(c);
-    expect(c.distance).toBe(1);
-    charger(c);
-    expect(c.distance).toBe(0);
+    const plan = planifier(c, e);
+    expect(plan.vers).toBeDefined();
+    deplacer(c, e.id, plan.vers!.x, plan.vers!.y);
+    expect(ecart(heros(c), e)).toBe(3);
   });
 
   it('les brigands archers tirent', () => {

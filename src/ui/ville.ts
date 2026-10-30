@@ -29,6 +29,7 @@ import { marchander, type Marchandage } from '../rules/marchandage';
 import { arrondirOr, formatOr } from '../rules/monnaie';
 import { boutonAutrement, lierIdeesLieu, panneauIdeesLieu } from './idees';
 import { sauvegarderPartie } from './sauvegarde';
+import { lierGroupe, panneauEmbauche } from './groupe';
 import { facteurPrix, rangReputation, reputation } from '../rules/reputation';
 
 // Lettres sur le plan, dans l'esprit des symboles des cartes MJ (A, E, T…).
@@ -216,7 +217,7 @@ export const ecranVille = (app: HTMLElement, p: Partie, sorties: SortiesVille, a
         break;
     }
     if (l.action) parts.push(`<p><button class="secondaire" id="action-lieu">${echapper(l.action.bouton)}</button></p>`);
-    return quetes + parts.join('') + (l.boutique ? panneauBoutique(l) : '');
+    return quetes + parts.join('') + panneauEmbauche(p, ou(l)) + (l.boutique ? panneauBoutique(l) : '');
   };
 
   // En attendant les illustrations, le cadre montre le plan agrandi autour du lieu.

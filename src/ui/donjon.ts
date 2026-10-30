@@ -1,3 +1,4 @@
+import { eaMax } from '../rules/magie';
 import { lancer } from '../rules/des';
 import {
   accessibles,
@@ -116,7 +117,7 @@ export const ecranDonjon = (app: HTMLElement, p: Partie, s: SortiesDonjon) => {
             aTalent(p, 'Désamorcer') ? `<button class="secondaire" id="desamorcer">🔧 Désamorcer (Adresse ${valeurPiege(p, c, true)}, compétence)</button>` : ''
           }</p>`;
     } else if (c?.type === 'repos' && !regle) {
-      action = `<p><button id="repos">♨ Faire une pause (${c.pv} PV, 30 minutes)</button></p>`;
+      action = `<p><button id="repos">♨ Faire une pause (${c.pv} PV${c.pa && eaMax(p) ? `, ${c.pa} PA` : ''}, ${c.heures ? `${c.heures} h` : '30 minutes'})</button></p>`;
     }
     const peutFouiller = sa.tresor && !e.fouillees.includes(sa.id) && !bloquee(e, sa);
     const sorties = accessibles(e, dj);
@@ -231,7 +232,8 @@ export const ecranDonjon = (app: HTMLElement, p: Partie, s: SortiesDonjon) => {
     sur('#repos', () => {
       const n = seReposer(p);
       const c = salle(d(), p.donjon!.salle).contenu;
-      dire(`${c?.type === 'repos' ? echapper(c.texte) : ''} ${n ? `Tu récupères <b>${n} PV</b>.` : 'Tu es déjà en pleine forme.'}`);
+      const gains = [n.pv ? `${n.pv} PV` : '', n.pa ? `${n.pa} PA` : ''].filter(Boolean).join(' et ');
+      dire(`${c?.type === 'repos' ? echapper(c.texte) : ''} ${gains ? `Tu récupères <b>${gains}</b>.` : 'Tu es déjà en pleine forme.'}`);
     });
     sur('#fouiller', () => {
       const t = fouiller(p);
