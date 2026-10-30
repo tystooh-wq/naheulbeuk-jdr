@@ -1,5 +1,5 @@
 import { bonusSituation, type Situation } from './talents';
-import { recruter } from './compagnons';
+import { ajouterButin, reagir, recruter } from './compagnons';
 import { changerReputation, quetesRefusees, villeDe } from './reputation';
 import { calculerFiche } from './creation';
 import { arrondirOr } from './monnaie';
@@ -271,6 +271,7 @@ export const validerEtape = (p: Partie, id: string): IssueEtape => {
   if (e.malConduite) {
     p.mauvaiseConduite = (p.mauvaiseConduite ?? 0) + e.malConduite;
     p.marques = [...new Set([...(p.marques ?? []), `quete:${id}`])];
+    reagir(p, { type: 'conduite' });
   }
   const suivante = i + 1;
   p.etapesQuetes = { ...(p.etapesQuetes ?? {}), [id]: suivante };
@@ -279,6 +280,9 @@ export const validerEtape = (p: Partie, id: string): IssueEtape => {
     return { reussi: true, texte: e.recit };
   }
   p.quetes[id] = 'terminee';
+  // Le groupe se réjouit (avant qu'un nouveau compagnon ne le rejoigne) et attend sa part de la récompense.
+  const reactions = reagir(p, { type: 'quete', titre: q.titre });
+  ajouterButin(p, q.recompense.or);
   p.or = arrondirOr(p.or + q.recompense.or);
   p.xp = (p.xp ?? 0) + q.recompense.xp;
   p.sac.push(...(q.recompense.objets ?? []));
@@ -286,7 +290,8 @@ export const validerEtape = (p: Partie, id: string): IssueEtape => {
   noter(p, `termine la quête « ${q.titre} » (${q.recompense.texte}, +${q.recompense.xp} XP).`);
   const ville = villeDe(q.donneur);
   const renom = ville && changerReputation(p, ville, 2, `quête « ${q.titre} »`) ? ' On parle de toi en ville : ta réputation monte.' : '';
-  return { reussi: true, finie: true, texte: `${e.recit} Quête terminée : ${q.recompense.texte} et ${q.recompense.xp} points d'expérience.${renom}` };
+  const groupe_ = reactions.length ? ` Le groupe : ${reactions.join(' · ')}.` : '';
+  return { reussi: true, finie: true, texte: `${e.recit} Quête terminée : ${q.recompense.texte} et ${q.recompense.xp} points d'expérience.${renom}${groupe_}` };
 };
 
 /** Tente l'épreuve de l'étape avec le dé lancé par le joueur. Un échec coûte, mais on peut réessayer. */

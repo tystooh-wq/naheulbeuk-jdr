@@ -2,7 +2,7 @@ import { calculerFiche, cleCompetence } from './creation';
 import { lancer, type Rng } from './des';
 import { lancerExpression, mainGauche, valeursCombat, type EtatCompagnon, type Partie } from './partie';
 import { singulier, type LigneRencontre, type Rencontre } from './rencontres';
-import { tirCompagnon, vueCompagnon } from './compagnons';
+import { tirCompagnon, vueCompagnon, type Ordre } from './compagnons';
 import { fouiller, type Fouille } from './butin';
 import { objet } from './objets';
 import {
@@ -161,6 +161,10 @@ export interface Combat {
   tirPerdu?: boolean;
   /** Armes du héros cassées pendant le combat (elles disparaissent de son équipement). */
   armesCassees?: ('arme' | 'armeGauche' | 'distance')[];
+  /** Compagnons frappés par le héros (maladresse) : ils s'en souviendront. */
+  frappesAllies?: { id: string; grave: boolean }[];
+  /** Ordres donnés aux compagnons (identifiant du combattant), suivis jusqu'à nouvel ordre. */
+  ordres?: Record<string, { ordre: Ordre; cible?: string }>;
 }
 
 export const AU_CONTACT = 3;
@@ -382,12 +386,32 @@ export interface Plan {
 }
 
 export const planifier = (c: Combat, x: Combattant): Plan => {
-  const opp = adversaires(c, x);
+  let opp = adversaires(c, x);
   if (!opp.length) return {};
+  // Un compagnon qui a accepté un ordre s'y tient : une cible désignée, ceux qui menacent le héros, ou rester à distance.
+  const ord = c.ordres?.[x.id];
+  if (ord?.ordre === 'cible') {
+    const v = opp.find((y) => y.id === ord.cible);
+    if (v) opp = [v];
+  }
+  if (ord?.ordre === 'proteger') {
+    const h = c.combattants.find((y) => y.id === 'heros');
+    const menaces = h ? contacts(c, h).filter((y) => y.camp !== x.camp) : [];
+    if (menaces.length) opp = menaces;
+  }
+  if (ord?.ordre === 'distance') {
+    const proches = contacts(c, x);
+    if (proches.length) return { cible: proches.sort((a, b) => a.ev - b.ev)[0].id };
+    if (x.tireur) return { cible: [...opp].sort((a, b) => ecart(x, a) - ecart(x, b))[0].id, tir: true };
+    return {};
+  }
   // Le plus faible de ceux qui sont au contact (le héros d'abord, pour les ennemis : c'est lui qu'ils veulent).
   const choisir = (cs: Combattant[]) =>
     [...cs].sort((a, b) => (x.camp === 'ennemi' ? Number(b.id === 'heros') - Number(a.id === 'heros') : 0) || a.ev - b.ev)[0];
   const proches = contacts(c, x);
+  const vises = proches.filter((y) => opp.includes(y));
+  if (vises.length) return { cible: choisir(vises).id };
+  // Au contact d'un autre que celui qu'on lui a désigné : il ne peut pas filer, il frappe ce qu'il a devant lui.
   if (proches.length) return { cible: choisir(proches).id };
   if (x.tireur) return { cible: [...opp].sort((a, b) => ecart(x, a) - ecart(x, b))[0].id, tir: true };
   // Sinon il marche vers l'adversaire le plus proche qui n'a pas déjà trois ennemis sur le dos.
@@ -578,6 +602,11 @@ const coupCritique = (c: Combat, action: Action, a: Combattant, x: Combattant, r
   if (k.deces) tuer(x, action.effets);
 };
 
+/** Le héros a touché un compagnon par maladresse. */
+const frappeAllie = (c: Combat, x: Combattant, y: Combattant, grave: boolean) => {
+  if (x.id === 'heros' && y.compagnon) (c.frappesAllies ??= []).push({ id: y.compagnon, grave });
+};
+
 /** Maladresse (20 au D20) : le maladroit lance un D20 sur la table des maladresses de son arme. */
 const maladresse = (
   c: Combat,
@@ -610,6 +639,7 @@ const maladresse = (
   if (l.allie) {
     const y = allieDe(c, x, l.allie);
     effets.push(y ? `${y.nom} prend le coup de ${x.nom} : ${coup(x, y, rng, { expr: o.tir?.degats })}.` : 'Personne à côté : le coup part dans le vide.');
+    if (y) frappeAllie(c, x, y, y.ev <= 0);
   }
   if (l.lache) {
     if (o.tir) perdreTir(c, x, false, effets);
@@ -622,8 +652,10 @@ const maladresse = (
   if (l.oeilOuDoigt) blesser(x, lancer(6, rng) <= 2 ? BLESSURES['oeil-creve'] : BLESSURES.doigt, effets);
   if (l.oeilAllie) {
     const y = allieDe(c, x, 'gauche');
-    if (y) blesser(y, BLESSURES['oeil-creve'], effets);
-    else effets.push('Personne à côté, heureusement.');
+    if (y) {
+      blesser(y, BLESSURES['oeil-creve'], effets);
+      frappeAllie(c, x, y, true);
+    } else effets.push('Personne à côté, heureusement.');
   }
   if (l.inconscient) assommer(x, effets, rng);
 };

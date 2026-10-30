@@ -10,7 +10,9 @@ import {
   combatSalle,
   donjon,
   fouiller,
+  quitterDonjon,
   regler,
+  repeuplement,
   salle,
   seReposer,
   termine,
@@ -18,6 +20,8 @@ import {
   type EtatDonjon,
 } from '../rules/donjons';
 import { formatOr } from '../rules/monnaie';
+import { dateLongue } from '../rules/calendrier';
+import { ajouterButin } from '../rules/compagnons';
 import { objet } from '../rules/objets';
 import { noter, type Partie } from '../rules/partie';
 import { donjonTermine } from '../rules/quetes';
@@ -206,7 +210,7 @@ export const ecranDonjon = (app: HTMLElement, p: Partie, s: SortiesDonjon) => {
     sur('#sortir', () => {
       const dj = d();
       noter(p, `ressort de ${dj.nom}.`);
-      p.donjon = undefined;
+      quitterDonjon(p);
       s.sortir();
     });
     sur('#piege', () => {
@@ -238,9 +242,10 @@ export const ecranDonjon = (app: HTMLElement, p: Partie, s: SortiesDonjon) => {
     sur('#fouiller', () => {
       const t = fouiller(p);
       if (!t) return dire('Rien de plus ici.');
+      ajouterButin(p, t.or ?? 0);
       const gains = [t.or ? formatOr(t.or) : '', ...(t.objets ?? []).map((id) => objet(id).nom)].filter(Boolean);
       noter(p, `fouille ${salle(d(), p.donjon!.salle).nom} : ${gains.join(', ')}.`);
-      dire(`${echapper(t.texte)} <b>${echapper(gains.join(', '))}</b>.`);
+      dire(`${echapper(t.texte)} <b>${echapper(gains.join(', '))}</b>.${p.butin ? ` Le groupe attend sa part (${p.butin} PO à partager, onglet Groupe).` : ''}`);
     });
     sur('#combattre', () => {
       const sa = salle(d(), p.donjon!.salle);
@@ -248,7 +253,7 @@ export const ecranDonjon = (app: HTMLElement, p: Partie, s: SortiesDonjon) => {
       ecranCombat(app, p, r, (bilan) => {
         const e = p.donjon!;
         if (bilan.fin === 'victoire') {
-          regler(e, sa.id);
+          regler(e, sa.id, p.jour);
           const fin = finSiTermine();
           return dire(`Victoire (+${bilan.xp} XP${bilan.or ? `, ${formatOr(bilan.or)}` : ''}${bilan.objets.length ? `, ${bilan.objets.map((o) => objet(o).nom).join(', ')}` : ''}).${sa.tresor ? ' Il y a peut-être quelque chose à fouiller.' : ''}${fin}`);
         }
@@ -275,7 +280,7 @@ export const ecranDonjon = (app: HTMLElement, p: Partie, s: SortiesDonjon) => {
       (texte) => {
         if (dj.secours) {
           // Le Donjon Facile est surveillé : on se réveille dehors, et il faudra recommencer.
-          p.donjon = undefined;
+          quitterDonjon(p, true);
           sauver();
           return s.sortir(texte);
         }
@@ -286,5 +291,11 @@ export const ecranDonjon = (app: HTMLElement, p: Partie, s: SortiesDonjon) => {
   };
 
   if (p.donjon!.vues.length === 1) message = echapper(d().intro);
+  else if (p.donjon!.salle === d().entree && !message) {
+    const r = repeuplement(p.donjon!);
+    message = r
+      ? `Tu retrouves ${echapper(d().nom)} comme tu l'as laissé : les salles vidées sont encore vides, les coffres pillés aussi. Ça ne durera pas : les premières bestioles reviendront vers le ${echapper(dateLongue(r))}.`
+      : `Tu retrouves ${echapper(d().nom)}. Une semaine a passé : les lieux se sont repeuplés, et quelqu'un a remis des choses dans les coffres.`;
+  }
   render();
 };

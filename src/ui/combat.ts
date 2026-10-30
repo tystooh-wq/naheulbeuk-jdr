@@ -3,6 +3,7 @@ import {
   attaquer,
   attaquerMainGauche,
   adversaires,
+  amis,
   auContact,
   bilanCompagnons,
   butin,
@@ -38,6 +39,7 @@ import { consommerProjectile, valeursTir } from '../rules/tir';
 import { degatsSort, ea, eaMax, lancerSort, sort, sortsConnus, valeurSort, type Sort } from '../rules/magie';
 import type { Rencontre } from '../rules/rencontres';
 import { aTalent } from '../rules/talents';
+import { ajouterButin, compagnon, garderButin, obeit, ORDRES, partButin, partagerButin, reagir, valeurObeissance, type Ordre } from '../rules/compagnons';
 import { boutonsVitesse, lierVitesse, vitesse } from './commun';
 import { PAS as PAS_HEROS } from '../rules/combat';
 import { boutonAutrement } from './idees';
@@ -58,6 +60,8 @@ export interface BilanCombat {
   fouilles: Fouille[];
   /** Projectiles et arme de jet ramassés (ou perdus). */
   recuperes?: string;
+  /** Ce que le groupe en pense (appréciation des compagnons). */
+  groupe?: string[];
 }
 
 type Attente =
@@ -88,6 +92,10 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
   /** Berserker : PV temporaires gagnés (repris à la fin du combat). */
   let rage = 0;
   let lachementFait = false;
+  /** Ordres donnés ce combat : compagnon → assaut (un ordre par compagnon et par assaut), et la dernière réponse. */
+  const ordresDonnes: Record<string, number> = {};
+  let reponseOrdre = '';
+  let reactions: string[] = [];
   const berserkerPossible = () => aTalent(p, 'Berserker') && !rage && Math.floor((p.talents?.berserker ?? -99) / 24) !== p.jour;
   const dague = () => !!p.equipe.arme && /dague|poignard|couteau|surin|stylet/i.test(objet(p.equipe.arme).nom);
   const lachementPossible = () => aTalent(p, 'Frapper lâchement') && !lachementFait && dague() && auContact(c).length > 0;
@@ -120,6 +128,34 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
   };
 
   const potions = () => [...new Set(p.sac.filter((id) => objet(id).type === 'potion' && (!!objet(id).soin || (!!objet(id).mana && eaMax(p) > 0))))];
+
+  /** Donner un ordre à un compagnon : ça ne coûte pas l'action du héros, mais un seul ordre par compagnon et par assaut. */
+  const panneauOrdres = () => {
+    const comps = amis(c).filter((y) => y.compagnon && y.etat === 'actif' && !y.inconscient);
+    if (!comps.length) return '';
+    const cibles = ennemis(c).filter((y) => y.etat === 'actif');
+    const lignes = comps
+      .map((y) => {
+        const e = (p.compagnons ?? []).find((k) => k.id === y.compagnon);
+        if (!e) return '';
+        const fait = ordresDonnes[y.id] === c.assaut;
+        const actuel = c.ordres?.[y.id];
+        const boutons = (Object.keys(ORDRES) as Ordre[])
+          .flatMap((o) =>
+            o === 'cible'
+              ? cibles.map((v) => `<button class="secondaire petit" data-ordre="${o}" data-qui="${y.id}" data-vise="${v.id}" ${fait ? 'disabled' : ''}>« Sur ${echapper(v.nom)} ! »</button>`)
+              : [`<button class="secondaire petit" data-ordre="${o}" data-qui="${y.id}" ${fait ? 'disabled' : ''}>« ${ORDRES[o]} »</button>`],
+          )
+          .join('');
+        return `<p class="actions-lieu"><b>${echapper(y.nom.split(' ')[0])}</b> <span class="note">obéit sur ${valeurObeissance(p, e)} ou moins${
+          actuel ? ` · suit l'ordre « ${actuel.ordre === 'cible' ? `Sur ${echapper(combattant(c, actuel.cible!).nom)} !` : ORDRES[actuel.ordre]} »` : ''
+        }</span> ${boutons}</p>`;
+      })
+      .join('');
+    return `<details class="ordres" ${reponseOrdre ? 'open' : ''}><summary>🗣 Donner un ordre au groupe <span class="note">(ton Charisme + son appréciation, sur son D20)</span></summary>${lignes}${
+      reponseOrdre ? `<p class="recit">${reponseOrdre}</p>` : ''
+    }</details>`;
+  };
 
   const panneauJoueur = () => {
     if (!attente) return '';
@@ -173,6 +209,7 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
       }</button></p>`;
       return `<div class="a-toi">${consigne}${tirs}${boutonsSorts}${melee}
         ${talents ? `<p class="actions-lieu">${talents}</p>` : ''}
+        ${panneauOrdres()}
         <p class="actions-lieu">${potions()
           .map((id) => `<button class="secondaire" data-potion="${id}">Boire : ${echapper(objet(id).nom)}</button>`)
           .join('')}${fuite}</p>
@@ -231,6 +268,13 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
           : ''
       }
       ${b.recuperes ? `<p class="note">${echapper(b.recuperes.trim())}</p>` : ''}
+      ${
+        p.butin && (p.compagnons ?? []).length
+          ? `<p><b>Le groupe attend sa part :</b> ${p.butin} PO à partager.</p><p class="actions-lieu"><button data-partager>Partager à parts égales (${partButin(p)} PO chacun)</button><button class="secondaire" data-garder>Tout garder</button></p>
+             <p class="note">Sans partage avant la nuit, le groupe considère que tu as tout gardé.</p>`
+          : ''
+      }
+      ${b.groupe?.length ? `<p><b>Le groupe</b></p><ul class="reactions">${b.groupe.map((l) => `<li>${echapper(l)}</li>`).join('')}</ul>` : ''}
       <p><button id="fin-combat">Continuer</button></p>
       <p>${boutonAutrement({ type: 'combat', id: `bilan:${r.ligne.nom}`, titre: `${titre} (combat contre ${r.ligne.nom})` })}</p></div>`;
   };
@@ -401,6 +445,8 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
     synchroniser();
     bilanCompagnons(c, p);
     let notes: string[] = [];
+    // Ce que les compagnons pensent du combat : les coups reçus du héros, puis l'issue.
+    for (const f of c.frappesAllies ?? []) reactions.push(...reagir(p, { type: 'frappe', id: f.id, grave: f.grave }));
     // Berserker : les PV de rage s'en vont avec la fin du combat.
     if (rage) {
       p.ev = Math.max(0, p.ev - rage);
@@ -434,6 +480,14 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
       notes.push(`${x.nom} est gravement blessé (${x.blessures!.map((b) => b.nom.toLowerCase()).join(', ')}), mais il serre les dents.`);
     const fin = c.fin!;
     const xp = fin === 'defaite' ? 0 : xpGagnee(c);
+    reactions.push(
+      ...reagir(
+        p,
+        fin === 'victoire'
+          ? { type: 'victoire', betes: ennemis(c).some((y) => y.famille === 'bete'), difficile: ennemis(c).length >= 3 || evDepart - p.ev >= h().evMax / 2 }
+          : { type: fin },
+      ),
+    );
     // Après une victoire, on ramasse son arme de jet et la moitié des projectiles (les autres sont cassés ou perdus).
     let recuperes = '';
     if (fin === 'victoire') {
@@ -479,9 +533,10 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
     const objets = fouilles.flatMap((f) => (f.objet ? [f.objet] : []));
     p.sac.push(...objets);
     const recuperes = [recup, ...notes].filter(Boolean).join(' ');
-    const bilan: BilanCombat = { fin, xp, or, perdu: evDepart - p.ev, objets, fouilles, recuperes };
+    const bilan: BilanCombat = { fin, xp, or, perdu: evDepart - p.ev, objets, fouilles, recuperes, groupe: reactions };
     p.xp = (p.xp ?? 0) + xp;
     p.or += or;
+    ajouterButin(p, or);
     const qui = r.nombre > 1 ? `${r.nombre} ${r.ligne.nom}` : r.ligne.nom;
     noter(
       p,
@@ -811,6 +866,36 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
     });
 
     app.querySelector('#lancer-fouille')?.addEventListener('click', () => void fouillerCorps());
+    sur('[data-partager]', () => {
+      reactions.push(...partagerButin(p));
+      occupe = false;
+      render();
+    });
+    sur('[data-garder]', () => {
+      reactions.push(...garderButin(p));
+      occupe = false;
+      render();
+    });
+    sur('[data-ordre]', (el) => {
+      const y = combattant(c, el.dataset.qui!);
+      const e = (p.compagnons ?? []).find((k) => k.id === y.compagnon);
+      occupe = false;
+      if (!e || ordresDonnes[y.id] === c.assaut) return;
+      ordresDonnes[y.id] = c.assaut;
+      const ordre = el.dataset.ordre as Ordre;
+      const d = lancer(20);
+      const dit = ordre === 'cible' ? `Sur ${combattant(c, el.dataset.vise!).nom} !` : ORDRES[ordre];
+      const prenom = y.nom.split(' ')[0];
+      if (obeit(p, e, d)) {
+        (c.ordres ??= {})[y.id] = { ordre, cible: el.dataset.vise };
+        reponseOrdre = `« ${echapper(dit)} » ${de(d, 'petit')} ${echapper(prenom)} obéit${d === 1 ? ' au quart de tour' : ''}.`;
+      } else
+        reponseOrdre = `« ${echapper(dit)} » ${de(d, 'petit')} ${echapper(prenom)} ${
+          compagnon(e.id).valeurs.includes('cupide') ? "fait la sourde oreille : « Pas payé pour ça. »" : d === 20 ? "te regarde comme si tu lui avais demandé de danser." : "n'entend pas, ou fait semblant."
+        }`;
+      c.journal.push(reponseOrdre.replace(/<[^>]+>/g, '').replace(/\s+/g, ' '));
+      render();
+    });
     app.querySelector('#fin-combat')?.addEventListener('click', () => {
       if (attente?.type === 'fin') terminer(attente.bilan);
     });

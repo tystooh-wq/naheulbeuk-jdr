@@ -39,6 +39,7 @@ import { arrondirOr, formatOr } from '../rules/monnaie';
 import { boutonAutrement, lierIdeesLieu, panneauIdeesLieu } from './idees';
 import { sauvegarderPartie } from './sauvegarde';
 import { lierGroupe, panneauEmbauche } from './groupe';
+import { discuterPeage, fixerPeage, payerPeage, peageDu, personnes, totalPeage, type Peage } from '../rules/peage';
 import { facteurPrix, rangReputation, reputation } from '../rules/reputation';
 
 // Lettres sur le plan, dans l'esprit des symboles des cartes MJ (A, E, T…).
@@ -74,6 +75,8 @@ interface Visite {
   message?: string;
 }
 
+let peageEnCours: { ville: string; g: Peage; discute?: boolean } | undefined;
+
 const PLANS: Record<string, string> = {
   waldorg: planWaldorg,
   valtordu: planValtordu,
@@ -108,8 +111,15 @@ export const ecranVille = (app: HTMLElement, p: Partie, sorties: SortiesVille, a
   let visite: Visite = { message: accueilMessage };
   let vue: 'lieu' | 'sac' | 'groupe' | 'journal' | 'quetes' = 'lieu';
   let epreuveQuete: string | undefined;
-  /** La fenêtre du lieu est ouverte au-dessus du plan. */
-  let popup = true;
+  /** Le droit d'entrée (Chnafon, Jambfer) : la porte réclame son dû avant tout. */
+  const taxe = () => {
+    if (!peageDu(p, c)) return undefined;
+    if (peageEnCours?.ville !== c.id) peageEnCours = { ville: c.id, g: fixerPeage(c) };
+    return peageEnCours;
+  };
+  if (taxe()) p.lieu = 'porte';
+  /** La fenêtre du lieu est ouverte au-dessus du plan : seulement si on clique sur un lieu, ou si quelque chose s'y passe. */
+  let popup = !!taxe() || !!accueilMessage;
   /** Le héros marche : on ignore les clics le temps du trajet. */
   let enRoute = false;
   let enregistre = true;
@@ -204,9 +214,24 @@ export const ecranVille = (app: HTMLElement, p: Partie, sorties: SortiesVille, a
     const quetes = panneauQuetes(p, ou(l), epreuveQuete);
     const parts: string[] = [];
     switch (l.type) {
-      case 'porte':
-        parts.push(`<p><button id="quitter">${echapper(c.sortie)}</button></p>`);
+      case 'porte': {
+        const t = taxe();
+        if (t) {
+          const total = totalPeage(p, t.g);
+          const n = personnes(p);
+          parts.push(`<div class="recit">${echapper(c.peage!.texte)}
+            <p>${t.g.des.length ? `${t.g.des.map((x) => de(x)).join('')} ` : ''}<b>${t.g.prix} PO par personne</b>${n > 1 ? `, soit <b>${total} PO</b> pour vous ${n}` : ''}. Tu as ${formatOr(p.or)}.</p>
+            ${t.g.discussion ? `<p>${de(t.g.discussion.de)} ${echapper(t.g.discussion.texte)}</p>` : ''}
+            ${
+              t.discute
+                ? `<p class="lancer-joueur">Épreuve de Charisme : ${valeursCombat(p).cha} ou moins sur le D20.</p><div>${de('?', 'a-lancer" id="de-peage')}<button id="lancer-peage">Lancer le D20</button></div>`
+                : `<p class="actions-lieu"><button id="payer-peage" ${p.or < total ? 'disabled' : ''}>${total ? `Payer ${total} PO` : 'Passer'}</button>
+                  ${c.peage!.marchandable && !t.g.discussion ? `<button class="secondaire" id="discuter-peage">Discuter le prix (Charisme)</button>` : ''}
+                  <button class="secondaire" id="quitter">Rebrousser chemin</button></p>`
+            }</div>`);
+        } else parts.push(`<p><button id="quitter">${echapper(c.sortie)}</button></p>`);
         break;
+      }
       case 'bar':
         parts.push(`<p><button id="chope">Commander une chope et tendre l'oreille (${l.chope} PO)</button></p>`);
         break;
@@ -333,6 +358,10 @@ export const ecranVille = (app: HTMLElement, p: Partie, sorties: SortiesVille, a
   const aller = (id: string) => {
     if (enRoute) return;
     if (id === p.lieu) return entrer();
+    if (taxe()) {
+      visite.message = "Le garde te barre le passage avec sa hallebarde. « On paie d'abord. On visite après. »";
+      return entrer();
+    }
     const chemin = trajetCite(c, lieu(p.lieu), lieu(id));
     // À vitesse ×1, environ 7 s pour traverser la ville ; le réglage de vitesse divise cette durée.
     const duree = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : Math.max(1500, longueurCite(c, chemin) * 70);
@@ -383,7 +412,8 @@ export const ecranVille = (app: HTMLElement, p: Partie, sorties: SortiesVille, a
     sur('.poi', (el) => aller(el.dataset.lieu!));
     sur('[data-vue]', (el) => {
       vue = el.dataset.vue as typeof vue;
-      if (vue === 'lieu') popup = true;
+      // Revenir au plan ne rouvre pas la fenêtre du lieu (sauf droit d'entrée à régler).
+      if (vue === 'lieu') popup = !!taxe();
       visite.message = undefined;
       render();
     });
@@ -400,7 +430,31 @@ export const ecranVille = (app: HTMLElement, p: Partie, sorties: SortiesVille, a
     });
     sur('#fiche', () => ouvrirFiche());
     sur('#accueil', () => retourAccueil());
+    sur('#payer-peage', () => {
+      const refus = payerPeage(p, c, taxe()!.g);
+      if (refus) return message(echapper(refus));
+      peageEnCours = undefined;
+      message(`Le garde empoche les pièces et s'écarte. Bienvenue à ${echapper(c.nom)}.`);
+    });
+    sur('#discuter-peage', () => {
+      taxe()!.discute = true;
+      render();
+    });
+    sur('#lancer-peage', (bouton) => {
+      const d = lancer(20);
+      (bouton as HTMLButtonElement).disabled = true;
+      animerDes([app.querySelector<HTMLElement>('#de-peage')!], 20, [d]).then(() =>
+        setTimeout(() => {
+          const t = taxe()!;
+          t.g = discuterPeage(p, t.g, d);
+          t.discute = false;
+          render();
+        }, 350),
+      );
+    });
     sur('#quitter', () => {
+      p.peage = undefined;
+      peageEnCours = undefined;
       noter(p, `quitte ${c.nom}.`);
       quitterVille();
     });

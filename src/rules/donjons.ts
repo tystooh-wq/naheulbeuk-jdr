@@ -57,7 +57,12 @@ export interface EtatDonjon {
   /** Salles dont le contenu est réglé. */
   reglees: string[];
   fouillees: string[];
+  /** Jour où chaque salle a été réglée (« r:salle ») ou fouillée (« f:salle ») : le donjon se repeuple après une semaine. */
+  quand?: Record<string, number>;
 }
+
+/** Jours avant que les monstres reviennent et que les coffres se remplissent. */
+export const REPEUPLEMENT = 7;
 
 /** Une ligne de combat tirée du bestiaire officiel, renommée pour le donjon. */
 const bete = (nom: string, surnom?: string): LigneRencontre => {
@@ -240,11 +245,41 @@ export const donjonIci = (ou: string) => DONJONS.find((d) => d.ou === ou);
 
 export const salle = (d: Donjon, id: string): Salle => d.salles.find((s) => s.id === id)!;
 
+/** Ce qui est encore vide ou pillé : on oublie ce qui a été réglé ou fouillé il y a une semaine ou plus. */
+const purger = (e: EtatDonjon, jour: number) => {
+  const q = e.quand ?? {};
+  const frais = (cle: string) => q[cle] === undefined || jour - q[cle] < REPEUPLEMENT;
+  e.reglees = e.reglees.filter((s) => frais(`r:${s}`));
+  e.fouillees = e.fouillees.filter((s) => frais(`f:${s}`));
+  for (const cle of Object.keys(q)) if (!frais(cle)) delete q[cle];
+};
+
+/** Entre dans un donjon. Les salles vidées et pillées depuis moins d'une semaine le restent ; le plan déjà vu aussi. */
 export const entrerDonjon = (p: Partie, id: string): EtatDonjon => {
   const d = donjon(id);
-  p.donjon = { id, salle: d.entree, vues: [d.entree], reglees: [], fouillees: [] };
+  const m = p.memoireDonjons?.[id];
+  if (m) {
+    purger(m, p.jour);
+    p.donjon = { ...m, salle: d.entree, precedente: undefined, vues: m.vues.includes(d.entree) ? m.vues : [d.entree, ...m.vues] };
+  } else p.donjon = { id, salle: d.entree, vues: [d.entree], reglees: [], fouillees: [], quand: {} };
   noter(p, `entre dans ${d.nom}.`);
   return p.donjon;
+};
+
+/** Ressort du donjon en gardant son état en mémoire (oublier : le donjon repart de zéro). */
+export const quitterDonjon = (p: Partie, oublier = false) => {
+  const e = p.donjon;
+  if (!e) return;
+  p.memoireDonjons ??= {};
+  if (oublier) delete p.memoireDonjons[e.id];
+  else p.memoireDonjons[e.id] = { ...e, precedente: undefined };
+  p.donjon = undefined;
+};
+
+/** Le jour où le donjon se repeuplera (la plus ancienne salle vidée revient en premier), ou null s'il est intact. */
+export const repeuplement = (e: EtatDonjon): number | null => {
+  const jours = Object.values(e.quand ?? {});
+  return jours.length ? Math.min(...jours) + REPEUPLEMENT : null;
 };
 
 /** Le contenu de la salle reste à régler : on ne peut pas passer, seulement reculer. */
@@ -268,8 +303,9 @@ export const avancer = (p: Partie, vers: string): string | null => {
   return null;
 };
 
-export const regler = (e: EtatDonjon, id: string) => {
+export const regler = (e: EtatDonjon, id: string, jour?: number) => {
   if (!e.reglees.includes(id)) e.reglees.push(id);
+  if (jour !== undefined) (e.quand ??= {})[`r:${id}`] = jour;
 };
 
 /** Le piège de la salle : le joueur lance son D20 contre la caractéristique. */
@@ -290,7 +326,7 @@ export const affronterPiege = (
   const c = s.contenu;
   if (c?.type !== 'piege') throw new Error('Pas de piège ici.');
   const valeur = valeurPiege(p, c, desamorcer);
-  regler(e, s.id);
+  regler(e, s.id, p.jour);
   if (epreuve(valeur, rng, de).reussi)
     return { reussi: true, valeur, degats: 0, des: [], texte: desamorcer ? 'Clic. Tu bloques le mécanisme avec la pointe de ta dague : le piège ne fera plus de mal à personne.' : c.evite };
   const jet = lancerExpression(c.degats, rng);
@@ -303,7 +339,7 @@ export const seReposer = (p: Partie): { pv: number; pa: number } => {
   const e = p.donjon!;
   const s = salle(donjon(e.id), e.salle);
   if (s.contenu?.type !== 'repos' || e.reglees.includes(s.id)) return { pv: 0, pa: 0 };
-  regler(e, s.id);
+  regler(e, s.id, p.jour);
   passerTemps(p, s.contenu.heures ?? 0.5);
   const avant = ea(p);
   if (s.contenu.pa && eaMax(p)) p.ea = Math.min(eaMax(p), avant + s.contenu.pa);
@@ -315,6 +351,7 @@ export const fouiller = (p: Partie): Salle['tresor'] | null => {
   const s = salle(donjon(e.id), e.salle);
   if (!s.tresor || e.fouillees.includes(s.id) || bloquee(e, s)) return null;
   e.fouillees.push(s.id);
+  (e.quand ??= {})[`f:${s.id}`] = p.jour;
   p.or = arrondirOr(p.or + (s.tresor.or ?? 0));
   p.sac.push(...(s.tresor.objets ?? []));
   return s.tresor;

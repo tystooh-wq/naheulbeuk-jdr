@@ -2014,3 +2014,67 @@ section.compagnon h3 .note {
   color: var(--encre-douce);
   font-size: 0.85em;
 }
+
+/* Relations avec les compagnons */
+.relation {
+  margin: 0.5rem 0;
+}
+
+.jauge-appreciation {
+  position: relative;
+  display: block;
+  height: 8px;
+  max-width: 22rem;
+  border-radius: 4px;
+  background: var(--desactive);
+  overflow: hidden;
+}
+
+.jauge-appreciation > span {
+  display: block;
+  height: 100%;
+  background: var(--vert);
+  transition: width 0.4s;
+}
+
+.jauge-appreciation.negative > span {
+  background: var(--rouge);
+}
+
+.jauge-appreciation > i {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--encre);
+}
+
+.souvenirs,
+.reactions {
+  margin: 0.4rem 0;
+  padding-left: 1.2rem;
+  font-size: 0.9em;
+}
+
+.souvenirs .plus,
+.souvenirs .moins {
+  display: inline-block;
+  min-width: 1.8em;
+  font-weight: bold;
+}
+
+.souvenirs .plus {
+  color: var(--vert);
+}
+
+.souvenirs .moins {
+  color: var(--rouge);
+}
+
+details.ordres {
+  margin: 0.5rem 0;
+}
+
+details.ordres summary {
+  cursor: pointer;
+}

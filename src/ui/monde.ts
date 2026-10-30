@@ -97,7 +97,8 @@ export const ecranMonde = (app: HTMLElement, p: Partie, s: Sorties) => {
   let vue: 'lieu' | 'sac' | 'groupe' | 'journal' | 'quetes' = 'lieu';
   let epreuveQuete: string | undefined;
   let message: string | undefined;
-  let fenetre: Fenetre | null = p.voyage ? { type: 'reprise' } : { type: 'lieu' };
+  // En arrivant sur la carte, aucune fenêtre ne s'ouvre : on clique sur sa position pour agir.
+  let fenetre: Fenetre | null = p.voyage ? { type: 'reprise' } : null;
   let zoom = 3;
   let enMarche = false;
   let enregistre = true;

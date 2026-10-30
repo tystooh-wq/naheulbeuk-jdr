@@ -31,6 +31,17 @@ export interface Cite {
   /** Heures de marche pour traverser le plan de part en part. */
   heuresTraversee: number;
   sortie: string;
+  /** Droit d'entrée réclamé à la porte, par personne : la fenêtre de la porte s'ouvre d'elle-même tant qu'il n'est pas réglé. */
+  peage?: Peage;
+}
+
+export interface Peage {
+  /** Ce que dit le garde. */
+  texte: string;
+  /** Prix par personne : un nombre fixe, ou des dés que le garde lance (« 1D6+2 »). */
+  prix: number | string;
+  /** Peut-on discuter le prix (épreuve de Charisme) ? */
+  marchandable: boolean;
 }
 
 export const CITES: Cite[] = [
@@ -160,6 +171,11 @@ export const CITES: Cite[] = [
     ],
     heuresTraversee: 0.5,
     sortie: 'Quitter Chnafon par la porte ouest',
+    peage: {
+      texte: "Le garde de la porte ouest se gratte le menton, compte tes bagages du regard, et annonce un prix. Par personne. Il le trouve sans doute raisonnable.",
+      prix: '1D+2',
+      marchandable: true,
+    },
   },
   {
     id: 'glargh',
@@ -191,6 +207,11 @@ export const CITES: Cite[] = [
       "Une centaine de mètres de galerie plus loin, l'air devient une soupe de fumées et d'odeurs. Il n'y a aucun panneau en langage commun : demander son chemin, c'est payant.",
     ],
     heuresTraversee: 0.15,
+    peage: {
+      texte: "Au poste extérieur, un garde nain tape sur un écriteau gravé en runes : la taxe d'entrée, 5 pièces d'or par personne. Il n'y a rien à discuter, et il le fait savoir.",
+      prix: 5,
+      marchandable: false,
+    },
     sortie: "Ressortir de la mine par la galerie de l'extérieur",
   },
 ];

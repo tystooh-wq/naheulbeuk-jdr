@@ -4,6 +4,7 @@ import { dateCourte } from './calendrier';
 import { lancer, type Rng } from './des';
 import { arrondirOr } from './monnaie';
 import type { EtatDonjon } from './donjons';
+import { garderButin } from './compagnons';
 import { objet, type Objet } from './objets';
 
 // L'état d'une partie en cours : le héros, sa bourse, son sac et où il se trouve.
@@ -66,6 +67,13 @@ export interface EtatCompagnon {
   id: string;
   ev: number;
   evMax: number;
+  /** Ce qu'il pense du héros : 0 en arrivant, monte avec les succès et le partage, baisse avec les défaites et les coups (voir compagnons.ts). */
+  appreciation?: number;
+  /** Les derniers événements qui l'ont fait changer d'avis, du plus récent au plus ancien. */
+  souvenirs?: { jour: number; delta: number; texte: string }[];
+  /** Jour de la dernière discussion et de la dernière tournée offerte. */
+  discussion?: number;
+  tournee?: number;
 }
 
 /** Les compagnons se reposent en même temps que le héros (jamais au-delà de leur maximum, et au moins 1 PV). */
@@ -129,9 +137,15 @@ export interface Partie {
   blessures?: (BlessureGrave & { jusqua?: number })[];
   /** Donjon en cours d'exploration. */
   donjon?: EtatDonjon;
+  /** L'état des donjons dont on est ressorti : salles vidées, coffres pillés, plan déjà vu. */
+  memoireDonjons?: Record<string, EtatDonjon>;
   journal: string[];
   /** Le récit d'arrivée a été lu. */
   arrive: boolean;
+  /** Cité dont on a payé le droit d'entrée (on le repaie en revenant). */
+  peage?: string;
+  /** Or gagné avec le groupe et pas encore partagé (combat, coffres) : à régler avant la nuit. */
+  butin?: number;
 }
 
 // --- Équipement de départ ----------------------------------------------------
@@ -467,6 +481,7 @@ export const boirePotion = (p: Partie, id: string, rng?: Rng): { rendu: number; 
 export const dormir = (p: Partie, confort: 'mauvais' | 'normal' | 'excellent'): number => {
   if (p.heure >= 6) p.jour += 1;
   p.heure = 7;
+  if (p.butin) garderButin(p, 'la nuit tombe sans que personne ait vu la couleur du butin');
   reposAstral(p, 8, confort);
   reposCompagnons(p, { mauvais: 2, normal: 4, excellent: 8 }[confort]);
   return soigner(p, { mauvais: 2, normal: 4, excellent: 8 }[confort]);

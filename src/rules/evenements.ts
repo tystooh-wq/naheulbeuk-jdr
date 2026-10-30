@@ -1,5 +1,5 @@
 import { aTalent, bonusSituation, savoir } from './talents';
-import { dansGroupe, recruter } from './compagnons';
+import { dansGroupe, reagir, recruter } from './compagnons';
 import { calculerFiche } from './creation';
 import { lancer, type Rng } from './des';
 import type { Terrain } from './monde';
@@ -51,6 +51,7 @@ export interface Evenement {
 export const malConduire = (p: Partie, marque: string, points = 1) => {
   p.mauvaiseConduite = (p.mauvaiseConduite ?? 0) + points;
   p.marques = [...new Set([...(p.marques ?? []), marque])];
+  reagir(p, { type: 'conduite' });
 };
 
 export const aMarque = (p: Partie, marque: string) => !!p.marques?.includes(marque);
