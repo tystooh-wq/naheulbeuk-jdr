@@ -1,4 +1,5 @@
 import { bonusSituation, type Situation } from './talents';
+import { changerReputation, quetesRefusees, villeDe } from './reputation';
 import { calculerFiche } from './creation';
 import { arrondirOr } from './monnaie';
 import { epreuve, noter, valeursCombat, type Partie } from './partie';
@@ -217,7 +218,11 @@ export const quete = (id: string) => {
 export const etapeEnCours = (p: Partie, id: string): number => p.etapesQuetes?.[id] ?? 0;
 
 /** Quêtes qu'on peut accepter ici. */
-export const quetesProposees = (p: Partie, ou: string) => QUETES.filter((q) => q.donneur === ou && !p.quetes[q.id]);
+export const quetesProposees = (p: Partie, ou: string) => {
+  const ville = villeDe(ou);
+  if (ville && quetesRefusees(p, ville)) return [];
+  return QUETES.filter((q) => q.donneur === ou && !p.quetes[q.id]);
+};
 
 /** Étapes de quêtes en cours qui se jouent ici. */
 export const etapesIci = (p: Partie, ou: string) =>
@@ -276,7 +281,9 @@ export const validerEtape = (p: Partie, id: string): IssueEtape => {
   p.xp = (p.xp ?? 0) + q.recompense.xp;
   p.sac.push(...(q.recompense.objets ?? []));
   noter(p, `termine la quête « ${q.titre} » (${q.recompense.texte}, +${q.recompense.xp} XP).`);
-  return { reussi: true, finie: true, texte: `${e.recit} Quête terminée : ${q.recompense.texte} et ${q.recompense.xp} points d'expérience.` };
+  const ville = villeDe(q.donneur);
+  const renom = ville && changerReputation(p, ville, 2, `quête « ${q.titre} »`) ? ' On parle de toi en ville : ta réputation monte.' : '';
+  return { reussi: true, finie: true, texte: `${e.recit} Quête terminée : ${q.recompense.texte} et ${q.recompense.xp} points d'expérience.${renom}` };
 };
 
 /** Tente l'épreuve de l'étape avec le dé lancé par le joueur. Un échec coûte, mais on peut réessayer. */
@@ -291,8 +298,11 @@ export const tenterEtape = (p: Partie, id: string, de: number): IssueEtape => {
   // Un échec de quête fait mal, mais ne tue pas : on se relève et on réessaiera.
   if (e.epreuve.pvEchec) p.ev = Math.max(1, p.ev - e.epreuve.pvEchec);
   if (e.epreuve.orEchec) p.or = Math.max(0, arrondirOr(p.or - e.epreuve.orEchec));
+  // Pris la main dans le sac : la ville s'en souviendra.
+  const ville = villeDe(e.ou);
+  const honte = e.epreuve.situation === 'vol' && ville && changerReputation(p, ville, -1, 'pris à voler') ? ' La nouvelle fait le tour du quartier : ta réputation baisse.' : '';
   const pertes = [e.epreuve.pvEchec ? `−${e.epreuve.pvEchec} PV` : '', e.epreuve.orEchec ? `−${e.epreuve.orEchec} PO` : ''].filter(Boolean).join(', ');
-  return { reussi: false, texte: `Dé : ${de} contre ${valeur}. ${e.epreuve.echec}${pertes ? ` (${pertes})` : ''} Tu pourras réessayer plus tard.` };
+  return { reussi: false, texte: `Dé : ${de} contre ${valeur}. ${e.epreuve.echec}${pertes ? ` (${pertes})` : ''}${honte} Tu pourras réessayer plus tard.` };
 };
 
 /** Le combat d'une étape, prêt pour l'écran de combat. */

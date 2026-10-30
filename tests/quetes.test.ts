@@ -7,6 +7,7 @@ import { objet } from '../src/rules/objets';
 import { nouvellePartie, vendre } from '../src/rules/partie';
 import { accepterQuete, donjonTermine, etapesIci, QUETES, quetesProposees, tenterEtape, validerEtape } from '../src/rules/quetes';
 import { creerEnnemis } from '../src/rules/combat';
+import { changerReputation, facteurPrix, reputation } from '../src/rules/reputation';
 
 const perso: Personnage = {
   version: 1,
@@ -58,6 +59,7 @@ describe('quêtes', () => {
     const fin = validerEtape(p, 'colis-loubet');
     expect(fin.finie).toBe(true);
     expect(p.quetes['colis-loubet']).toBe('terminee');
+    expect(reputation(p, 'valtordu')).toBe(2);
     expect(p.or).toBe(or + 25);
     expect(p.xp).toBe(40);
     expect(p.sac).not.toContain('lettre-loubet');
@@ -148,5 +150,15 @@ describe('villes', () => {
     expect(entree).toContainEqual(c.reseau!.noeuds.pontN);
     expect(entree).toContainEqual(c.reseau!.noeuds.pontS);
     for (const l of c.lieux) for (const id of l.boutique?.stock ?? []) expect(() => objet(id), id).not.toThrow();
+  });
+
+  it('une réputation de honni ferme les quêtes et fait grimper les prix', () => {
+    const p = nouvellePartie(perso);
+    expect(facteurPrix(reputation(p, 'valtordu'))).toBe(1);
+    expect(changerReputation(p, 'valtordu', -30, 'test')).toBe(-10);
+    expect(reputation(p, 'valtordu')).toBe(-10);
+    expect(reputation(p, 'waldorg')).toBe(0);
+    expect(quetesProposees(p, 'ville:valtordu:guerisseur')).toHaveLength(0);
+    expect(facteurPrix(reputation(p, 'valtordu'))).toBe(1.2);
   });
 });

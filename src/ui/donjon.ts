@@ -20,7 +20,7 @@ import { formatOr } from '../rules/monnaie';
 import { objet } from '../rules/objets';
 import { noter, type Partie } from '../rules/partie';
 import { donjonTermine } from '../rules/quetes';
-import { bandeau, lierSac, panneauJournal, panneauSac } from './commun';
+import { bandeau, lierSac, lierVitesse, panneauJournal, panneauSac } from './commun';
 import { ecranCombat } from './combat';
 import { boutonAutrement, lierIdeesLieu, panneauIdeesLieu } from './idees';
 import { animerDes, de, echapper } from './outils';
@@ -176,6 +176,7 @@ export const ecranDonjon = (app: HTMLElement, p: Partie, s: SortiesDonjon) => {
     });
     sur('#fiche', () => s.ouvrirFiche());
     lierSac(app, p, (html) => dire(html));
+    lierVitesse(app);
     lierIdeesLieu(
       app,
       p,

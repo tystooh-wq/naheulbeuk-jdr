@@ -1,4 +1,5 @@
 import { competencesDuHeros, empechement, priseCompetence, talentsDuHeros, TALENTS_ACTIFS, utiliserTalent, type Cadre, type Prise } from '../rules/talents';
+import { rangReputation, reputation, REPUTATION_MAX, REPUTATION_MIN } from '../rules/reputation';
 import { calculerFiche } from '../rules/creation';
 import { formatOr } from '../rules/monnaie';
 import { formatMods, objet, type Objet } from '../rules/objets';
@@ -71,6 +72,21 @@ export const lierVitesse = (app: HTMLElement) =>
     }),
   );
 
+// --- Réputation ---------------------------------------------------------------------
+
+/** Jauge de réputation dans une ville : de rouge (honni) à vert (héros du coin). */
+export const jaugeReputation = (p: Partie, ville: string, nomVille: string, compacte = false) => {
+  const n = reputation(p, ville);
+  const r = rangReputation(n);
+  const pos = ((n - REPUTATION_MIN) / (REPUTATION_MAX - REPUTATION_MIN)) * 100;
+  const titre = `Réputation à ${nomVille} : ${r.nom} (${n > 0 ? '+' : ''}${n}). ${r.effet}`;
+  return `<span class="reputation${compacte ? ' compacte' : ''}" title="${echapper(titre)}">
+    <span>${compacte ? echapper(nomVille) : `Réputation à ${echapper(nomVille)}`}</span>
+    <span class="jauge-rep" role="meter" aria-valuemin="${REPUTATION_MIN}" aria-valuemax="${REPUTATION_MAX}" aria-valuenow="${n}" aria-label="${echapper(titre)}"><i style="left:${pos}%"></i></span>
+    <b>${r.nom}</b>
+  </span>`;
+};
+
 // --- Bandeau du héros -------------------------------------------------------------
 
 const quetesEnCours = (p: Partie) => Object.values(p.quetes).filter((e) => e === 'acceptee').length;
@@ -86,7 +102,7 @@ export const bandeau = (p: Partie, vue: string, nomCarte: string) => {
       <span title="Points de destin">✦ <b>${p.perso.destin}</b></span>
       <span title="Niveau et expérience (prochain niveau à ${PALIERS_XP[niveau(p)] ?? '—'} XP)">★ niv. <b>${niveau(p)}</b> · ${p.xp ?? 0} XP</span>
       ${niveauEnAttente(p) ? `<button class="petit" id="monter-niveau">⬆ Passer niveau ${niveau(p) + 1} !</button>` : ''}
-      <span title="Jour et heure" id="horloge">${p.heure >= 20 || p.heure < 6 ? '☾' : '☼'} jour <b>${p.jour}</b>, ${formatHeure(p.heure)}</span>
+      <span class="temps"><span title="Jour et heure" id="horloge">${p.heure >= 20 || p.heure < 6 ? '☾' : '☼'} jour <b>${p.jour}</b>, ${formatHeure(p.heure)}</span>${boutonsVitesse()}</span>
     </div>
     <div class="onglets">
       <button class="secondaire petit ${vue === 'lieu' ? 'actif' : ''}" data-vue="lieu">${nomCarte}</button>

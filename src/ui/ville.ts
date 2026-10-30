@@ -19,7 +19,7 @@ import {
 import { cite, lieuCite, longueurCite, pointCite, trajetCite } from '../rules/cites';
 import type { Lieu, TypeLieu } from '../rules/waldorg';
 import type { Rencontre } from '../rules/rencontres';
-import { bandeau, boutonsVitesse, lierSac, lierVitesse, ligneObjet, panneauJournal, panneauSac, vitesse } from './commun';
+import { bandeau, jaugeReputation, lierSac, lierVitesse, ligneObjet, panneauJournal, panneauSac, vitesse } from './commun';
 import { ecranCombat } from './combat';
 import { ecranMort } from './mort';
 import { aTalent, bonusSituation, texteBonus } from '../rules/talents';
@@ -29,6 +29,7 @@ import { marchander, type Marchandage } from '../rules/marchandage';
 import { arrondirOr, formatOr } from '../rules/monnaie';
 import { boutonAutrement, lierIdeesLieu, panneauIdeesLieu } from './idees';
 import { sauvegarderPartie } from './sauvegarde';
+import { facteurPrix, rangReputation, reputation } from '../rules/reputation';
 
 // Lettres sur le plan, dans l'esprit des symboles des cartes MJ (A, E, T…).
 const ICONES: Record<TypeLieu, string> = {
@@ -114,7 +115,7 @@ export const ecranVille = (app: HTMLElement, p: Partie, sorties: SortiesVille, a
       <span><i class="marque-quete marque-nouvelle">!</i>Quête proposée</span>
       <span><i class="marque-quete marque-etape">➤</i>Étape de quête</span>
       <span><i class="heros-mini"></i>${echapper(p.perso.nom)}</span>
-      ${boutonsVitesse()}</div>`;
+      ${jaugeReputation(p, c.id, c.nom)}</div>`;
   };
 
   // --- Panneau du lieu -----------------------------------------------------------
@@ -123,7 +124,7 @@ export const ecranVille = (app: HTMLElement, p: Partie, sorties: SortiesVille, a
   const arnaque = () => aTalent(p, 'Arnaque et carambouille');
   const valeurMarchandage = () => valeursCombat(p).cha + bonusSituation(p, 'marchandage').total;
   const prixAchat = (o: Objet, l: Lieu) =>
-    Math.max(0.001, arrondirOr(o.prix * l.boutique!.prix * (arnaque() ? 0.8 : 1 + (visite.marchandage?.taux ?? 0))));
+    Math.max(0.001, arrondirOr(o.prix * l.boutique!.prix * facteurPrix(reputation(p, c.id)) * (arnaque() ? 0.8 : 1 + (visite.marchandage?.taux ?? 0))));
 
   const texteMarchandage = (m: Marchandage) => {
     if (m.critique === 'remise')
@@ -139,8 +140,10 @@ export const ecranVille = (app: HTMLElement, p: Partie, sorties: SortiesVille, a
   const panneauBoutique = (l: Lieu) => {
     const b = l.boutique!;
     const aVendre = [...new Set(p.sac)].filter((id) => b.rachete?.includes(objet(id).type));
+    const fp = facteurPrix(reputation(p, c.id));
     return `
       <h3>À vendre</h3>
+      ${fp !== 1 ? `<p class="note">Ta réputation ici (${rangReputation(reputation(p, c.id)).nom}) : prix ${fp > 1 ? '+' : '−'}${Math.round(Math.abs(fp - 1) * 100)} %.</p>` : ''}
       ${
         visite.marchandageEnCours
           ? `<div class="recit lancer-joueur">Épreuve de Charisme${echapper(texteBonus(bonusSituation(p, 'marchandage')))} : il faut faire <b>${valeurMarchandage()} ou moins</b> sur le D20 pour obtenir 10 % de remise. Raté, le marchand se vexe et ajoute 10 %. Un 1, c'est la réussite critique : grosse remise ou cadeau.

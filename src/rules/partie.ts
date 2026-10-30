@@ -89,6 +89,8 @@ export interface Partie {
   xp?: number;
   /** Points de mauvaise conduite : racket, vol… Le monde finit par s'en souvenir. */
   mauvaiseConduite?: number;
+  /** Réputation dans chaque ville (de −10 à +10), voir reputation.ts. */
+  reputation?: Record<string, number>;
   /** Faits marquants qui peuvent revenir plus tard (« marchand-rackette »…). */
   marques?: string[];
   quetes: Record<string, EtatQuete>;

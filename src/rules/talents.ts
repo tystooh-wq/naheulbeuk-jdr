@@ -1,4 +1,5 @@
 import { calculerFiche, cleCompetence } from './creation';
+import { changerReputation } from './reputation';
 import { lancer, type Rng } from './des';
 import { eaMax, ea } from './magie';
 import { evMax, lancerExpression, niveau, noter, passerTemps, soigner, valeursCombat, type Partie } from './partie';
@@ -203,9 +204,10 @@ export const TALENTS_ACTIFS: TalentActif[] = [
       p.or += or;
       p.mauvaiseConduite = (p.mauvaiseConduite ?? 0) + 1;
       noter(p, `fait les poches des passants : ${or} PO.`);
-      return `Quelques bourses mal attachées plus tard : ${or} PO. Personne n'a rien vu. Enfin, presque personne.`;
+      const jase = changerReputation(p, p.ville, -1, 'bourses envolées') ? ' On commence à jaser sur ton compte : ta réputation baisse.' : '';
+      return `Quelques bourses mal attachées plus tard : ${or} PO. Personne n'a rien vu. Enfin, presque personne.${jase}`;
     },
-    aide: 'En ville, une fois par jour : 1D20 PO de menus larcins (1D20 de plus tous les 3 niveaux). Compte comme une mauvaise action.',
+    aide: 'En ville, une fois par jour : 1D20 PO de menus larcins (1D20 de plus tous les 3 niveaux). Compte comme une mauvaise action et fait baisser ta réputation en ville.',
   },
   {
     id: 'camping',

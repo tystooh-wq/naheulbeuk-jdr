@@ -26,10 +26,10 @@ import { bonusTactique, resoudre, singulier, TABLES, TACTIQUES, tactiquesPossibl
 import { objet } from '../rules/objets';
 import { lierQuetes, marqueQuete, panneauJournalQuetes, panneauQuetes } from './quetes';
 import { arrondirOr, formatOr } from '../rules/monnaie';
-import { bandeau, boutonsVitesse, lierSac, lierVitesse, majHorloge, panneauJournal, panneauSac, vitesse } from './commun';
+import { bandeau, jaugeReputation, lierSac, lierVitesse, majHorloge, panneauJournal, panneauSac, vitesse } from './commun';
 import { animerDes, de, echapper } from './outils';
 import { ecranCombat, type BilanCombat } from './combat';
-import { cite } from '../rules/cites';
+import { cite, CITES } from '../rules/cites';
 import { EVENEMENT_PROVOQUER } from './encyclopedie';
 import { boutonAutrement, lierIdeesLieu, panneauIdeesLieu, ideesValidees, type Contexte, type ResultatIdee, NOM_EPREUVE, resoudreIdee, surChangement, valeurEpreuve, type Idee } from './idees';
 import { sauvegarderPartie } from './sauvegarde';
@@ -155,7 +155,7 @@ export const ecranMonde = (app: HTMLElement, p: Partie, s: Sorties) => {
       <span><i class="trait-hors-piste"></i>Hors piste</span>
       <span><i class="marque-quete marque-etape">➤</i>Quête</span>
       <span><i class="heros-mini"></i>${echapper(p.perso.nom)}</span>
-      ${boutonsVitesse()}</div>`;
+      ${CITES.map((c) => jaugeReputation(p, c.id, c.nom, true)).join('')}</div>`;
   };
 
   /** Place le calque pour que `centre` soit au milieu de la fenêtre, sans sortir de la carte. */

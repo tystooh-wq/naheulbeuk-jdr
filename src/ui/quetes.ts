@@ -1,4 +1,5 @@
 import { lancer } from '../rules/des';
+import { quetesRefusees, villeDe } from '../rules/reputation';
 import { donjonIci } from '../rules/donjons';
 import { objet } from '../rules/objets';
 import { niveau, type Partie } from '../rules/partie';
@@ -36,8 +37,11 @@ export const panneauQuetes = (p: Partie, ou: string, epreuveEnCours?: string): s
   const d = donjonIci(ou);
   // Un donjon sans quête (ou déjà fini) reste visitable.
   const donjonLibre = d && !ici.some((x) => x.etape.donjon === d.id) && !QUETES.some((q) => q.etapes.some((e) => e.donjon === d.id) && p.quetes[q.id] !== 'terminee');
-  if (!proposees.length && !ici.length && !donjonLibre) return '';
+  const ville = villeDe(ou);
+  const refus = ville && quetesRefusees(p, ville) && QUETES.some((q) => q.donneur === ou && !p.quetes[q.id]);
+  if (!proposees.length && !ici.length && !donjonLibre && !refus) return '';
   return `<div class="quetes-lieu">
+    ${refus ? '<p class="note">On te regarde de travers : ta réputation est telle que personne ici ne te confiera de travail.</p>' : ''}
     ${proposees
       .map(
         (q) => `<div class="detail-choix quete">
