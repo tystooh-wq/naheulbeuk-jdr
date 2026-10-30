@@ -10,6 +10,7 @@ import { charger, chargerPartie, effacerTout, sauvegarderPartie } from './ui/sau
 import { ecranMonde } from './ui/monde';
 import { ecranVille } from './ui/ville';
 import { ecranDonjon } from './ui/donjon';
+import { ecranMort } from './ui/mort';
 import { cite } from './rules/cites';
 import { donjon as donjonDef, entrerDonjon } from './rules/donjons';
 
@@ -42,6 +43,10 @@ const jouer = (partie: Partie) => {
           monde();
         },
         entrerDonjon: (id) => donjon(id),
+        finDePartie: () => {
+          effacerTout();
+          accueil();
+        },
       },
       accueil_,
     );
@@ -85,9 +90,18 @@ const jouer = (partie: Partie) => {
       },
     });
   };
-  if (partie.donjon) donjon();
-  else if (partie.zone === 'monde') monde();
-  else ville();
+  const reprendre = () => {
+    if (partie.donjon) donjon();
+    else if (partie.zone === 'monde') monde();
+    else ville();
+  };
+  // Une partie fermée sur l'écran de mort reprend sur cet écran.
+  if (partie.ev <= 0)
+    ecranMort(app, partie, `${partie.perso.nom} gît toujours là où tout s'est arrêté.`, () => reprendre(), () => {
+      effacerTout();
+      accueil();
+    });
+  else reprendre();
 };
 
 export const accueil = () => {

@@ -21,6 +21,7 @@ import type { Lieu, TypeLieu } from '../rules/waldorg';
 import type { Rencontre } from '../rules/rencontres';
 import { bandeau, boutonsVitesse, lierSac, lierVitesse, ligneObjet, panneauJournal, panneauSac, vitesse } from './commun';
 import { ecranCombat } from './combat';
+import { ecranMort } from './mort';
 import { lierQuetes, marqueQuete, panneauJournalQuetes, panneauQuetes } from './quetes';
 import { animerDes, de, echapper } from './outils';
 import { marchander, type Marchandage } from '../rules/marchandage';
@@ -68,6 +69,7 @@ export interface SortiesVille {
   retourAccueil: () => void;
   quitterVille: () => void;
   entrerDonjon: (id: string) => void;
+  finDePartie: () => void;
 }
 
 let echapActif: ((e: KeyboardEvent) => void) | undefined;
@@ -451,10 +453,8 @@ export const ecranVille = (app: HTMLElement, p: Partie, sorties: SortiesVille, a
           ecranCombat(app, p, r, (bilan) => {
             if (bilan.fin === 'victoire') return message(`Victoire (+${bilan.xp} XP). ${echapper(apres())}`);
             if (bilan.fin === 'fuite') return message('Tu prends tes jambes à ton cou. Tu pourras revenir finir le travail.');
-            // En ville, on ne meurt pas dans une cave : les voisins te ramassent.
-            p.ev = 1;
-            noter(p, 'est assommé ; des passants le ramassent.');
-            message("Tout devient noir… Tu te réveilles sur un banc, à 1 PV, des passants penchés sur toi. « Il respire ! Dommage, j'avais parié. » Tu pourras retenter ta chance.");
+            noter(p, 'tombe au combat.');
+            ecranMort(app, p, 'Tout devient noir… Tu t\'effondres au milieu du combat.', (texte) => message(texte), sorties.finDePartie);
           }),
         donjon: (id) => sorties.entrerDonjon(id),
       },

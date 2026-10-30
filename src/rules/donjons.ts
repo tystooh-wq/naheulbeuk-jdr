@@ -88,7 +88,7 @@ export const DONJONS: Donjon[] = [
     entree: 'vestibule',
     finale: 'tresor',
     conclusion: "Tu as traversé le Donjon Facile. Ce n'était pas si facile, mais tu n'en diras rien à personne.",
-    secours: "Tout devient noir… puis tu sens qu'on te traîne par les pieds. Burgal te dépose devant l'entrée, te verse un seau d'eau sur la tête et grogne : « Ça arrive à tout le monde. Enfin, surtout à toi. » Tu as 1 PV, et le donjon t'attend quand tu veux.",
+    secours: "Tout devient noir… Le Donjon Facile n'a pas été si facile. Burgal accourt, mais il arrive un peu tard.",
     salles: [
       { id: 'vestibule', nom: 'Vestibule', x: 0, y: 1, vers: ['couloir'], description: "Un vestiaire, un porte-manteau, une affiche « Interdit de tuer les monstres le dimanche ». Une torche brûle déjà." },
       {

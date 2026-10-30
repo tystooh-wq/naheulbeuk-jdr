@@ -17,7 +17,7 @@ import {
 } from '../rules/donjons';
 import { formatOr } from '../rules/monnaie';
 import { objet } from '../rules/objets';
-import { evMax, noter, type Partie } from '../rules/partie';
+import { noter, type Partie } from '../rules/partie';
 import { donjonTermine, valeurEpreuveQuete } from '../rules/quetes';
 import { bandeau, lierSac, panneauJournal, panneauSac } from './commun';
 import { ecranCombat } from './combat';
@@ -25,6 +25,7 @@ import { boutonAutrement } from './idees';
 import { animerDes, de, echapper } from './outils';
 import { panneauJournalQuetes } from './quetes';
 import { sauvegarderPartie } from './sauvegarde';
+import { ecranMort } from './mort';
 
 // L'écran d'un donjon : la mini-carte des salles (façon Darkest Dungeon) et la salle où l'on se trouve.
 
@@ -88,7 +89,6 @@ export const ecranDonjon = (app: HTMLElement, p: Partie, s: SortiesDonjon) => {
   let vue: 'lieu' | 'sac' | 'journal' | 'quetes' = 'lieu';
   let message: string | undefined;
   let piegeEnCours = false;
-  let mort = false;
   const d = () => donjon(p.donjon!.id);
   const sauver = () => sauvegarderPartie(p);
 
@@ -99,16 +99,7 @@ export const ecranDonjon = (app: HTMLElement, p: Partie, s: SortiesDonjon) => {
     const c = sa.contenu;
     const regle = e.reglees.includes(sa.id);
     let action = '';
-    if (mort) {
-      const destin = p.perso.destin;
-      action = `<div class="recit">Tes jambes se dérobent, la torche roule par terre… ${echapper(p.perso.nom)} s'effondre dans ${echapper(dj.nom)}.</div>
-        ${
-          destin > 0
-            ? `<p>Il te reste <b>${destin} point${destin > 1 ? 's' : ''} de destin</b>.</p>
-               <p class="actions-lieu"><button id="revivre">Revenir à la vie (−1 point de destin)</button><button class="secondaire" id="abandonner">Abandonner la partie</button></p>`
-            : `<p>Tu n'as plus de point de destin. C'est la fin de l'aventure.</p><p><button id="abandonner">Fin de la partie</button></p>`
-        }`;
-    } else if (c?.type === 'combat' && !regle) {
+    if (c?.type === 'combat' && !regle) {
       const l = c.ennemis.map((x) => `${x.nombre > 1 ? `${x.nombre} × ` : ''}${x.ligne.nom} (AT ${x.ligne.at}, PRD ${x.ligne.prd}, EV ${x.ligne.ev}, PR ${x.ligne.pr}, dégâts ${x.ligne.degats})`).join(', ');
       action = `<div class="recit">${echapper(c.texte)}</div><p class="pastille">${echapper(l)}</p>
         <p class="actions-lieu"><button id="combattre">⚔ Combattre</button>${e.precedente ? '<button class="secondaire" id="reculer">Reculer dans la salle précédente</button>' : ''}</p>`;
@@ -120,7 +111,7 @@ export const ecranDonjon = (app: HTMLElement, p: Partie, s: SortiesDonjon) => {
     } else if (c?.type === 'repos' && !regle) {
       action = `<p><button id="repos">♨ Faire une pause (${c.pv} PV, 30 minutes)</button></p>`;
     }
-    const peutFouiller = !mort && sa.tresor && !e.fouillees.includes(sa.id) && !bloquee(e, sa);
+    const peutFouiller = sa.tresor && !e.fouillees.includes(sa.id) && !bloquee(e, sa);
     const sorties = accessibles(e, dj);
     return `<div class="panneau salle-donjon">
       <h2>${echapper(sa.nom)}</h2>
@@ -129,7 +120,7 @@ export const ecranDonjon = (app: HTMLElement, p: Partie, s: SortiesDonjon) => {
       ${action}
       ${peutFouiller ? '<p><button class="secondaire" id="fouiller">Fouiller la salle</button></p>' : ''}
       ${
-        mort || bloquee(e, sa)
+        bloquee(e, sa)
           ? ''
           : `<p class="actions-lieu">${sorties
               .map((id) => `<button class="secondaire" data-aller="${id}">→ ${e.vues.includes(id) ? echapper(salle(dj, id).nom) : 'Passage inconnu'}</button>`)
@@ -246,30 +237,26 @@ export const ecranDonjon = (app: HTMLElement, p: Partie, s: SortiesDonjon) => {
         mourir();
       });
     });
-    sur('#revivre', () => {
-      p.perso.destin -= 1;
-      p.ev = Math.max(1, Math.floor(evMax(p) / 4));
-      mort = false;
-      noter(p, `meurt dans ${d().nom}… puis revient à la vie grâce à un point de destin.`);
-      dire('Tu rouvres les yeux dans le noir, vivant. Les dieux de Fangh ont encore besoin de toi, ou ils s\'amusent.');
-    });
-    sur('#abandonner', () => s.finDePartie());
   };
 
   const mourir = () => {
     const dj = d();
-    if (dj.secours) {
-      p.ev = 1;
-      noter(p, `s'effondre dans ${dj.nom} ; Burgal le traîne dehors.`);
-      p.donjon = undefined;
-      sauver();
-      return s.sortir(dj.secours);
-    }
-    p.ev = 0;
-    mort = true;
-    message = undefined;
-    sauver();
-    render();
+    noter(p, `tombe dans ${dj.nom}.`);
+    ecranMort(
+      app,
+      p,
+      dj.secours ?? `Tes jambes se dérobent, la torche roule par terre… ${p.perso.nom} s'effondre dans ${dj.nom}.`,
+      (texte) => {
+        if (dj.secours) {
+          // Le Donjon Facile est surveillé : on se réveille dehors, et il faudra recommencer.
+          p.donjon = undefined;
+          sauver();
+          return s.sortir(texte);
+        }
+        dire(texte);
+      },
+      s.finDePartie,
+    );
   };
 
   if (p.donjon!.vues.length === 1) message = echapper(d().intro);
