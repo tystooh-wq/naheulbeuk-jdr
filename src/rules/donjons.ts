@@ -271,14 +271,26 @@ export const regler = (e: EtatDonjon, id: string) => {
 };
 
 /** Le piège de la salle : le joueur lance son D20 contre la caractéristique. */
-export const affronterPiege = (p: Partie, de: number, rng?: Rng): { reussi: boolean; valeur: number; degats: number; des: number[]; texte: string } => {
+/** Valeur de l'épreuve du piège : passer (Détecter +2 : on le repère à temps) ou le désamorcer (Adresse, Désamorcer +4). */
+export const valeurPiege = (p: Partie, c: Extract<Contenu, { type: 'piege' }>, desamorcer = false) =>
+  desamorcer
+    ? valeurEpreuveQuete(p, { carac: 'AD', modif: c.modif, echec: '', situation: 'desamorcer' })
+    : valeurEpreuveQuete(p, { carac: c.carac, modif: c.modif, echec: '', situation: 'piege' });
+
+export const affronterPiege = (
+  p: Partie,
+  de: number,
+  rng?: Rng,
+  desamorcer = false,
+): { reussi: boolean; valeur: number; degats: number; des: number[]; texte: string } => {
   const e = p.donjon!;
   const s = salle(donjon(e.id), e.salle);
   const c = s.contenu;
   if (c?.type !== 'piege') throw new Error('Pas de piège ici.');
-  const valeur = valeurEpreuveQuete(p, { carac: c.carac, modif: c.modif, echec: '' });
+  const valeur = valeurPiege(p, c, desamorcer);
   regler(e, s.id);
-  if (epreuve(valeur, rng, de).reussi) return { reussi: true, valeur, degats: 0, des: [], texte: c.evite };
+  if (epreuve(valeur, rng, de).reussi)
+    return { reussi: true, valeur, degats: 0, des: [], texte: desamorcer ? 'Clic. Tu bloques le mécanisme avec la pointe de ta dague : le piège ne fera plus de mal à personne.' : c.evite };
   const jet = lancerExpression(c.degats, rng);
   p.ev -= jet.total;
   noter(p, `tombe dans un piège (${s.nom}) : −${jet.total} PV.`);

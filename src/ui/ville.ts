@@ -22,6 +22,7 @@ import type { Rencontre } from '../rules/rencontres';
 import { bandeau, boutonsVitesse, lierSac, lierVitesse, ligneObjet, panneauJournal, panneauSac, vitesse } from './commun';
 import { ecranCombat } from './combat';
 import { ecranMort } from './mort';
+import { aTalent, bonusSituation, texteBonus } from '../rules/talents';
 import { lierQuetes, marqueQuete, panneauJournalQuetes, panneauQuetes } from './quetes';
 import { animerDes, de, echapper } from './outils';
 import { marchander, type Marchandage } from '../rules/marchandage';
@@ -118,7 +119,11 @@ export const ecranVille = (app: HTMLElement, p: Partie, sorties: SortiesVille, a
 
   // --- Panneau du lieu -----------------------------------------------------------
 
-  const prixAchat = (o: Objet, l: Lieu) => Math.max(0.001, arrondirOr(o.prix * l.boutique!.prix * (1 + (visite.marchandage?.taux ?? 0))));
+  // Arnaque et carambouille : 20 % de remise à l'achat et 10 % de mieux à la revente, sans marchander.
+  const arnaque = () => aTalent(p, 'Arnaque et carambouille');
+  const valeurMarchandage = () => valeursCombat(p).cha + bonusSituation(p, 'marchandage').total;
+  const prixAchat = (o: Objet, l: Lieu) =>
+    Math.max(0.001, arrondirOr(o.prix * l.boutique!.prix * (arnaque() ? 0.8 : 1 + (visite.marchandage?.taux ?? 0))));
 
   const texteMarchandage = (m: Marchandage) => {
     if (m.critique === 'remise')
@@ -138,10 +143,12 @@ export const ecranVille = (app: HTMLElement, p: Partie, sorties: SortiesVille, a
       <h3>À vendre</h3>
       ${
         visite.marchandageEnCours
-          ? `<div class="recit lancer-joueur">Épreuve de Charisme : il faut faire <b>${valeursCombat(p).cha} ou moins</b> sur le D20 pour obtenir 10 % de remise. Raté, le marchand se vexe et ajoute 10 %. Un 1, c'est la réussite critique : grosse remise ou cadeau.
+          ? `<div class="recit lancer-joueur">Épreuve de Charisme${echapper(texteBonus(bonusSituation(p, 'marchandage')))} : il faut faire <b>${valeurMarchandage()} ou moins</b> sur le D20 pour obtenir 10 % de remise. Raté, le marchand se vexe et ajoute 10 %. Un 1, c'est la réussite critique : grosse remise ou cadeau.
               <div>${de('?', 'a-lancer" id="de-joueur')}<button id="lancer-marchandage">Lancer le D20</button></div></div>`
+          : arnaque()
+          ? `<p class="note">Arnaque et carambouille : ton baratin abracadabrant te vaut <b>20 % de remise</b> sur tout, et 10 % de mieux quand tu revends.</p>`
           : visite.marchandage === undefined
-          ? `<p><button class="secondaire petit" id="marchander">Marchander (épreuve de Charisme)</button></p>`
+          ? `<p><button class="secondaire petit" id="marchander">Marchander (épreuve de Charisme ${valeurMarchandage()})</button></p>`
           : `<p class="note">Marchandage : ${de(visite.marchandage.de)} ${texteMarchandage(visite.marchandage)}</p>`
       }
       ${b.stock
@@ -158,7 +165,7 @@ export const ecranVille = (app: HTMLElement, p: Partie, sorties: SortiesVille, a
                 ? aVendre
                     .map((id) => {
                       const o = objet(id);
-                      const prix = prixVente(o, b.rachat!);
+                      const prix = prixVente(o, b.rachat! * (arnaque() ? 1.1 : 1));
                       const nb = p.sac.filter((x) => x === id).length;
                       return ligneObjet(p, o, `<span class="pastille">×${nb}</span> <button class="secondaire petit vendre" data-id="${id}" data-prix="${prix}">Vendre ${formatOr(prix)}</button>`);
                     })
@@ -320,8 +327,7 @@ export const ecranVille = (app: HTMLElement, p: Partie, sorties: SortiesVille, a
     vue = 'lieu';
     render();
     enRoute = true;
-    const heros = app.querySelector<HTMLElement>('#heros')!;
-    app.querySelector('#trace')!.setAttribute('points', chemin.map(([x, y]) => `${x},${y}`).join(' '));
+    const points = chemin.map(([x, y]) => `${x},${y}`).join(' ');
     let avance = 0;
     let avant = performance.now();
     const pas = (maintenant: number) => {
@@ -331,8 +337,14 @@ export const ecranVille = (app: HTMLElement, p: Partie, sorties: SortiesVille, a
       const t = Math.min(1, avance);
       // Démarrage et arrivée en douceur.
       const [x, y] = pointCite(c, chemin, t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2);
-      heros.style.left = `${x}%`;
-      heros.style.top = `${y}%`;
+      // Le plan peut être redessiné en pleine marche (onglet, sac) : on reprend le marqueur et le tracé à chaque pas.
+      const heros = app.querySelector<HTMLElement>('#heros');
+      if (heros) {
+        heros.style.left = `${x}%`;
+        heros.style.top = `${y}%`;
+      }
+      const trace = app.querySelector('#trace');
+      if (trace && trace.getAttribute('points') !== points) trace.setAttribute('points', points);
       if (t < 1) requestAnimationFrame(pas);
       else setTimeout(arriver, 150);
     };
@@ -381,7 +393,7 @@ export const ecranVille = (app: HTMLElement, p: Partie, sorties: SortiesVille, a
       animerDes([app.querySelector<HTMLElement>('#de-joueur')!], 20, [d]).then(() =>
         setTimeout(() => {
           visite.marchandageEnCours = false;
-          visite.marchandage = marchander(valeursCombat(p).cha, lieu(p.lieu).boutique!.stock, d);
+          visite.marchandage = marchander(valeurMarchandage(), lieu(p.lieu).boutique!.stock, d);
           render();
         }, 350),
       );

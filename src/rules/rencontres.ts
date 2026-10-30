@@ -1,3 +1,4 @@
+import { aTalent, bonusSituation } from './talents';
 import TABLE from './rencontres-terres-sauvages.json';
 import FORET from './rencontres-foret1.json';
 import { lancer, type Rng } from './des';
@@ -101,15 +102,27 @@ export const singulier = (l: LigneRencontre) => {
 /** Brigands, orques, ogres et trolls parlent (plus ou moins) : on peut négocier. Les bêtes, on les intimide. */
 export const parle = (l: LigneRencontre) => /brigand|orque|ogre|troll|kobold|marchand/i.test(l.nom);
 
-export type Tactique = 'fuir' | 'negocier' | 'intimider';
+export type Tactique = 'fuir' | 'negocier' | 'intimider' | 'menacer';
 
 export const TACTIQUES: Record<Tactique, { libelle: string; carac: 'ad' | 'cha' | 'cou'; nomCarac: string }> = {
   fuir: { libelle: 'Prendre la fuite', carac: 'ad', nomCarac: 'Adresse' },
   negocier: { libelle: 'Négocier', carac: 'cha', nomCarac: 'Charisme' },
   intimider: { libelle: "Faire peur à la bestiole", carac: 'cou', nomCarac: 'Courage' },
+  // Compétence Intimider : faire fuir, au Charisme, un adversaire moins courageux que soi.
+  menacer: { libelle: 'Intimider', carac: 'cha', nomCarac: 'Charisme' },
 };
 
-export const valeurTactique = (p: Partie, t: Tactique) => valeursCombat(p)[TACTIQUES[t].carac];
+/** Les tactiques possibles face à cette rencontre, compétences comprises. */
+export const tactiquesPossibles = (p: Partie, l: LigneRencontre): Tactique[] => [
+  'fuir',
+  parle(l) ? 'negocier' : 'intimider',
+  ...(aTalent(p, 'Intimider') && valeursCombat(p).cou > l.cou ? (['menacer'] as Tactique[]) : []),
+];
+
+/** Bonus des compétences pour cette tactique (Fariboles pour négocier…). */
+export const bonusTactique = (p: Partie, t: Tactique) => (t === 'negocier' ? bonusSituation(p, 'negocier') : { total: 0, details: [] });
+
+export const valeurTactique = (p: Partie, t: Tactique) => valeursCombat(p)[TACTIQUES[t].carac] + bonusTactique(p, t).total;
 
 export interface Coup {
   des: number[];
@@ -132,6 +145,8 @@ export const resoudre = (p: Partie, r: Rencontre, tactique: Tactique, rng?: Rng,
   const valeur = valeurTactique(p, tactique);
   const v = valeursCombat(p);
   const e = epreuve(valeur, rng, deLance);
+  // Appel des renforts : on fuit sans prendre de coups.
+  if (tactique === 'fuir' && aTalent(p, 'Appel des renforts')) e.reussi = true;
   const coups: Coup[] = [];
   if (!e.reussi) {
     for (let i = 0; i < Math.min(r.nombre, 3); i++) {

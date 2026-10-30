@@ -1,4 +1,4 @@
-import { calculerFiche } from './creation';
+import { calculerFiche, cleCompetence } from './creation';
 import { lancer, type Rng } from './des';
 import { lancerExpression, valeursCombat, type Partie } from './partie';
 import { singulier, type Rencontre } from './rencontres';
@@ -42,6 +42,20 @@ export interface Combattant {
   defendu: boolean;
   /** Ennemi armé d'un arc ou d'une arbalète : il tire pendant l'approche. */
   tireur?: { ad: number; degats: string };
+  /** Compétences du héros qui jouent en combat (voir talents.ts). */
+  talents?: {
+    vicieux?: boolean;
+    superEsquive?: boolean;
+    esquiveNaturelle?: boolean;
+    bricABrac?: boolean;
+    /** Truc de mauviette : ce point de protection compte même contre un critique. */
+    prNaturelle?: number;
+    rempailleur?: boolean;
+    renforts?: boolean;
+    poubelles?: boolean;
+  };
+  /** Frapper lâchement : les dégâts de la prochaine attaque réussie sont doublés. */
+  lachement?: boolean;
 }
 
 export type IssueJet = 'critique' | 'reussi' | 'rate' | 'maladresse';
@@ -93,7 +107,7 @@ export const AU_CONTACT = 3;
 
 const aCompetence = (p: Partie, nom: string) => {
   const c = calculerFiche(p.perso).competences;
-  return [...c.naissance, ...c.heritees, ...c.choisies].some((n) => n.toLowerCase() === nom.toLowerCase());
+  return [...c.naissance, ...c.heritees, ...c.choisies].some((n) => cleCompetence(n) === cleCompetence(nom));
 };
 
 /** Esquive, modificateurs conseillés sur l'Adresse selon la PR (règles V4, 8.18). Null : impossible. */
@@ -122,6 +136,16 @@ export const creerHeros = (p: Partie): Combattant => {
     sansParade: !armee,
     rate: 0,
     defendu: false,
+    talents: {
+      vicieux: aCompetence(p, 'Vicieux'),
+      superEsquive: aCompetence(p, 'Super esquive'),
+      esquiveNaturelle: aCompetence(p, 'Esquive naturelle'),
+      bricABrac: aCompetence(p, 'Bric-à-brac'),
+      prNaturelle: aCompetence(p, 'Truc de mauviette') ? 1 : 0,
+      rempailleur: aCompetence(p, 'Chance du rempailleur'),
+      renforts: aCompetence(p, 'Appel des renforts'),
+      poubelles: aCompetence(p, 'Fouiller dans les poubelles'),
+    },
   };
 };
 
@@ -196,7 +220,8 @@ const jet = (de: number, valeur: number): IssueJet =>
 /** Valeur de défense, ou null si ce mode est impossible contre cet attaquant. */
 export const valeurDefense = (cible: Combattant, mode: ModeDefense, attaquant?: Combattant): number | null => {
   if (mode === 'esquive') {
-    const m = modEsquive(cible.pr);
+    // Bric-à-brac : l'armure ne gêne pas l'esquive.
+    const m = cible.talents?.bricABrac ? Math.max(0, modEsquive(cible.pr) ?? 0) : modEsquive(cible.pr);
     return m === null ? null : cible.ad + m;
   }
   if (cible.sansParade || attaquant?.imparable) return null;
@@ -257,10 +282,19 @@ export const attaquer = (
     if (valeur === null) action.sansDefense = mode === 'parade' ? 'impossible de parer' : "trop d'armure pour esquiver";
     else {
       const d = options.defense?.de ?? lancer(20, rng);
-      const issue = jet(d, valeur);
+      let issue = jet(d, valeur);
+      // Super esquive : jamais de maladresse en esquivant.
+      if (mode === 'esquive' && issue === 'maladresse' && cible.talents?.superEsquive) issue = 'rate';
       action.defense = { mode, de: d, valeur, issue };
       cible.defendu = true;
-      if (mode === 'esquive' && issue !== 'critique') cible.rate = Math.max(cible.rate, 1);
+      if (mode === 'esquive' && issue !== 'critique') {
+        // Super esquive : on attaque quand même ; Esquive naturelle : sur 4 à 6 au D6.
+        const t = cible.talents;
+        const d6 = t?.esquiveNaturelle && !t.superEsquive ? lancer(6, rng) : 0;
+        if (t?.superEsquive) action.effets.push(`Super esquive : ${cible.nom} reste en position d'attaquer.`);
+        else if (d6 >= 4) action.effets.push(`Esquive naturelle (D6 : ${d6}) : ${cible.nom} pourra attaquer quand même.`);
+        else cible.rate = Math.max(cible.rate, 1);
+      }
       if (issue === 'critique' && mode === 'parade') {
         a.rate += 1;
         action.effets.push(`Parade critique ! ${a.nom} est déséquilibré et ratera son prochain assaut.`);
@@ -277,7 +311,14 @@ export const attaquer = (
     const fixe = Number(/[+-]\d+$/.exec(a.degats)?.[0] ?? 0);
     j.total = Math.max(0, options.desDegats.reduce((s, x) => s + x, 0) + fixe);
   }
-  const pr = critique ? 0 : cible.pr;
+  // Frapper lâchement : dégâts doublés, une fois.
+  if (a.lachement) {
+    j.total *= 2;
+    a.lachement = false;
+    action.effets.push(`Frappé lâchement : dégâts doublés (${j.total}).`);
+  }
+  // Critique : l'armure ne compte pas, sauf la protection naturelle (Truc de mauviette). Vicieux : 1 point d'armure ignoré.
+  const pr = Math.max(0, (critique ? (cible.talents?.prNaturelle ?? 0) : cible.pr) - (a.talents?.vicieux ? 1 : 0));
   const blessure = Math.max(0, j.total - pr);
   action.degats = { des: j.des, total: j.total, pr, blessure };
   if (a.poison && blessure > 0) {
@@ -353,7 +394,7 @@ export const tirer = (
   action.sansDefense = critique ? 'tir critique, en plein dans le mille' : 'on ne pare pas un projectile sans bouclier';
   const j = options.desDegats ? { des: options.desDegats, total: 0 } : lancerExpression(tir.degats, options.rng);
   if (options.desDegats) j.total = Math.max(0, options.desDegats.reduce((s, x) => s + x, 0) + Number(/[+-]\d+$/.exec(tir.degats)?.[0] ?? 0));
-  const pr = critique ? 0 : cible.pr;
+  const pr = Math.max(0, (critique ? (cible.talents?.prNaturelle ?? 0) : cible.pr) - (a.talents?.vicieux ? 1 : 0));
   const blessure = Math.max(0, j.total - pr);
   action.degats = { des: j.des, total: j.total, pr, blessure };
   cible.ev -= blessure;
@@ -390,10 +431,10 @@ export const panique = (c: Combat, x: Combattant, rng?: Rng): boolean => {
   return true;
 };
 
-/** Le héros tente de fuir en plein combat : épreuve d'Adresse. */
+/** Le héros tente de fuir en plein combat : épreuve d'Adresse (Appel des renforts : sans épreuve). */
 export const tenterFuite = (c: Combat, de: number): boolean => {
   const h = heros(c);
-  const ok = de === 1 || (de !== 20 && de <= h.ad);
+  const ok = !!h.talents?.renforts || de === 1 || (de !== 20 && de <= h.ad);
   if (ok) c.fin = 'fuite';
   return ok;
 };
@@ -404,4 +445,13 @@ export const xpGagnee = (c: Combat) =>
     .reduce((s, x) => s + x.xp, 0);
 
 /** Fouille chaque ennemi resté à terre (ceux qui ont fui emportent leurs affaires). */
-export const butin = (c: Combat, rng?: Rng): Fouille[] => ennemis(c).filter((x) => x.etat === 'mort').map((x) => fouiller(x.nom, rng));
+export const butin = (c: Combat, rng?: Rng): Fouille[] =>
+  ennemis(c)
+    .filter((x) => x.etat === 'mort')
+    .map((x) => {
+      const f = fouiller(x.nom, rng);
+      if (!heros(c).talents?.poubelles) return f;
+      // Fouiller dans les poubelles : deux fouilles, on garde la meilleure (D20 le plus haut).
+      const g = fouiller(x.nom, rng);
+      return (g.de ?? 0) > (f.de ?? 0) ? { ...g, poubelles: true } : { ...f, poubelles: true };
+    });

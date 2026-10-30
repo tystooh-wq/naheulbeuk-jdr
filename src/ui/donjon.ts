@@ -2,6 +2,7 @@ import { lancer } from '../rules/des';
 import {
   accessibles,
   affronterPiege,
+  valeurPiege,
   ambiance,
   avancer,
   bloquee,
@@ -18,7 +19,7 @@ import {
 import { formatOr } from '../rules/monnaie';
 import { objet } from '../rules/objets';
 import { noter, type Partie } from '../rules/partie';
-import { donjonTermine, valeurEpreuveQuete } from '../rules/quetes';
+import { donjonTermine } from '../rules/quetes';
 import { bandeau, lierSac, panneauJournal, panneauSac } from './commun';
 import { ecranCombat } from './combat';
 import { boutonAutrement } from './idees';
@@ -26,6 +27,7 @@ import { animerDes, de, echapper } from './outils';
 import { panneauJournalQuetes } from './quetes';
 import { sauvegarderPartie } from './sauvegarde';
 import { ecranMort } from './mort';
+import { aTalent, bonusSituation, texteBonus } from '../rules/talents';
 
 // L'écran d'un donjon : la mini-carte des salles (façon Darkest Dungeon) et la salle où l'on se trouve.
 
@@ -88,7 +90,8 @@ const miniCarte = (d: Donjon, e: EtatDonjon) => {
 export const ecranDonjon = (app: HTMLElement, p: Partie, s: SortiesDonjon) => {
   let vue: 'lieu' | 'sac' | 'journal' | 'quetes' = 'lieu';
   let message: string | undefined;
-  let piegeEnCours = false;
+  /** Épreuve de piège en cours : passer, ou désamorcer (compétence Désamorcer). */
+  let piegeEnCours: false | 'passer' | 'desamorcer' = false;
   const d = () => donjon(p.donjon!.id);
   const sauver = () => sauvegarderPartie(p);
 
@@ -104,10 +107,14 @@ export const ecranDonjon = (app: HTMLElement, p: Partie, s: SortiesDonjon) => {
       action = `<div class="recit">${echapper(c.texte)}</div><p class="pastille">${echapper(l)}</p>
         <p class="actions-lieu"><button id="combattre">⚔ Combattre</button>${e.precedente ? '<button class="secondaire" id="reculer">Reculer dans la salle précédente</button>' : ''}</p>`;
     } else if (c?.type === 'piege' && !regle) {
+      const desamorcer = piegeEnCours === 'desamorcer';
+      const bonus = bonusSituation(p, desamorcer ? 'desamorcer' : 'piege');
       action = piegeEnCours
-        ? `<div class="recit lancer-joueur">${echapper(c.texte)} Épreuve d'${NOM_CARAC[c.carac]} : il faut faire <b>${valeurEpreuveQuete(p, { carac: c.carac, modif: c.modif, echec: '' })} ou moins</b> sur le D20 (sinon ${echapper(c.degats)} dégâts).
+        ? `<div class="recit lancer-joueur">${echapper(c.texte)} ${desamorcer ? 'Désamorcer : épreuve d\'Adresse' : `Épreuve d'${NOM_CARAC[c.carac]}`}${echapper(texteBonus(bonus))} : il faut faire <b>${valeurPiege(p, c, desamorcer)} ou moins</b> sur le D20 (sinon ${echapper(c.degats)} dégâts).
             <div>${de('?', 'a-lancer" id="de-piege')}<button id="lancer-piege">Lancer le D20</button></div></div>`
-        : `<div class="recit">⚠ ${echapper(c.texte)}</div><p><button id="piege">Tenter de passer</button></p>`;
+        : `<div class="recit">⚠ ${echapper(c.texte)}</div><p class="actions-lieu"><button id="piege">Tenter de passer (${valeurPiege(p, c)} ou moins${echapper(texteBonus(bonusSituation(p, 'piege')))})</button>${
+            aTalent(p, 'Désamorcer') ? `<button class="secondaire" id="desamorcer">🔧 Désamorcer (Adresse ${valeurPiege(p, c, true)}, compétence)</button>` : ''
+          }</p>`;
     } else if (c?.type === 'repos' && !regle) {
       action = `<p><button id="repos">♨ Faire une pause (${c.pv} PV, 30 minutes)</button></p>`;
     }
@@ -189,7 +196,11 @@ export const ecranDonjon = (app: HTMLElement, p: Partie, s: SortiesDonjon) => {
       s.sortir();
     });
     sur('#piege', () => {
-      piegeEnCours = true;
+      piegeEnCours = 'passer';
+      render();
+    });
+    sur('#desamorcer', () => {
+      piegeEnCours = 'desamorcer';
       render();
     });
     sur('#lancer-piege', (bouton) => {
@@ -197,8 +208,8 @@ export const ecranDonjon = (app: HTMLElement, p: Partie, s: SortiesDonjon) => {
       (bouton as HTMLButtonElement).disabled = true;
       animerDes([app.querySelector<HTMLElement>('#de-piege')!], 20, [valeur]).then(() =>
         setTimeout(() => {
+          const r = affronterPiege(p, valeur, undefined, piegeEnCours === 'desamorcer');
           piegeEnCours = false;
-          const r = affronterPiege(p, valeur);
           if (p.ev <= 0) return mourir();
           dire(`${de(valeur)} ${echapper(r.texte)}${r.degats ? ` ${r.des.map((x) => de(x)).join('')} <b>−${r.degats} PV</b>.` : ''}`);
         }, 350),

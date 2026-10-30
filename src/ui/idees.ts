@@ -176,6 +176,7 @@ const saisie = (c: Contexte) => {
     <p class="sous-titre">Vos idées nous intéressent, alimentez l'algorithme !</p>
     <p class="note">À propos de : <b>${echapper(c.titre)}</b></p>
     <textarea id="idee-texte" rows="5" maxlength="1000" placeholder="Raconte ce que ton héros aurait fait, et comment ça aurait pu tourner…"></textarea>
+    <label class="champ-prerequis">Prérequis (facultatif) <input id="idee-prerequis" maxlength="200" placeholder="Avoir une corde ; être elfe ; Charisme 12 ou plus…" /></label>
     <p class="actions-lieu"><button id="idee-envoyer">Envoyer l'idée</button><button class="secondaire" data-fermer-idees>Annuler</button></p>
     <p id="idee-retour" class="note" aria-live="polite"></p>`);
   const champ = fenetre.querySelector<HTMLTextAreaElement>('#idee-texte')!;
@@ -188,7 +189,8 @@ const saisie = (c: Contexte) => {
       return;
     }
     (e.target as HTMLButtonElement).disabled = true;
-    const res = await enregistrer({ contexte: c, texte, date: new Date().toISOString(), statut: 'proposee' });
+    const prerequis = fenetre.querySelector<HTMLInputElement>('#idee-prerequis')!.value.trim();
+    const res = await enregistrer({ contexte: c, texte: prerequis ? `Prérequis : ${prerequis}\n\n${texte}` : texte, date: new Date().toISOString(), statut: 'proposee' });
     prevenir();
     retour.textContent =
       res === 'partagee'
@@ -224,6 +226,7 @@ const saisieQuete = () => {
       <label>Qui la donne, et où <input name="ou" maxlength="120" required placeholder="La mère Michu, à la ferme près de Valtordu" /></label>
       <label>Ce qu'il faut faire, une étape par ligne <textarea name="texte" rows="5" maxlength="2000" required placeholder="Chercher des traces dans la forêt d'Ouien (épreuve d'Intelligence)&#10;Affronter le loup qui garde le mouton&#10;Ramener le mouton à la ferme"></textarea></label>
       <label>Comment elle finit, et la récompense <textarea name="suite" rows="3" maxlength="1500" placeholder="La mère Michu pleure de joie : 20 PO et un pull de Valtordu."></textarea></label>
+      <label>Prérequis (facultatif) <input name="prerequis" maxlength="200" placeholder="Avoir fini la quête des rats ; être nain ; savoir nager…" /></label>
       <label>Niveau conseillé <input name="niveau" type="number" min="1" max="20" value="1" /></label>
       <p class="actions-lieu"><button type="submit">Envoyer la quête</button><button type="button" class="secondaire" data-fermer-idees>Annuler</button></p>
       <p id="idee-retour" class="note" aria-live="polite"></p>
@@ -244,6 +247,7 @@ const saisieProposition = () => {
       <label>Où <select name="ou">${OU_PROPOSITION.map((o) => `<option>${echapper(o)}</option>`).join('')}</select></label>
       <label>Titre <input name="titre" maxlength="80" required placeholder="Le colporteur de fromages maudits" /></label>
       <label>Ce qui se passe <textarea name="texte" rows="4" maxlength="1500" required placeholder="Sur la route, un colporteur propose…"></textarea></label>
+      <label>Prérequis (facultatif) <input name="prerequis" maxlength="200" placeholder="De nuit seulement ; niveau 3 ; avoir une corde…" /></label>
       <label>Les choix possibles et ce qu'ils donnent (facultatif) <textarea name="suite" rows="3" maxlength="1500" placeholder="Acheter : épreuve de Charisme… Fuir : …"></textarea></label>
       <p class="actions-lieu"><button type="submit">Envoyer la proposition</button><button type="button" class="secondaire" data-fermer-idees>Annuler</button></p>
       <p id="idee-retour" class="note" aria-live="polite"></p>
@@ -262,6 +266,7 @@ const envoyerProposition = (lire: (d: FormData) => { genre: string; ou: string; 
     const titre = String(d.get('titre') ?? '').trim();
     const texte = String(d.get('texte') ?? '').trim();
     const suite = String(d.get('suite') ?? '').trim();
+    const prerequis = String(d.get('prerequis') ?? '').trim();
     const retour = f.querySelector('#idee-retour')!;
     if (titre.length < 3 || texte.length < 3) {
       retour.textContent = 'Donne au moins un titre et quelques mots sur ce qui se passe.';
@@ -271,7 +276,9 @@ const envoyerProposition = (lire: (d: FormData) => { genre: string; ou: string; 
     const corps = etiquette ? `${etiquette} :\n${texte}` : texte;
     const res = await enregistrer({
       contexte: { type: 'proposition', id: `${genre}|${ou}`, titre: `${genre} : ${titre} (${ou})` },
-      texte: suite ? `${corps}\n\n${genre === 'Quête' ? 'Fin et récompense' : 'Choix'} : ${suite}` : corps,
+      texte: [prerequis ? `Prérequis : ${prerequis}` : '', corps, suite ? `${genre === 'Quête' ? 'Fin et récompense' : 'Choix'} : ${suite}` : '']
+        .filter(Boolean)
+        .join('\n\n'),
       date: new Date().toISOString(),
       statut: 'proposee',
     });

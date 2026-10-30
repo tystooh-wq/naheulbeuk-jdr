@@ -1,3 +1,4 @@
+import { bonusSituation, type Situation } from './talents';
 import { calculerFiche } from './creation';
 import { arrondirOr } from './monnaie';
 import { epreuve, noter, valeursCombat, type Partie } from './partie';
@@ -18,7 +19,7 @@ export interface EtapeQuete {
   /** Ce qui se passe quand l'étape réussit. */
   recit: string;
   /** Épreuve à réussir (le joueur lance le D20) ; en cas d'échec, on peut réessayer. */
-  epreuve?: { carac: CaracQuete; modif?: number; echec: string; pvEchec?: number; orEchec?: number };
+  epreuve?: { carac: CaracQuete; modif?: number; echec: string; pvEchec?: number; orEchec?: number; situation?: Situation };
   /** Combat à gagner. */
   combat?: { ligne: LigneRencontre; nombre: number };
   /** L'étape se valide en terminant ce donjon (voir donjons.ts). */
@@ -115,7 +116,7 @@ export const QUETES: Quete[] = [
         objectif: "Recopier la recette secrète dans l'arrière-boutique de la boucherie Plandu, rue du Vieux Bélier, sans se faire prendre.",
         action: "Se glisser dans l'arrière-boutique (épreuve d'Adresse)",
         recit: "Entre deux jambons, un carnet graisseux : « Boudin spécial : sang de mouton, oignons, et une pincée de poudre de… » Tu recopies tout. Personne ne t'a vu.",
-        epreuve: { carac: 'AD', echec: 'Plandu te surprend la main dans le carnet et te chasse à coups de saucisson sec !', pvEchec: 2 },
+        epreuve: { carac: 'AD', situation: 'vol', echec: 'Plandu te surprend la main dans le carnet et te chasse à coups de saucisson sec !', pvEchec: 2 },
         malConduite: 1,
       },
       {
@@ -240,7 +241,7 @@ export const accepterQuete = (p: Partie, id: string): string | null => {
 export const valeurEpreuveQuete = (p: Partie, e: NonNullable<EtapeQuete['epreuve']>) => {
   const v = valeursCombat(p);
   const f = calculerFiche(p.perso);
-  return { COU: v.cou, INT: f.caracs.INT, CHA: v.cha, AD: v.ad, FO: f.caracs.FO }[e.carac] + (e.modif ?? 0);
+  return { COU: v.cou, INT: f.caracs.INT, CHA: v.cha, AD: v.ad, FO: f.caracs.FO }[e.carac] + (e.modif ?? 0) + (e.situation ? bonusSituation(p, e.situation).total : 0);
 };
 
 export interface IssueEtape {

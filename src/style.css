@@ -1426,6 +1426,7 @@ button.combattant:hover {
 }
 
 .idees textarea,
+.champ-prerequis input,
 .valider-idee input,
 .valider-idee select,
 .valider-idee textarea {
@@ -1449,7 +1450,9 @@ button.combattant:hover {
   border-radius: 6px;
 }
 
+.champ-prerequis,
 .valider-idee label {
+  margin-top: 0;
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -1560,3 +1563,48 @@ button.combattant:hover {
 .salle.ouverte:hover { background: #5c4630; }
 .legende-donjon { text-align: center; }
 .ency-ligne.idee > p:first-of-type { white-space: pre-line; }
+
+/* Compétences dans le sac */
+.talent {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  margin: 6px 0;
+}
+
+.talent .de {
+  width: 30px;
+  height: 30px;
+  font-size: 0.95rem;
+}
+
+.competences-jeu {
+  margin: 12px 0;
+}
+
+.competences-jeu summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.competences-jeu ul {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0 0;
+  display: grid;
+  gap: 6px;
+}
+
+.competences-jeu li {
+  padding-left: 10px;
+  border-left: 3px solid var(--bordure);
+}
+
+.competences-jeu li.prise-auto {
+  border-left-color: #3d6b35;
+}
+
+.competences-jeu li.prise-bouton {
+  border-left-color: var(--rouge);
+}

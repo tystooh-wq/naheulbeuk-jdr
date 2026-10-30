@@ -110,6 +110,8 @@ export interface Fouille {
   de?: number;
   or: number;
   objet?: string;
+  /** Fouiller dans les poubelles : deux D20, le meilleur gardé. */
+  poubelles?: boolean;
 }
 
 const tirerOr = (expr: string, rng?: Rng) => {

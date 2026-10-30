@@ -1,3 +1,4 @@
+import { bonusSituation, savoir } from './talents';
 import { calculerFiche } from './creation';
 import { lancer, type Rng } from './des';
 import type { Terrain } from './monde';
@@ -21,6 +22,8 @@ export interface Choix {
   jet?: { faces: 6 | 20; pour: string; valeur?: (p: Partie) => number };
   /** Raison pour laquelle ce choix est impossible, ou null. */
   possible?: (p: Partie) => string | null;
+  /** Choix réservé à certains héros (une compétence…) : caché aux autres. */
+  visible?: (p: Partie) => boolean;
   effet: (p: Partie, rng?: Rng) => Resultat;
 }
 
@@ -77,6 +80,10 @@ const retirer = (p: Partie, id: string) => {
   if (i >= 0) p.sac.splice(i, 1);
   return i >= 0;
 };
+
+const connaissanceChampignons = (p: Partie) => savoir(p, 'nature') ?? savoir(p, 'cuisine');
+const valeurChampignons = (p: Partie) =>
+  calculerFiche(p.perso).caracs.INT + Math.max(bonusSituation(p, 'nature').total, bonusSituation(p, 'cuisine').total);
 
 export const EVENEMENTS: Evenement[] = [
   {
@@ -313,6 +320,21 @@ export const EVENEMENTS: Evenement[] = [
           if (d <= 2) return { texte: `Dé : ${d}. Tu vois des licornes roses pendant une heure, puis tu vomis : −${perdre(p, 2)} PV.`, heures: 1 };
           if (d === 6) return { texte: `Dé : ${d}. Délicieux et nourrissant ! +${soigner(p, 3)} PV.` };
           return { texte: `Dé : ${d}. Ça a le goût de vieille éponge. Il ne se passe rien.` };
+        },
+      },
+      {
+        // Connaissances de la nature (+4), culinaires (+4) ou générales (+2) : on sait ce qu'on cueille.
+        libelle: 'Les examiner (épreuve d\'Intelligence, avec tes connaissances)',
+        visible: (p) => !!connaissanceChampignons(p),
+        jet: { faces: 20, pour: "l'épreuve d'Intelligence", valeur: (p) => valeurChampignons(p) },
+        effet: (p, rng) => {
+          const e = epreuve(valeurChampignons(p), rng);
+          if (!e.reussi)
+            return { texte: `Dé : ${e.de}. Orange, rond, ça sent le champignon. Tu n'en sais pas plus. Mieux vaut ne pas y toucher, ou tenter ta chance.` };
+          p.sac.push('champignons-orange');
+          return {
+            texte: `Dé : ${e.de}. Des chanterelles de Fangh, tout ce qu'il y a de comestible ! Tu en manges une poignée (+${soigner(p, 3)} PV) et tu en gardes un mouchoir plein.`,
+          };
         },
       },
       {

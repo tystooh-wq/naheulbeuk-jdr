@@ -1,3 +1,4 @@
+import { competencesDuHeros, empechement, priseCompetence, talentsDuHeros, TALENTS_ACTIFS, utiliserTalent, type Cadre, type Prise } from '../rules/talents';
 import { calculerFiche } from '../rules/creation';
 import { formatOr } from '../rules/monnaie';
 import { formatMods, objet, type Objet } from '../rules/objets';
@@ -163,6 +164,7 @@ export const panneauSac = (p: Partie, message?: string) => {
            <p class="note">MagiePhys ${caracMagie(p, 'MagiePhys')} · MagiePsy ${caracMagie(p, 'MagiePsy')}. Spécialité : magie de combat (choix provisoire, les autres écoles viendront).</p>`
         : ''
     }
+    ${panneauCompetences(p)}
     ${EMPLACEMENTS.map(([cle, titre]) => emplacement(cle === 'armure' && p.equipe.armure && objet(p.equipe.armure).emplacement === 'complete' ? 'Armure complète' : titre, cle)).join('')}
     <h3 style="margin-top:16px">Dans le sac</h3>
     ${
@@ -184,6 +186,34 @@ export const panneauSac = (p: Partie, message?: string) => {
     }
     ${message ? `<div class="recit">${message}</div>` : ''}
   </div>`;
+};
+
+const cadreDe = (p: Partie): Cadre => (p.donjon ? 'donjon' : p.zone === 'ville' ? 'ville' : 'monde');
+
+const PRISE: Record<Prise, string> = { auto: '✔ appliquée par le jeu', bouton: '▶ à utiliser', seul: '· sans effet en solo', non: '… pas encore de situation' };
+
+/** Les compétences du héros, ce que le jeu en fait, et les boutons de celles qu'on peut utiliser ici. */
+const panneauCompetences = (p: Partie) => {
+  const cadre = cadreDe(p);
+  const actifs = talentsDuHeros(p).filter((t) => !t.cadres || !t.cadres.includes('bivouac'));
+  const boutons = actifs
+    .map((t) => {
+      const refus = empechement(p, t, cadre);
+      if (refus === 'pas ici') return '';
+      const quoi = t.epreuve ? `épreuve ${t.epreuve(p)} ou moins` : t.jet ? `D${t.jet.faces}` : '';
+      return `<div class="talent"><button class="secondaire petit" data-talent="${t.id}" ${refus ? `disabled title="${echapper(refus)}"` : ''}>${echapper(t.libelle)}${quoi ? ` (${quoi})` : ''}</button>
+        <span class="de a-lancer" id="de-talent-${t.id}" hidden>?</span>
+        <span class="note">${echapper(refus ?? t.aide)}</span></div>`;
+    })
+    .join('');
+  const liste = competencesDuHeros(p)
+    .map((n) => {
+      const [prise, effet] = priseCompetence(n);
+      return `<li class="prise-${prise}"><b>${echapper(n)}</b> <span class="note">${PRISE[prise]}</span><br /><span class="note">${echapper(effet)}</span></li>`;
+    })
+    .join('');
+  return `${boutons ? `<h3>Compétences à utiliser ici</h3>${boutons}` : ''}
+    <details class="competences-jeu"><summary>Compétences (${competencesDuHeros(p).length}) et ce que le jeu en fait</summary><ul>${liste}</ul></details>`;
 };
 
 export const panneauJournal = (p: Partie) => `<div class="panneau">
@@ -211,6 +241,21 @@ export const lierSac = (app: HTMLElement, p: Partie, message: (html: string) => 
     message(`${de(r.de)} Tu poses la main sur ta blessure et murmures la formule. <b>+${r.rendu} PV</b> pour ${r.rendu} PA.`);
   });
   sur('#monter-niveau', () => ouvrirNiveau(p, (texte) => message(texte)));
+  sur('[data-talent]', (el) => {
+    const t = TALENTS_ACTIFS.find((x) => x.id === el.dataset.talent)!;
+    if (empechement(p, t, cadreDe(p))) return;
+    (el as HTMLButtonElement).disabled = true;
+    const faces = t.jet?.faces ?? 20;
+    const valeur = lancer(faces);
+    const d = app.querySelector<HTMLElement>(`#de-talent-${t.id}`)!;
+    d.hidden = false;
+    animerDes([d], faces, [valeur]).then(() =>
+      setTimeout(() => {
+        const texte = utiliserTalent(p, t.id, valeur);
+        message(`${de(valeur)} <b>${echapper(t.libelle)}</b> : ${echapper(texte)}`);
+      }, 350),
+    );
+  });
   sur('.boire', (el) => {
     const r = boirePotion(p, el.dataset.id!);
     if (typeof r === 'string') return message(echapper(r));

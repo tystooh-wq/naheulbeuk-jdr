@@ -98,6 +98,10 @@ export interface Partie {
   ea?: number;
   /** Heures (jour × 24 + heure) des derniers soins magiques, pour la limite de deux par heure. */
   soinsMagiques?: number[];
+  /** Dernière utilisation (jour × 24 + heure) de chaque compétence limitée (premiers soins, mendier…). */
+  talents?: Record<string, number>;
+  /** Bivouac de qualité monté ce soir (compétences de camping) : +2 PV et +4 PA à la nuit. */
+  campQualite?: boolean;
   /** Donjon en cours d'exploration. */
   donjon?: EtatDonjon;
   journal: string[];
@@ -213,7 +217,10 @@ export const valeursCombat = (p: Partie): ValeursCombat => {
   const f = calculerFiche(p.perso);
   const arme = p.equipe.arme ? objet(p.equipe.arme) : undefined;
   const pieces = porte(p);
-  const mod = (k: 'AT' | 'PRD' | 'CHA' | 'COU' | 'AD') => pieces.reduce((s, o) => s + (o.mods?.[k] ?? 0), 0);
+  // Bric-à-brac : l'armure ne gêne pas la parade (les malus de PRD des pièces portées ne comptent pas).
+  const bricABrac = aCompetence(f, 'Bric-à-brac');
+  const mod = (k: 'AT' | 'PRD' | 'CHA' | 'COU' | 'AD') =>
+    pieces.reduce((s, o) => s + (k === 'PRD' && bricABrac ? Math.max(0, o.mods?.[k] ?? 0) : (o.mods?.[k] ?? 0)), 0);
   // Les Nains manient les armes à une main humaines à deux mains : +1 aux dégâts (livret p. 5).
   const bonusNain = arme && f.origine.id === 'nain' && arme.mains === 1 && !arme.id.startsWith('hache') ? 1 : 0;
   const bonus = f.bonusDegats + bonusNain;
@@ -223,7 +230,8 @@ export const valeursCombat = (p: Partie): ValeursCombat => {
   return {
     at: f.at + mod('AT'),
     prd: f.prd + mod('PRD'),
-    pr: protectionTotale(p),
+    // Truc de mauviette : +1 de protection naturelle.
+    pr: protectionTotale(p) + (aCompetence(f, 'Truc de mauviette') ? 1 : 0),
     degats: `${des}${total === 0 ? '' : total > 0 ? `+${total}` : total}`,
     cha: f.caracs.CHA + mod('CHA'),
     cou: f.caracs.COU + mod('COU'),
@@ -412,8 +420,17 @@ export const bivouaquer = (p: Partie): { rendu: number; confort: 'mauvais' | 'no
   if (mange) p.sac.splice(i, 1);
   let points = { mauvais: 2, normal: 4 }[confort] + (matelas ? 8 : 0);
   if (!mange) points = Math.floor(points / 2);
+  // Compétences : Cuistot (+1 PV au repas), camping réussi (+2 PV, +4 PA).
+  if (mange && aCompetence(calculerFiche(p.perso), 'Cuistot')) points += 1;
+  const qualite = !!p.campQualite;
+  if (qualite) points += 2;
+  p.campQualite = undefined;
   if (p.heure >= 6) p.jour += 1;
   p.heure = 6;
   reposAstral(p, 8, confort);
+  if (qualite) {
+    const max = calculerFiche(p.perso).ea;
+    if (max) p.ea = Math.min(max, (p.ea ?? max) + 4);
+  }
   return { rendu: soigner(p, points), confort, mange, matelas };
 };

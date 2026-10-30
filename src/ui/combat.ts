@@ -25,10 +25,11 @@ import {
 import type { Fouille } from '../rules/butin';
 import { lancer } from '../rules/des';
 import { objet } from '../rules/objets';
-import { boirePotion, noter, type Partie } from '../rules/partie';
+import { boirePotion, lancerExpression, niveau, noter, type Partie } from '../rules/partie';
 import { consommerProjectile, valeursTir } from '../rules/tir';
 import { degatsSort, ea, eaMax, lancerSort, sort, sortsConnus, valeurSort, type Sort } from '../rules/magie';
 import type { Rencontre } from '../rules/rencontres';
+import { aTalent } from '../rules/talents';
 import { boutonsVitesse, lierVitesse, vitesse } from './commun';
 import { boutonAutrement } from './idees';
 import { animerDes, de, echapper } from './outils';
@@ -71,6 +72,12 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
   let scene = `<p class="note">Les adversaires se mettent en garde…</p>`;
   let touche: string | undefined;
   let occupe = false;
+  /** Berserker : PV temporaires gagnés (repris à la fin du combat). */
+  let rage = 0;
+  let lachementFait = false;
+  const berserkerPossible = () => aTalent(p, 'Berserker') && !rage && Math.floor((p.talents?.berserker ?? -99) / 24) !== p.jour;
+  const dague = () => !!p.equipe.arme && /dague|poignard|couteau|surin|stylet/i.test(objet(p.equipe.arme).nom);
+  const lachementPossible = () => aTalent(p, 'Frapper lâchement') && !lachementFait && dague() && c.distance === 0;
 
   const h = () => heros(c);
   const synchroniser = () => (p.ev = Math.max(0, h().ev));
@@ -104,7 +111,17 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
     if (!attente) return '';
     const x = h();
     if (attente.type === 'action') {
-      const fuite = `<button class="secondaire" data-fuir>🎲 Prendre la fuite (AD ${x.ad})</button>`;
+      const fuite = x.talents?.renforts
+        ? `<button class="secondaire" data-fuir>🏃 Appel des renforts : fuir sans épreuve</button>`
+        : `<button class="secondaire" data-fuir>🎲 Prendre la fuite (AD ${x.ad})</button>`;
+      const talents = [
+        berserkerPossible() ? `<button class="secondaire" data-berserker>😡 Entrer en rage (Berserker, une fois par jour)</button>` : '',
+        lachementPossible()
+          ? auContact(c)
+              .map((e) => `<button class="secondaire" data-lachement="${e.id}">🗡 Frapper lâchement ${echapper(e.nom)} (dégâts doublés, une fois)</button>`)
+              .join('')
+          : '',
+      ].join('');
       const cibles = auContact(c);
       const t = valeursTir(p);
       const tirImpossible = !t ? '' : c.armeLancee ? 'arme déjà lancée' : t.aSec ? 'plus de projectiles' : c.recharge > 0 ? `rechargement : encore ${c.recharge} assaut${c.recharge > 1 ? 's' : ''}` : '';
@@ -139,6 +156,7 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
           ? `<p class="actions-lieu"><button class="secondaire" data-charger>⚔ Charger au contact</button><button class="secondaire" data-attendre>⏳ Attendre de pied ferme</button></p>`
           : `<p class="actions-lieu">${cibles.map((e) => `<button data-cible="${e.id}">🎲 Attaquer ${echapper(e.nom)}</button>`).join('')}</p>`;
       return `<div class="a-toi">${consigne}${tirs}${boutonsSorts}${melee}
+        ${talents ? `<p class="actions-lieu">${talents}</p>` : ''}
         <p class="actions-lieu">${potions()
           .map((id) => `<button class="secondaire" data-potion="${id}">Boire : ${echapper(objet(id).nom)}</button>`)
           .join('')}${fuite}</p>
@@ -176,7 +194,8 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
           : ''
       }
       ${b.recuperes ? `<p class="note">${echapper(b.recuperes.trim())}</p>` : ''}
-      <p><button id="fin-combat">Continuer</button></p></div>`;
+      <p><button id="fin-combat">Continuer</button></p>
+      <p>${boutonAutrement({ type: 'combat', id: `bilan:${r.ligne.nom}`, titre: `${titre} (combat contre ${r.ligne.nom})` })}</p></div>`;
   };
 
   const render = () => {
@@ -290,6 +309,20 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
 
   const finir = () => {
     synchroniser();
+    let notes: string[] = [];
+    // Berserker : les PV de rage s'en vont avec la fin du combat.
+    if (rage) {
+      p.ev = Math.max(0, p.ev - rage);
+      notes.push(`La rage retombe : les ${rage} PV temporaires disparaissent.`);
+      if (p.ev <= 0) c.fin = 'defaite';
+    }
+    // Chance du rempailleur : on ne meurt pas en combat, on est laissé pour mort.
+    if (c.fin === 'defaite' && aTalent(p, 'Chance du rempailleur')) {
+      c.fin = 'fuite';
+      p.ev = 1;
+      notes.push('Chance du rempailleur : laissé pour mort, tu te relèves quand tout le monde est parti, avec 1 PV.');
+      noter(p, 'est laissé pour mort, mais la chance du rempailleur le relève.');
+    }
     const fin = c.fin!;
     const xp = fin === 'defaite' ? 0 : xpGagnee(c);
     // Après une victoire, on ramasse son arme de jet et la moitié des projectiles (les autres sont cassés ou perdus).
@@ -307,6 +340,9 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
     const or = fouilles.reduce((s, f) => s + f.or, 0);
     const objets = fouilles.flatMap((f) => (f.objet ? [f.objet] : []));
     p.sac.push(...objets);
+    if (fouilles.some((f) => f.poubelles)) notes.push('Fouiller dans les poubelles : pour chaque corps, le MJ a lancé deux D20 et gardé le meilleur.');
+    recuperes = [recuperes, ...notes].filter(Boolean).join(' ');
+    notes = [];
     const bilan: BilanCombat = { fin, xp, or, perdu: evDepart - p.ev, objets, fouilles, recuperes };
     p.xp = (p.xp ?? 0) + xp;
     p.or += or;
@@ -510,6 +546,41 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
       avancer();
     });
 
+    sur('[data-berserker]', async () => {
+      if (attente?.type !== 'action' || !berserkerPossible()) return (occupe = false);
+      attente = null;
+      const j = lancerExpression('3D', undefined);
+      rage = j.total + niveau(p);
+      p.talents = { ...(p.talents ?? {}), berserker: p.jour * 24 + p.heure };
+      h().ev += rage;
+      h().evMax += rage;
+      const zone = await lancerJoueur(`${echapper(h().nom)} entre dans une rage folle !`, j.des[0]);
+      etape(zone, `3D6 : ${j.des.map((d) => de(d)).join('')} + niveau ${niveau(p)} = <b>+${rage} PV temporaires</b> jusqu'à la fin du combat.`);
+      c.journal.push(`${h().nom} entre en rage : +${rage} PV temporaires.`);
+      scene = zone.innerHTML;
+      synchroniser();
+      // La rage ne coûte pas l'assaut : on peut encore frapper.
+      attente = { type: 'action' };
+      occupe = false;
+      render();
+    });
+
+    sur('[data-lachement]', async (el) => {
+      if (attente?.type !== 'action' || !lachementPossible()) return (occupe = false);
+      attente = null;
+      lachementFait = true;
+      h().lachement = true;
+      const cible = el.dataset.lachement!;
+      const d = lancer(20);
+      await lancerJoueur(`Tu te glisses dans le dos de <b>${echapper(combattant(c, cible).nom)}</b>…`, d);
+      const a = attaquer(c, 'heros', cible, d);
+      h().lachement = false;
+      await montrer(a, { attaque: true });
+      apres();
+      if (!c.fin) await attendre(600);
+      avancer();
+    });
+
     sur('[data-charger]', async () => {
       if (attente?.type !== 'action') return (occupe = false);
       attente = null;
@@ -548,9 +619,10 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
       if (attente?.type !== 'action') return (occupe = false);
       attente = null;
       const d = lancer(20);
-      const zone = await lancerJoueur(`Tu tentes de prendre la fuite : il faut ${h().ad} ou moins.`, d);
+      const renforts = !!h().talents?.renforts;
+      const zone = await lancerJoueur(renforts ? 'Tu cries « Je vais chercher des renforts ! »…' : `Tu tentes de prendre la fuite : il faut ${h().ad} ou moins.`, d);
       const ok = tenterFuite(c, d);
-      etape(zone, ok ? 'Tu détales sans demander ton reste !' : 'Raté : on te barre la route, et tu as perdu ton assaut.');
+      etape(zone, renforts ? 'Appel des renforts : tu files en arrière avant que quiconque ne réagisse.' : ok ? 'Tu détales sans demander ton reste !' : 'Raté : on te barre la route, et tu as perdu ton assaut.');
       c.journal.push(ok ? `${h().nom} s'enfuit.` : `${h().nom} tente de fuir, sans succès.`);
       scene = zone.innerHTML;
       await attendre(1000);

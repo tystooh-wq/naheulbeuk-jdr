@@ -1,4 +1,5 @@
 import { evMax, noter, type Partie } from '../rules/partie';
+import { boutonAutrement } from './idees';
 import { echapper } from './outils';
 import { sauvegarderPartie } from './sauvegarde';
 
@@ -19,6 +20,7 @@ export const ecranMort = (app: HTMLElement, p: Partie, recit: string, revivre: (
         : `<p>Tu n'as plus de point de destin. C'est la fin de l'aventure. Le MJ range ta fiche dans le tiroir des héros disparus.</p>
            <div class="actions"><button class="droite" id="abandonner">Fin de la partie</button></div>`
     }
+    <p>${boutonAutrement({ type: 'evenement', id: 'mort', titre: `Mort de ${p.perso.nom}` })}</p>
   </div>`;
   app.querySelector('#abandonner')!.addEventListener('click', finDePartie);
   app.querySelector('#revivre')?.addEventListener('click', () => {
