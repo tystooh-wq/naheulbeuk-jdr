@@ -268,7 +268,7 @@ const PRISES: Record<string, [Prise, string]> = {
   'ESQUIVE NATURELLE': ['auto', 'Après une esquive, 4 à 6 au D6 : tu peux quand même attaquer.'],
   'CHANCE DU REMPAILLEUR': ['auto', 'Tu ne peux pas mourir en combat : laissé pour mort, tu te relèves avec 1 PV.'],
   'APPEL DES RENFORTS': ['auto', 'Tu fuis un combat sans épreuve et sans prendre de coups.'],
-  'FOUILLER DANS LES POUBELLES': ['auto', 'Sur les vaincus, le MJ lance deux D20 de butin et garde le meilleur.'],
+  'FOUILLER DANS LES POUBELLES': ['auto', 'Sur les vaincus, tu lances deux D20 de butin et gardes le meilleur.'],
   RADIN: ['auto', '+4 au marchandage (non cumulable avec Fariboles).'],
   FARIBOLES: ['auto', '+3 au marchandage et pour négocier avec une rencontre.'],
   'ARNAQUE ET CARAMBOUILLE': ['auto', 'En boutique : 20 % de remise à l\'achat, 10 % de mieux à la revente, sans marchander.'],

@@ -22,8 +22,8 @@ import {
   type Combattant,
   type ModeDefense,
 } from '../rules/combat';
-import type { Fouille } from '../rules/butin';
-import { lancer } from '../rules/des';
+import { fouiller, tableButin, type Fouille } from '../rules/butin';
+import { avecDe, lancer } from '../rules/des';
 import { objet } from '../rules/objets';
 import { boirePotion, lancerExpression, niveau, noter, type Partie } from '../rules/partie';
 import { consommerProjectile, valeursTir } from '../rules/tir';
@@ -53,6 +53,7 @@ export interface BilanCombat {
 type Attente =
   | { type: 'action' }
   | { type: 'defense'; attaquant: string; de: number }
+  | { type: 'fouille'; corps: string[]; reste: { fin: 'victoire'; xp: number; recuperes: string; notes: string[] } }
   | { type: 'fin'; bilan: BilanCombat }
   | null;
 
@@ -175,6 +176,14 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
         </p>
         <p class="note">${pourquoi ? `${pourquoi.charAt(0).toUpperCase() + pourquoi.slice(1)}. ` : ''}Esquiver t'éloigne : tu rates ta prochaine attaque, sauf esquive critique. Encaisser : tu prends le coup (moins ton armure), mais tu restes au contact pour frapper.</p></div>`;
     }
+    if (attente.type === 'fouille') {
+      const poubelles = !!h().talents?.poubelles;
+      return `<div class="a-toi bilan"><p><b>Victoire !</b> Les ennemis sont à terre. Tu fouilles les corps : lance ${poubelles ? 'deux D20 par corps (Fouiller dans les poubelles : le meilleur compte)' : 'un D20 par corps'} sur la table de butin. Plus c'est haut, mieux c'est.</p>
+        <ul class="fouilles">${attente.corps
+          .map((id) => `<li>${echapper(combattant(c, id).nom)} ${(poubelles ? ['?', '?'] : ['?']).map(() => de('?', 'fouille')).join('')}</li>`)
+          .join('')}</ul>
+        <p><button id="lancer-fouille">🎲 Fouiller (lancer ${attente.corps.length * (poubelles ? 2 : 1)} D20)</button></p></div>`;
+    }
     const b = attente.bilan;
     const titre = { victoire: 'Victoire !', defaite: 'Tu tombes…', fuite: 'Tu as pris la fuite' }[b.fin];
     return `<div class="a-toi bilan"><p><b>${titre}</b></p>
@@ -183,7 +192,7 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
       }</li></ul>
       ${
         b.fouilles.length
-          ? `<p><b>Tu fouilles les corps</b> <span class="note">(D20 du MJ sur la table de butin)</span></p><ul class="fouilles">${b.fouilles
+          ? `<p><b>Tu fouilles les corps</b> <span class="note">(ton D20 sur la table de butin)</span></p><ul class="fouilles">${b.fouilles
               .map(
                 (f) =>
                   `<li>${echapper(f.ennemi)} ${f.de ? de(f.de, 'petit') : ''} ${
@@ -336,13 +345,40 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
       recuperes = `${objet(p.equipe.distance).nom} est restée sur le champ de bataille.`;
       p.equipe.distance = undefined;
     }
-    const fouilles = fin === 'victoire' ? butin(c) : [];
+    // Victoire : c'est le joueur qui lance le D20 de fouille de chaque corps (table de butin de sa famille).
+    const corps = fin === 'victoire' ? ennemis(c).filter((x) => x.etat === 'mort' && tableButin(x.nom)).map((x) => x.id) : [];
+    if (corps.length) {
+      attente = { type: 'fouille', corps, reste: { fin: 'victoire', xp, recuperes, notes } };
+      return render();
+    }
+    conclure(fin, xp, recuperes, notes, []);
+  };
+
+  /** Le joueur lance ses D20 de fouille (deux par corps avec Fouiller dans les poubelles, le meilleur compte). */
+  const fouillerCorps = async () => {
+    if (attente?.type !== 'fouille') return;
+    const { corps, reste } = attente;
+    const poubelles = !!h().talents?.poubelles;
+    const des = corps.map(() => (poubelles ? [lancer(20), lancer(20)] : [lancer(20)]));
+    const zone = app.querySelector<HTMLElement>('.a-toi')!;
+    zone.querySelector('button')?.remove();
+    await animerDes([...zone.querySelectorAll<HTMLElement>('.de.fouille')], 20, des.flat(), 650 / vitesse());
+    await attendre(600);
+    const fouilles = corps.map((id, k) => {
+      const nom = combattant(c, id).nom;
+      const meilleur = Math.max(...des[k]);
+      return { ...fouiller(nom, avecDe(meilleur, 20)), ennemi: nom, poubelles: poubelles || undefined };
+    });
+    // Les vaincus sans table de butin n'ont rien d'intéressant sur eux.
+    if (poubelles) reste.notes.push('Fouiller dans les poubelles : deux D20 par corps, le meilleur compte.');
+    conclure(reste.fin, reste.xp, reste.recuperes, reste.notes, fouilles);
+  };
+
+  const conclure = (fin: 'victoire' | 'defaite' | 'fuite', xp: number, recup: string, notes: string[], fouilles: Fouille[]) => {
     const or = fouilles.reduce((s, f) => s + f.or, 0);
     const objets = fouilles.flatMap((f) => (f.objet ? [f.objet] : []));
     p.sac.push(...objets);
-    if (fouilles.some((f) => f.poubelles)) notes.push('Fouiller dans les poubelles : pour chaque corps, le MJ a lancé deux D20 et gardé le meilleur.');
-    recuperes = [recuperes, ...notes].filter(Boolean).join(' ');
-    notes = [];
+    const recuperes = [recup, ...notes].filter(Boolean).join(' ');
     const bilan: BilanCombat = { fin, xp, or, perdu: evDepart - p.ev, objets, fouilles, recuperes };
     p.xp = (p.xp ?? 0) + xp;
     p.or += or;
@@ -631,6 +667,7 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
       avancer();
     });
 
+    app.querySelector('#lancer-fouille')?.addEventListener('click', () => void fouillerCorps());
     app.querySelector('#fin-combat')?.addEventListener('click', () => {
       if (attente?.type === 'fin') terminer(attente.bilan);
     });
