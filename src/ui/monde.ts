@@ -31,7 +31,7 @@ import { animerDes, de, echapper } from './outils';
 import { ecranCombat, type BilanCombat } from './combat';
 import { cite } from '../rules/cites';
 import { EVENEMENT_PROVOQUER } from './encyclopedie';
-import { boutonAutrement, ideesValidees, type Contexte, NOM_EPREUVE, resoudreIdee, surChangement, valeurEpreuve, type Idee } from './idees';
+import { boutonAutrement, lierIdeesLieu, panneauIdeesLieu, ideesValidees, type Contexte, type ResultatIdee, NOM_EPREUVE, resoudreIdee, surChangement, valeurEpreuve, type Idee } from './idees';
 import { sauvegarderPartie } from './sauvegarde';
 
 // La carte de la Terre de Fangh : on s'y déplace de lieu en lieu le long des pistes, l'horloge tourne,
@@ -64,7 +64,7 @@ type Fenetre =
 /** Une idée de joueur validée, choisie à la place des choix écrits : on lance le dé, puis on lit le résultat. */
 interface IdeeJouee {
   idee: Idee;
-  resultat?: { reussi: boolean; texte: string };
+  resultat?: ResultatIdee;
 }
 
 let rafraichirIdees: (() => void) | undefined;
@@ -222,6 +222,7 @@ export const ecranMonde = (app: HTMLElement, p: Partie, s: Sorties) => {
       ${msg ? `<div class="recit">${msg}</div>` : ''}
       <p class="actions-lieu">${actions.join('')}</p>
       ${l.inventeNom ? '<p class="note">Lieu dessiné sur la carte officielle mais sans nom : celui-ci est inventé pour le jeu.</p>' : ''}
+      ${panneauIdeesLieu(p, `monde:${l.id}`)}
       <p class="note">Pour partir, ferme cette fenêtre et clique sur une destination.</p>
       <p>${boutonAutrement({ type: 'lieu', id: `monde:${l.id}`, titre: l.nom })}</p>`;
     return cadreFenetre([l.x, l.y], l.nom, echapper(l.nom), `${nuit() ? 'De nuit' : 'De jour'} · ${formatHeure(p.heure)}`, corps);
@@ -278,7 +279,11 @@ export const ecranMonde = (app: HTMLElement, p: Partie, s: Sorties) => {
       ${r.nombre >= 3 ? `<p class="note">Conseil du MJ : seul contre ${r.nombre}, même un héros finit en charpie. Trois au plus te tomberont dessus à la fois, et tu ne pares qu'un coup par assaut.</p>` : ''}`;
     const contexte = { type: 'rencontre' as const, id: l.nom, titre: l.rencontre };
     if (f.idee) {
-      corps += panneauIdee(p, f.idee, f.idee.resultat?.reussi ? '<button id="suite">Continuer</button>' : '<button data-combattre>⚔ Combattre</button>');
+      corps += panneauIdee(
+        p,
+        f.idee,
+        f.idee.resultat?.reussi ? '<button id="suite">Continuer</button>' : f.idee.resultat?.combat ? '<button data-combat-idee>⚔ Combattre</button>' : '<button data-combattre>⚔ Combattre</button>',
+      );
     } else if (f.bilan) {
       const b = f.bilan;
       corps += `<div class="recit">${
@@ -323,7 +328,7 @@ export const ecranMonde = (app: HTMLElement, p: Partie, s: Sorties) => {
     const { ev, resultat } = f;
     let corps = `<p>${echapper(ev.texte)}</p>`;
     if (f.idee) {
-      corps += panneauIdee(p, f.idee, '<button id="suite">Continuer</button>');
+      corps += panneauIdee(p, f.idee, f.idee.resultat?.combat ? '<button data-combat-idee>⚔ Combattre</button>' : '<button id="suite">Continuer</button>');
     } else if (!resultat && f.choix !== undefined) {
       const c = ev.choix[f.choix];
       const jet = c.jet!;
@@ -731,6 +736,35 @@ export const ecranMonde = (app: HTMLElement, p: Partie, s: Sorties) => {
           render();
         }, 350),
       );
+    });
+
+    // Combat d'une idée de joueur ratée (lieu, ou événement dont l'échec tourne à la bagarre).
+    const combatIdee = (r: Rencontre) =>
+      ecranCombat(app, p, r, (bilan) => {
+        if (bilan.fin === 'defaite') {
+          p.ev = 0;
+          fenetre = { type: 'mort' };
+        } else
+          fenetre = {
+            type: 'lieu',
+            message: bilan.fin === 'victoire' ? `Victoire (+${bilan.xp} XP${bilan.or ? `, ${bilan.or} PO` : ''}).` : 'Tu prends tes jambes à ton cou.',
+          };
+        sauver();
+        render();
+      });
+    if (fenetre?.type === 'lieu')
+      lierIdeesLieu(
+        app,
+        p,
+        () => {
+          sauver();
+          if (!verifierMort()) render();
+        },
+        combatIdee,
+      );
+    sur('[data-combat-idee]', () => {
+      const r = (fenetre?.type === 'evenement' || fenetre?.type === 'rencontre') && fenetre.idee?.resultat?.combat;
+      if (r) combatIdee(r);
     });
 
     sur('[data-combattre]', () => {

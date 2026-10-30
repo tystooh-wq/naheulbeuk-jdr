@@ -116,6 +116,8 @@ export interface Progression {
   niveau: number;
   /** EV gagnée (1D6 par niveau). */
   ev: number;
+  /** EA gagnée : à chaque niveau, le D6 va à l'EV ou à l'EA, au choix (règles V4, 15). */
+  ea?: number;
   /** Points ajoutés aux caractéristiques (niveaux pairs). */
   caracs: Partial<Scores>;
   /** Points ajoutés à l'attaque et à la parade (niveaux impairs). */
@@ -242,7 +244,7 @@ export const calculerFiche = (p: Personnage): Fiche => {
     nomVersionHB: version?.nom,
     caracs,
     ev,
-    ea: metier.ea ?? 0,
+    ea: metier.ea ? metier.ea + (prog?.ea ?? 0) : 0,
     at,
     prd,
     rm: Math.round((caracs.COU + caracs.INT + caracs.FO) / 3),

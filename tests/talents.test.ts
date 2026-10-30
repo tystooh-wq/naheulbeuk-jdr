@@ -86,3 +86,20 @@ describe('compétences', () => {
     expect(priseCompetence('Nager')[0]).toBe('non');
   });
 });
+
+describe('énergie astrale', () => {
+  it("au passage de niveau, le D6 peut aller à l'EA ; les potions de mana la rechargent", async () => {
+    const { monterNiveau, boirePotion } = await import('../src/rules/partie');
+    const { eaMax, ea } = await import('../src/rules/magie');
+    const p = nouvellePartie({ ...perso([]), metierId: 'mage', jets: { COU: 10, INT: 13, CHA: 12, AD: 12, FO: 9 } });
+    const avant = eaMax(p);
+    expect(avant).toBeGreaterThan(0);
+    p.xp = 100;
+    expect(monterNiveau(p, 4, 'INT', true)).toBeNull();
+    expect(eaMax(p)).toBe(avant + 4);
+    expect(ea(p)).toBe(avant + 4);
+    p.ea = 0;
+    p.sac.push('potion-de-mana-des-bitos');
+    expect(boirePotion(p, 'potion-de-mana-des-bitos')).toMatchObject({ rendu: 5, pa: true });
+  });
+});

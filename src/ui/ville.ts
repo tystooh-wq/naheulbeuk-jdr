@@ -27,7 +27,7 @@ import { lierQuetes, marqueQuete, panneauJournalQuetes, panneauQuetes } from './
 import { animerDes, de, echapper } from './outils';
 import { marchander, type Marchandage } from '../rules/marchandage';
 import { arrondirOr, formatOr } from '../rules/monnaie';
-import { boutonAutrement } from './idees';
+import { boutonAutrement, lierIdeesLieu, panneauIdeesLieu } from './idees';
 import { sauvegarderPartie } from './sauvegarde';
 
 // Lettres sur le plan, dans l'esprit des symboles des cartes MJ (A, E, T…).
@@ -235,6 +235,7 @@ export const ecranVille = (app: HTMLElement, p: Partie, sorties: SortiesVille, a
         <p>${echapper(l.description)}</p>
         ${visite.message ? `<div class="recit">${visite.message}</div>` : ''}
         ${actionsLieu(l)}
+        ${panneauIdeesLieu(p, `${c.id}:${l.id}`)}
         <p>${boutonAutrement({ type: 'lieu', id: `${c.id}:${l.id}`, titre: `${l.nom} (${c.nom})` })}</p>
       </div>
     </div>`;
@@ -452,6 +453,23 @@ export const ecranVille = (app: HTMLElement, p: Partie, sorties: SortiesVille, a
       message(`Le soigneur marmonne une formule et applique un onguent qui pique. Tu récupères <b>${n} PV</b>.`);
     });
     sur('#action-lieu', () => message(echapper(lieu(p.lieu).action!.texte)));
+
+    // Idées de joueurs validées pour ce lieu
+    lierIdeesLieu(
+      app,
+      p,
+      () => {
+        sauver();
+        render();
+      },
+      (r) =>
+        ecranCombat(app, p, r, (bilan) => {
+          if (bilan.fin === 'victoire') return message(`Victoire (+${bilan.xp} XP).`);
+          if (bilan.fin === 'fuite') return message('Tu prends tes jambes à ton cou.');
+          noter(p, 'tombe au combat.');
+          ecranMort(app, p, 'Tout devient noir… Tu t\'effondres au milieu du combat.', (texte) => message(texte), sorties.finDePartie);
+        }),
+    );
 
     // Quêtes
     lierQuetes(

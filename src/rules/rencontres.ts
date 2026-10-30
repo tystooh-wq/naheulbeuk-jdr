@@ -1,4 +1,5 @@
 import { aTalent, bonusSituation } from './talents';
+import { CREATURES } from './bestiaire';
 import TABLE from './rencontres-terres-sauvages.json';
 import FORET from './rencontres-foret1.json';
 import { lancer, type Rng } from './des';
@@ -158,3 +159,33 @@ export const resoudre = (p: Partie, r: Rencontre, tactique: Tactique, rng?: Rng,
   p.ev -= perdu;
   return { epreuve: { ...e, valeur }, coups, perdu };
 };
+
+const nombreDe = (t: string, defaut = 0) => Number(/\d+/.exec(t)?.[0] ?? defaut);
+
+/**
+ * Un adversaire par son nom, pour les idées des joueurs : d'abord les tables de rencontres
+ * (stats prêtes pour le combat), sinon le bestiaire (les « 10 à 60 » prennent la première valeur).
+ */
+export const ligneEnnemi = (nom: string): LigneRencontre | null => {
+  const t = [...TABLE_TERRES_SAUVAGES, ...TABLE_FORET].find((l) => l.nom === nom);
+  if (t) return t;
+  const c = CREATURES.find((x) => x.nom === nom);
+  if (!c) return null;
+  return {
+    d20: 0,
+    rencontre: c.nom,
+    nombre: '1',
+    nom: c.nom,
+    at: nombreDe(c.at, 8),
+    prd: nombreDe(c.prd, 0),
+    ev: Math.max(1, nombreDe(c.ev, 10)),
+    pr: nombreDe(c.pr, 0),
+    degats: /\d*D[+-]?\d*/.exec(c.degats)?.[0] ?? '1D',
+    cou: nombreDe(c.cou, 10),
+    xp: nombreDe(c.xp, 5),
+    notes: c.notes.join(' '),
+  };
+};
+
+/** Tous les adversaires qu'on peut choisir dans une idée : tables de rencontres puis bestiaire. */
+export const nomsEnnemis = (): string[] => [...new Set([...TABLE_TERRES_SAUVAGES, ...TABLE_FORET].map((l) => l.nom).concat(CREATURES.map((c) => c.nom)))];

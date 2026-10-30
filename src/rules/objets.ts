@@ -30,6 +30,8 @@ export interface Objet {
   mods?: Partial<Record<Modif, number>>;
   /** Points de vie rendus (potions). */
   soin?: string;
+  /** Potion de mana : PA d'énergie astrale rendus. */
+  mana?: number;
   estime?: boolean;
   /** Protections : où elles se portent (torse par défaut). */
   emplacement?: Emplacement;
@@ -297,6 +299,8 @@ const depuisCatalogue = (l: LigneCatalogue): Objet => {
   if (l.type === 'potion') {
     const soin = /Récup\. (\d+) ?PV/.exec(l.effets ?? '');
     if (soin) o.soin = soin[1];
+    const mana = /Récup\. (\d+) ?PA/.exec(l.effets ?? '');
+    if (mana) o.mana = Number(mana[1]);
   }
   return o;
 };

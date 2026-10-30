@@ -116,7 +116,7 @@ export const LIEUX: Lieu[] = [
     quartier: 'Sud-Ouest',
     description:
       "Le plus grand spécialiste des potions de la ville : bons prix, bonnes affaires. À Waldorg, la concurrence fait baisser le prix des potions d'un quart.",
-    boutique: { stock: ['potion-soin', 'potion-plaies', 'potion-soin-forte'], prix: 0.75, rachat: 0.5, rachete: ['potion'] },
+    boutique: { stock: ['potion-soin', 'potion-plaies', 'potion-soin-forte', 'potion-de-mana-des-bitos', 'potion-de-mana-rouge'], prix: 0.75, rachat: 0.5, rachete: ['potion'] },
   },
   {
     id: 'lames',

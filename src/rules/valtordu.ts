@@ -76,7 +76,7 @@ export const LIEUX_VALTORDU: Lieu[] = [
     description:
       "Archibald Ozonuc est connu de tous : il soigne les bergers, les moutons et les aventuriers, dans cet ordre. Il donne parfois des quêtes, surtout quand il a besoin d'un coursier. Les tarifs de village sont doux.",
     prixSoin: 1,
-    boutique: { stock: ['potion-soin', 'potion-plaies'], prix: 1, rachat: 0.5, rachete: ['potion'] },
+    boutique: { stock: ['potion-soin', 'potion-plaies', 'potion-de-mana-des-bitos'], prix: 1, rachat: 0.5, rachete: ['potion'] },
   },
   {
     id: 'bazar',

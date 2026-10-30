@@ -22,7 +22,7 @@ import { noter, type Partie } from '../rules/partie';
 import { donjonTermine } from '../rules/quetes';
 import { bandeau, lierSac, panneauJournal, panneauSac } from './commun';
 import { ecranCombat } from './combat';
-import { boutonAutrement } from './idees';
+import { boutonAutrement, lierIdeesLieu, panneauIdeesLieu } from './idees';
 import { animerDes, de, echapper } from './outils';
 import { panneauJournalQuetes } from './quetes';
 import { sauvegarderPartie } from './sauvegarde';
@@ -134,6 +134,7 @@ export const ecranDonjon = (app: HTMLElement, p: Partie, s: SortiesDonjon) => {
               .join('')}
              ${sa.id === dj.entree || termine(e) ? `<button id="sortir">Ressortir de ${echapper(dj.nom)}</button>` : ''}</p>`
       }
+      ${panneauIdeesLieu(p, `donjon:${dj.id}:${sa.id}`)}
       <p>${boutonAutrement({ type: 'lieu', id: `donjon:${dj.id}:${sa.id}`, titre: `${sa.nom} (${dj.nom})` })}</p>
     </div>`;
   };
@@ -175,6 +176,17 @@ export const ecranDonjon = (app: HTMLElement, p: Partie, s: SortiesDonjon) => {
     });
     sur('#fiche', () => s.ouvrirFiche());
     lierSac(app, p, (html) => dire(html));
+    lierIdeesLieu(
+      app,
+      p,
+      () => dire(message),
+      (r) =>
+        ecranCombat(app, p, r, (bilan) => {
+          if (bilan.fin === 'victoire') return dire(`Victoire (+${bilan.xp} XP).`);
+          if (bilan.fin === 'fuite') return dire('Tu prends la fuite, le cœur battant.');
+          mourir();
+        }),
+    );
     sur('[data-aller]', (el) => {
       const refus = avancer(p, el.dataset.aller!);
       piegeEnCours = false;

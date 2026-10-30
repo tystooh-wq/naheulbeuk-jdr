@@ -1608,3 +1608,29 @@ button.combattant:hover {
 .competences-jeu li.prise-bouton {
   border-left-color: var(--rouge);
 }
+
+/* Formulaire de validation des idées : onglets et recherches */
+.onglets-idee {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.valider-idee section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.resultats-recherche {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.valider-idee .choisis ul {
+  margin: 4px 0;
+  padding-left: 18px;
+}

@@ -257,17 +257,21 @@ export type GainNiveau = 'FO' | 'AD' | 'COU' | 'INT' | 'AT' | 'PRD';
 export const gainsPossibles = (p: Partie): GainNiveau[] => ((niveau(p) + 1) % 2 === 0 ? ['FO', 'AD', 'COU', 'INT'] : ['AT', 'PRD']);
 
 /** Passe un niveau (règles V4, 15) : +1D6 EV (dé du joueur) et le gain choisi. */
-export const monterNiveau = (p: Partie, deEv: number, gain: GainNiveau): string | null => {
+export const monterNiveau = (p: Partie, deEv: number, gain: GainNiveau, versEA = false): string | null => {
   if (!niveauEnAttente(p)) return "Pas assez d'expérience.";
   if (!gainsPossibles(p).includes(gain)) return 'Ce gain ne correspond pas à ce niveau.';
   const prog = p.perso.progression ?? { niveau: 1, ev: 0, caracs: {}, at: 0, prd: 0 };
   prog.niveau += 1;
-  prog.ev += deEv;
+  // Le D6 du niveau va à l'énergie vitale, ou à l'énergie astrale pour ceux qui en ont.
+  const ea = versEA && calculerFiche(p.perso).ea > 0;
+  if (ea) prog.ea = (prog.ea ?? 0) + deEv;
+  else prog.ev += deEv;
   if (gain === 'AT') prog.at += 1;
   else if (gain === 'PRD') prog.prd += 1;
   else prog.caracs[gain] = (prog.caracs[gain] ?? 0) + 1;
   p.perso.progression = prog;
-  p.ev += deEv;
+  if (ea) p.ea = (p.ea ?? calculerFiche(p.perso).ea - deEv) + deEv;
+  else p.ev += deEv;
   return null;
 };
 
@@ -355,13 +359,20 @@ export const soigner = (p: Partie, points: number): number => {
   return p.ev - avant;
 };
 
-export const boirePotion = (p: Partie, id: string, rng?: Rng): { rendu: number; des: number[] } | string => {
+export const boirePotion = (p: Partie, id: string, rng?: Rng): { rendu: number; des: number[]; pa?: boolean } | string => {
   const o = objet(id);
-  if (!o.soin) return "Ça ne se boit pas, ni ne se mange.";
+  if (!o.soin && !o.mana) return "Ça ne se boit pas, ni ne se mange.";
   const i = p.sac.indexOf(id);
   if (i < 0) return "Tu n'as pas cette potion.";
   p.sac.splice(i, 1);
-  const jet = lancerExpression(o.soin, rng);
+  if (o.mana) {
+    // Potion de mana : l'énergie astrale remonte (sans effet pour qui n'en a pas).
+    const max = calculerFiche(p.perso).ea;
+    const avant = p.ea ?? max;
+    p.ea = Math.min(max, avant + o.mana);
+    return { rendu: p.ea - avant, des: [], pa: true };
+  }
+  const jet = lancerExpression(o.soin!, rng);
   return { rendu: soigner(p, jet.total), des: jet.des };
 };
 

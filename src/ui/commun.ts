@@ -176,7 +176,7 @@ export const panneauSac = (p: Partie, message?: string) => {
               const bouton =
                 o.type === 'arme' || o.type === 'armure'
                   ? `<button class="secondaire petit equiper" data-id="${id}">Équiper</button>`
-                  : o.soin
+                  : o.soin || o.mana
                     ? `<button class="secondaire petit boire" data-id="${id}">${o.type === 'potion' ? 'Boire' : 'Manger'}</button>`
                     : '';
               return ligneObjet(p, o, `<span class="pastille">×${nb}</span> ${bouton}`);
@@ -212,7 +212,7 @@ const panneauCompetences = (p: Partie) => {
       return `<li class="prise-${prise}"><b>${echapper(n)}</b> <span class="note">${PRISE[prise]}</span><br /><span class="note">${echapper(effet)}</span></li>`;
     })
     .join('');
-  return `${boutons ? `<h3>Compétences à utiliser ici</h3>${boutons}` : ''}
+  return `${boutons ? `<h3>Actions et compétences utilisables ici</h3>${boutons}` : ''}
     <details class="competences-jeu"><summary>Compétences (${competencesDuHeros(p).length}) et ce que le jeu en fait</summary><ul>${liste}</ul></details>`;
 };
 
@@ -260,8 +260,8 @@ export const lierSac = (app: HTMLElement, p: Partie, message: (html: string) => 
     const r = boirePotion(p, el.dataset.id!);
     if (typeof r === 'string') return message(echapper(r));
     const potion = objet(el.dataset.id!).type === 'potion';
-    noter(p, `${potion ? 'boit une potion' : `mange : ${objet(el.dataset.id!).nom},`} et récupère ${r.rendu} PV.`);
-    message(`${r.des.map((d) => de(d)).join('')} ${potion ? 'Glou glou…' : 'Miam.'} Tu récupères <b>${r.rendu} PV</b>.`);
+    noter(p, `${potion ? 'boit une potion' : `mange : ${objet(el.dataset.id!).nom},`} et récupère ${r.rendu} ${r.pa ? 'PA' : 'PV'}.`);
+    message(`${r.des.map((d) => de(d)).join('')} ${potion ? 'Glou glou…' : 'Miam.'} Tu récupères <b>${r.rendu} ${r.pa ? 'PA' : 'PV'}</b>.`);
   });
 };
 
@@ -284,14 +284,25 @@ const ouvrirNiveau = (p: Partie, fini: (texte: string) => void) => {
   const prochain = niveau(p) + 1;
   const gains = gainsPossibles(p);
   let de: number | undefined;
+  /** Mages et prêtres : le D6 peut aller à l'énergie astrale plutôt qu'à l'énergie vitale. */
+  const astral = eaMax(p) > 0;
+  let versEA = false;
   const dessiner = () => {
     fenetre.innerHTML = `<div class="page ency-page niveau">
       <h2>Niveau ${prochain} !</h2>
       <p>L'aventure, ça forge. Règles V4 : à chaque niveau, +1D6 en énergie vitale, puis ${
         prochain % 2 === 0 ? 'un point dans une caractéristique (niveau pair)' : "un point d'Attaque ou de Parade (niveau impair)"
       }.</p>
-      <div class="recit lancer-joueur">Énergie vitale : lance le D6.
-        <div>${de === undefined ? `<span class="de a-lancer" id="de-niveau">?</span><button id="lancer-niveau">Lancer le D6</button>` : `<span class="de">${de}</span> <b>+${de} PV max</b>`}</div></div>
+      <div class="recit lancer-joueur">${astral ? 'Énergie vitale ou astrale' : 'Énergie vitale'} : lance le D6.
+        <div>${
+          de === undefined
+            ? `<span class="de a-lancer" id="de-niveau">?</span><button id="lancer-niveau">Lancer le D6</button>`
+            : astral
+              ? `<span class="de">${de}</span>
+                 <label><input type="radio" name="energie" value="ev" ${versEA ? '' : 'checked'} /> +${de} PV max (survivre)</label>
+                 <label><input type="radio" name="energie" value="ea" ${versEA ? 'checked' : ''} /> +${de} PA max (puissance magique)</label>`
+              : `<span class="de">${de}</span> <b>+${de} PV max</b>`
+        }</div></div>
       ${
         de === undefined
           ? ''
@@ -309,12 +320,14 @@ const ouvrirNiveau = (p: Partie, fini: (texte: string) => void) => {
     fenetre.querySelectorAll<HTMLElement>('[data-gain]').forEach((b) =>
       b.addEventListener('click', () => {
         const gain = b.dataset.gain as GainNiveau;
-        const refus = monterNiveau(p, de!, gain);
+        versEA = fenetre.querySelector<HTMLInputElement>('input[name=energie]:checked')?.value === 'ea';
+        const refus = monterNiveau(p, de!, gain, versEA);
         fenetre.remove();
         document.body.classList.remove('ency-ouverte');
         if (refus) return fini(echapper(refus));
-        noter(p, `passe au niveau ${prochain} (+${de} PV max, ${NOM_GAIN[gain]} +1).`);
-        fini(`Tu passes au <b>niveau ${prochain}</b> : +${de} PV max et ${NOM_GAIN[gain]} +1.`);
+        const energie = `+${de} ${versEA ? 'PA' : 'PV'} max`;
+        noter(p, `passe au niveau ${prochain} (${energie}, ${NOM_GAIN[gain]} +1).`);
+        fini(`Tu passes au <b>niveau ${prochain}</b> : ${energie} et ${NOM_GAIN[gain]} +1.`);
       }),
     );
   };

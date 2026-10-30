@@ -1,6 +1,8 @@
 import { calculerFiche } from '../rules/creation';
-import { valeursCombat, type Partie } from '../rules/partie';
-import { echapper } from './outils';
+import { objet, OBJETS } from '../rules/objets';
+import { passerTemps, valeursCombat, type Partie } from '../rules/partie';
+import { ligneEnnemi, nomsEnnemis, type Rencontre } from '../rules/rencontres';
+import { animerDes, echapper } from './outils';
 
 // Les idées des joueurs : un bouton « J'aurais fait autrement » sous chaque choix ouvre une saisie libre.
 // Les idées sont partagées (base de données de l'artifact) quand la page le permet, sinon gardées sur
@@ -36,6 +38,16 @@ export interface Idee {
   orReussite?: number;
   pvEchec?: number;
   orEchec?: number;
+  // Effets ajoutés le 30/10 : énergie astrale, expérience, temps, objets gagnés, rencontre sur un échec.
+  eaReussite?: number;
+  eaEchec?: number;
+  xpReussite?: number;
+  heuresReussite?: number;
+  heuresEchec?: number;
+  /** Objets donnés au héros si c'est réussi (identifiants du catalogue). */
+  objetsReussite?: string[];
+  /** Un échec tourne à la bagarre. */
+  rencontreEchec?: { nom: string; nombre: number } | null;
 }
 
 export const NOM_EPREUVE: Record<CaracEpreuve, string> = {
@@ -289,20 +301,129 @@ const envoyerProposition = (lire: (d: FormData) => { genre: string; ou: string; 
   });
 };
 
+const ONGLETS = [
+  ['epreuve', 'Épreuve'],
+  ['reussite', 'Réussite'],
+  ['gain', 'Gain'],
+  ['echec', 'Échec'],
+  ['rencontres', 'Rencontres'],
+] as const;
+
+const chiffre = (nom: string, libelle: string, valeur: number | undefined, min: number, max: number) =>
+  `<label>${libelle} <input name="${nom}" type="number" min="${min}" max="${max}" value="${valeur ?? 0}" /></label>`;
+
+/** Le formulaire du MJ pour rendre une idée jouable : épreuve, effets en cas de réussite ou d'échec, objets gagnés, rencontre. */
 const formulaireValidation = (i: Idee) => `<form class="valider-idee" data-idee="${echapper(i.id)}">
-    <label>Libellé du choix dans le jeu <input name="libelle" maxlength="120" value="${echapper(i.libelle ?? i.texte.slice(0, 80))}" /></label>
-    <label>Épreuve au D20 <select name="epreuve">
-      <option value="">Aucune (réussite automatique)</option>
-      ${(Object.keys(NOM_EPREUVE) as CaracEpreuve[]).map((k) => `<option value="${k}" ${i.epreuve === k ? 'selected' : ''}>${NOM_EPREUVE[k]}</option>`).join('')}
-    </select></label>
-    <label>Bonus ou malus à l'épreuve <input name="modif" type="number" min="-10" max="10" value="${i.modif ?? 0}" /></label>
-    <label>Si réussi <textarea name="reussite" rows="2">${echapper(i.reussite ?? '')}</textarea></label>
-    <div class="ligne-chiffres"><label>PV <input name="pvReussite" type="number" min="-30" max="30" value="${i.pvReussite ?? 0}" /></label><label>PO <input name="orReussite" type="number" min="-500" max="500" value="${i.orReussite ?? 0}" /></label></div>
-    <label>Si raté <textarea name="echec" rows="2">${echapper(i.echec ?? '')}</textarea></label>
-    <div class="ligne-chiffres"><label>PV <input name="pvEchec" type="number" min="-30" max="30" value="${i.pvEchec ?? 0}" /></label><label>PO <input name="orEchec" type="number" min="-500" max="500" value="${i.orEchec ?? 0}" /></label></div>
+    <div class="onglets-idee" role="tablist">${ONGLETS.map(
+      ([id, nom], k) => `<button type="button" class="petit ${k ? 'secondaire' : ''}" data-onglet="${id}" role="tab">${nom}</button>`,
+    ).join('')}</div>
+    <section data-section="epreuve">
+      <label>Libellé du choix dans le jeu <input name="libelle" maxlength="120" value="${echapper(i.libelle ?? i.texte.slice(0, 80))}" /></label>
+      <label>Épreuve au D20 <select name="epreuve">
+        <option value="">Aucune (réussite automatique)</option>
+        ${(Object.keys(NOM_EPREUVE) as CaracEpreuve[]).map((k) => `<option value="${k}" ${i.epreuve === k ? 'selected' : ''}>${NOM_EPREUVE[k]}</option>`).join('')}
+      </select></label>
+      <label>Bonus ou malus à l'épreuve <input name="modif" type="number" min="-10" max="10" value="${i.modif ?? 0}" /></label>
+    </section>
+    <section data-section="reussite" hidden>
+      <label>Ce qui se passe <textarea name="reussite" rows="2">${echapper(i.reussite ?? '')}</textarea></label>
+      <div class="ligne-chiffres">${chiffre('pvReussite', 'PV', i.pvReussite, -30, 30)}${chiffre('orReussite', 'PO', i.orReussite, -500, 500)}${chiffre('eaReussite', 'PA (énergie astrale)', i.eaReussite, -50, 50)}</div>
+      <div class="ligne-chiffres">${chiffre('xpReussite', 'XP', i.xpReussite, 0, 500)}${chiffre('heuresReussite', 'Heures passées', i.heuresReussite, 0, 24)}</div>
+      <p class="note">Les objets gagnés se choisissent dans l'onglet « Gain ».</p>
+    </section>
+    <section data-section="gain" hidden>
+      <input type="hidden" name="objetsReussite" value="${echapper(JSON.stringify(i.objetsReussite ?? []))}" />
+      <div class="choisis" data-choisis></div>
+      <label>Chercher dans l'encyclopédie <input type="search" data-chercher-objet placeholder="potion, épée, corde…" /></label>
+      <div class="resultats-recherche" data-resultats-objets></div>
+    </section>
+    <section data-section="echec" hidden>
+      <label>Ce qui se passe <textarea name="echec" rows="2">${echapper(i.echec ?? '')}</textarea></label>
+      <div class="ligne-chiffres">${chiffre('pvEchec', 'PV', i.pvEchec, -30, 30)}${chiffre('orEchec', 'PO', i.orEchec, -500, 500)}${chiffre('eaEchec', 'PA (énergie astrale)', i.eaEchec, -50, 50)}</div>
+      <div class="ligne-chiffres">${chiffre('heuresEchec', 'Heures perdues', i.heuresEchec, 0, 24)}</div>
+      <p class="note">Pour qu'un échec tourne à la bagarre, choisis l'adversaire dans l'onglet « Rencontres ».</p>
+    </section>
+    <section data-section="rencontres" hidden>
+      <input type="hidden" name="rencontreNom" value="${echapper(i.rencontreEchec?.nom ?? '')}" />
+      <p data-rencontre-choisie></p>
+      <label>Combien <input name="rencontreNombre" type="number" min="1" max="10" value="${i.rencontreEchec?.nombre ?? 1}" /></label>
+      <label>Chercher un adversaire (tables de rencontres, puis bestiaire) <input type="search" data-chercher-ennemi placeholder="gobelin, brigand, ogre…" /></label>
+      <div class="resultats-recherche" data-resultats-ennemis></div>
+    </section>
     <p class="actions-lieu"><button type="submit">Valider et rendre jouable</button><button type="button" class="secondaire" data-refuser="${echapper(i.id)}">Refuser</button></p>
-    ${i.contexte.type === 'rencontre' ? '<p class="note">Pour une rencontre : réussi, on évite le combat ; raté, le combat commence.</p>' : ''}
+    ${i.contexte.type === 'rencontre' ? '<p class="note">Pour une rencontre : réussi, on évite le combat ; raté, le combat commence (contre la rencontre elle-même si aucun adversaire n\'est choisi).</p>' : ''}
   </form>`;
+
+/** Onglets, recherche d'objets et d'adversaires dans un formulaire de validation. */
+const animerFormulaire = (f: HTMLFormElement) => {
+  f.querySelectorAll<HTMLButtonElement>('[data-onglet]').forEach((b) =>
+    b.addEventListener('click', () => {
+      f.querySelectorAll<HTMLButtonElement>('[data-onglet]').forEach((x) => x.classList.toggle('secondaire', x !== b));
+      f.querySelectorAll<HTMLElement>('[data-section]').forEach((s) => (s.hidden = s.dataset.section !== b.dataset.onglet));
+    }),
+  );
+  // Gain : les objets choisis, et la recherche dans le catalogue.
+  const champObjets = f.querySelector<HTMLInputElement>('[name=objetsReussite]')!;
+  const lus = (): string[] => JSON.parse(champObjets.value || '[]');
+  const montrerChoisis = () => {
+    const ids = lus();
+    f.querySelector('[data-choisis]')!.innerHTML = ids.length
+      ? `<p>Gagné si c'est réussi :</p><ul>${ids
+          .map((id, k) => `<li>${echapper(OBJETS.some((o) => o.id === id) ? objet(id).nom : id)} <button type="button" class="secondaire petit" data-retirer-objet="${k}">✕</button></li>`)
+          .join('')}</ul>`
+      : '<p class="note">Aucun objet à gagner pour l\'instant.</p>';
+    f.querySelectorAll<HTMLElement>('[data-retirer-objet]').forEach((b) =>
+      b.addEventListener('click', () => {
+        const l = lus();
+        l.splice(Number(b.dataset.retirerObjet), 1);
+        champObjets.value = JSON.stringify(l);
+        montrerChoisis();
+      }),
+    );
+  };
+  montrerChoisis();
+  const rechercheObjets = f.querySelector<HTMLInputElement>('[data-chercher-objet]')!;
+  rechercheObjets.addEventListener('input', () => {
+    const q = rechercheObjets.value.trim().toLowerCase();
+    const trouves = q.length < 2 ? [] : OBJETS.filter((o) => o.nom.toLowerCase().includes(q)).slice(0, 25);
+    const zone = f.querySelector<HTMLElement>('[data-resultats-objets]')!;
+    zone.innerHTML = trouves
+      .map((o) => `<button type="button" class="secondaire petit" data-ajouter-objet="${o.id}">+ ${echapper(o.nom)} <span class="note">${o.prix} PO</span></button>`)
+      .join('');
+    zone.querySelectorAll<HTMLElement>('[data-ajouter-objet]').forEach((b) =>
+      b.addEventListener('click', () => {
+        champObjets.value = JSON.stringify([...lus(), b.dataset.ajouterObjet!]);
+        montrerChoisis();
+      }),
+    );
+  });
+  // Rencontres : l'adversaire d'un échec.
+  const champNom = f.querySelector<HTMLInputElement>('[name=rencontreNom]')!;
+  const montrerEnnemi = () => {
+    const l = champNom.value ? ligneEnnemi(champNom.value) : null;
+    f.querySelector('[data-rencontre-choisie]')!.innerHTML = l
+      ? `Sur un échec, combat contre <b>${echapper(l.nom)}</b> <span class="note">(AT ${l.at} · PRD ${l.prd} · EV ${l.ev} · PR ${l.pr} · ${echapper(l.degats)})</span> <button type="button" class="secondaire petit" data-sans-ennemi>✕ Aucun combat</button>`
+      : '<span class="note">Pas de combat sur un échec.</span>';
+    f.querySelector('[data-sans-ennemi]')?.addEventListener('click', () => {
+      champNom.value = '';
+      montrerEnnemi();
+    });
+  };
+  montrerEnnemi();
+  const rechercheEnnemis = f.querySelector<HTMLInputElement>('[data-chercher-ennemi]')!;
+  rechercheEnnemis.addEventListener('input', () => {
+    const q = rechercheEnnemis.value.trim().toLowerCase();
+    const trouves = q.length < 2 ? [] : nomsEnnemis().filter((n) => n.toLowerCase().includes(q)).slice(0, 25);
+    const zone = f.querySelector<HTMLElement>('[data-resultats-ennemis]')!;
+    zone.innerHTML = trouves.map((n) => `<button type="button" class="secondaire petit" data-choisir-ennemi="${echapper(n)}">${echapper(n)}</button>`).join('');
+    zone.querySelectorAll<HTMLElement>('[data-choisir-ennemi]').forEach((b) =>
+      b.addEventListener('click', () => {
+        champNom.value = b.dataset.choisirEnnemi!;
+        montrerEnnemi();
+      }),
+    );
+  });
+};
 
 const liste = () => {
   const idees = toutesIdees();
@@ -344,6 +465,7 @@ const liste = () => {
             .join('')
         : "<p>Aucune idée pour l'instant. Utilise le bouton « 💡 J'aurais fait autrement » sous les choix pendant la partie.</p>"
     }`);
+  fenetre.querySelectorAll<HTMLFormElement>('form.valider-idee[data-idee]').forEach(animerFormulaire);
   fenetre.querySelectorAll<HTMLFormElement>('form.valider-idee').forEach((f) =>
     f.addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -351,6 +473,7 @@ const liste = () => {
       if (!i) return;
       const d = new FormData(f);
       const n = (k: string) => Number(d.get(k) ?? 0) || 0;
+      const nom = String(d.get('rencontreNom') ?? '');
       await modifier(i, {
         statut: 'validee',
         libelle: String(d.get('libelle') || i.texte.slice(0, 80)),
@@ -360,8 +483,15 @@ const liste = () => {
         echec: String(d.get('echec') ?? ''),
         pvReussite: n('pvReussite'),
         orReussite: n('orReussite'),
+        eaReussite: n('eaReussite'),
+        xpReussite: n('xpReussite'),
+        heuresReussite: n('heuresReussite'),
+        objetsReussite: JSON.parse(String(d.get('objetsReussite') || '[]')) as string[],
         pvEchec: n('pvEchec'),
         orEchec: n('orEchec'),
+        eaEchec: n('eaEchec'),
+        heuresEchec: n('heuresEchec'),
+        rencontreEchec: nom ? { nom, nombre: Math.max(1, n('rencontreNombre')) } : null,
       });
       liste();
     }),
@@ -407,14 +537,106 @@ export const installerIdees = () => {
 };
 
 /** Joue une idée validée : l'épreuve (dé déjà lancé par le joueur), puis ses effets sur le héros. */
-export const resoudreIdee = (p: Partie, idee: Idee, de?: number): { reussi: boolean; texte: string } => {
+export interface ResultatIdee {
+  reussi: boolean;
+  texte: string;
+  /** L'échec tourne au combat contre cette rencontre. */
+  combat?: Rencontre;
+}
+
+export const resoudreIdee = (p: Partie, idee: Idee, de?: number): ResultatIdee => {
   const valeur = idee.epreuve ? valeurEpreuve(p, idee) : 0;
   const reussi = !idee.epreuve || de === 1 || (de !== 20 && (de ?? 20) <= valeur);
+  const signe = (n: number, unite: string) => (n ? `${n > 0 ? '+' : ''}${n} ${unite}` : '');
   const pv = (reussi ? idee.pvReussite : idee.pvEchec) ?? 0;
   const or = (reussi ? idee.orReussite : idee.orEchec) ?? 0;
+  const pa = (reussi ? idee.eaReussite : idee.eaEchec) ?? 0;
+  const xp = reussi ? (idee.xpReussite ?? 0) : 0;
+  const heures = (reussi ? idee.heuresReussite : idee.heuresEchec) ?? 0;
+  const objets = reussi ? (idee.objetsReussite ?? []).filter((id) => OBJETS.some((o) => o.id === id)) : [];
   p.ev = Math.min(calculerFiche(p.perso).ev, p.ev + pv);
   p.or = Math.max(0, p.or + or);
-  const effets = [pv ? `${pv > 0 ? '+' : ''}${pv} PV` : '', or ? `${or > 0 ? '+' : ''}${or} PO` : ''].filter(Boolean).join(', ');
+  const max = calculerFiche(p.perso).ea;
+  if (max && pa) p.ea = Math.max(0, Math.min(max, (p.ea ?? max) + pa));
+  p.xp = (p.xp ?? 0) + xp;
+  if (heures > 0) passerTemps(p, heures);
+  p.sac.push(...objets);
+  const effets = [
+    signe(pv, 'PV'),
+    signe(or, 'PO'),
+    max ? signe(pa, 'PA') : '',
+    signe(xp, 'XP'),
+    heures > 0 ? `${heures} h passée${heures > 1 ? 's' : ''}` : '',
+    ...objets.map((id) => objet(id).nom),
+  ]
+    .filter(Boolean)
+    .join(', ');
   const texte = (reussi ? idee.reussite : idee.echec) || (reussi ? 'Ça marche !' : 'Ça ne marche pas.');
-  return { reussi, texte: `${idee.epreuve ? `Dé : ${de} contre ${valeur}. ` : ''}${texte}${effets ? ` (${effets})` : ''}` };
+  const r = !reussi && idee.rencontreEchec ? ligneEnnemi(idee.rencontreEchec.nom) : null;
+  return {
+    reussi,
+    texte: `${idee.epreuve ? `Dé : ${de} contre ${valeur}. ` : ''}${texte}${effets ? ` (${effets})` : ''}`,
+    combat: r ? { ligne: r, d20: 0, nombre: Math.max(1, idee.rencontreEchec!.nombre), approche: 1 } : undefined,
+  };
+};
+
+// --- Idées validées jouables dans un lieu (ville, carte du monde, salle de donjon) ---------------
+
+/** L'idée de lieu en cours : on attend le dé du joueur, ou on lit le résultat. */
+let ideeLieu: { id: string; resultat?: ResultatIdee } | null = null;
+
+/** Les idées validées pour ce lieu : un bouton chacune, ou l'épreuve et le résultat de celle qu'on joue. */
+export const panneauIdeesLieu = (p: Partie, idLieu: string): string => {
+  const idees = ideesValidees('lieu', idLieu);
+  if (!idees.length) return '';
+  const enCours = ideeLieu && idees.find((i) => i.id === ideeLieu!.id);
+  if (enCours) {
+    const r = ideeLieu!.resultat;
+    if (!r)
+      return `<div class="recit lancer-joueur">${echapper(enCours.libelle ?? enCours.texte)}. Épreuve de ${NOM_EPREUVE[enCours.epreuve!]} : il faut faire <b>${valeurEpreuve(p, enCours)} ou moins</b> sur le D20.
+        <div><span class="de a-lancer" id="de-idee-lieu">?</span><button id="lancer-idee-lieu">Lancer le D20</button></div></div>`;
+    return `<div class="recit">${echapper(r.texte)}</div><p>${
+      r.combat ? '<button data-combat-idee-lieu>⚔ Combattre</button>' : '<button class="secondaire" data-fin-idee-lieu>Continuer</button>'
+    }</p>`;
+  }
+  return `<p class="actions-lieu">${idees
+    .map((i) => `<button class="secondaire choix-joueur" data-idee-lieu="${echapper(i.id)}" title="Idée de joueur validée">💡 ${echapper(i.libelle ?? i.texte)}</button>`)
+    .join('')}</p>`;
+};
+
+/**
+ * Branche les boutons du panneau. `redessiner` réaffiche le lieu ; `combat` lance le combat d'un échec
+ * (et rappelle `fini` avec le texte à afficher une fois le combat gagné ou fui).
+ */
+export const lierIdeesLieu = (app: HTMLElement, p: Partie, redessiner: () => void, combat: (r: Rencontre) => void) => {
+  const jouer = (id: string, de?: number) => {
+    const i = toutesIdees().find((x) => x.id === id);
+    if (!i) return;
+    ideeLieu = { id, resultat: resoudreIdee(p, i, de) };
+    redessiner();
+  };
+  app.querySelectorAll<HTMLElement>('[data-idee-lieu]').forEach((b) =>
+    b.addEventListener('click', () => {
+      const i = toutesIdees().find((x) => x.id === b.dataset.ideeLieu);
+      if (!i) return;
+      if (!i.epreuve) return jouer(i.id);
+      ideeLieu = { id: i.id };
+      redessiner();
+    }),
+  );
+  app.querySelector<HTMLButtonElement>('#lancer-idee-lieu')?.addEventListener('click', (e) => {
+    const bouton = e.currentTarget as HTMLButtonElement;
+    bouton.disabled = true;
+    const d = 1 + Math.floor(Math.random() * 20);
+    animerDes([app.querySelector<HTMLElement>('#de-idee-lieu')!], 20, [d]).then(() => setTimeout(() => jouer(ideeLieu!.id, d), 350));
+  });
+  app.querySelector('[data-fin-idee-lieu]')?.addEventListener('click', () => {
+    ideeLieu = null;
+    redessiner();
+  });
+  app.querySelector('[data-combat-idee-lieu]')?.addEventListener('click', () => {
+    const r = ideeLieu?.resultat?.combat;
+    ideeLieu = null;
+    if (r) combat(r);
+  });
 };

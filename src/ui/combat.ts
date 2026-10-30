@@ -105,7 +105,7 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
     </${tag}>`;
   };
 
-  const potions = () => [...new Set(p.sac.filter((id) => objet(id).type === 'potion' && !!objet(id).soin))];
+  const potions = () => [...new Set(p.sac.filter((id) => objet(id).type === 'potion' && (!!objet(id).soin || (!!objet(id).mana && eaMax(p) > 0))))];
 
   const panneauJoueur = () => {
     if (!attente) return '';
@@ -608,7 +608,7 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
       const res = boirePotion(p, id);
       if (typeof res !== 'string') {
         h().ev = p.ev;
-        message(`${h().nom} boit ${objet(id).nom} en vitesse : +${res.rendu} PV. L'assaut est perdu pour attaquer.`);
+        message(`${h().nom} boit ${objet(id).nom} en vitesse : +${res.rendu} ${res.pa ? 'PA' : 'PV'}. L'assaut est perdu pour attaquer.`);
       }
       apres();
       await attendre(900);

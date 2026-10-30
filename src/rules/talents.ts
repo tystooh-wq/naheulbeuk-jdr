@@ -105,8 +105,10 @@ export interface TalentActif {
   epreuve?: (p: Partie) => number;
   /** Ce que le joueur lance quand il n'y a pas d'épreuve (un D20 de pièces d'or…). */
   jet?: { faces: number; pour: string };
-  /** Une fois par heure ou par jour. */
-  limite: 'heure' | 'jour' | 'nuit';
+  /** Une fois par heure, par jour, par nuit, ou sans limite. */
+  limite: 'heure' | 'jour' | 'nuit' | 'aucune';
+  /** Accessible à tous ceux qui ont de l'énergie astrale, compétence ou non. */
+  pourAstraux?: boolean;
   /** Raison pour laquelle on ne peut pas l'utiliser maintenant, ou null. */
   possible?: (p: Partie, cadre: Cadre, zone?: string) => string | null;
   resoudre: (p: Partie, de: number, rng?: Rng) => string;
@@ -140,9 +142,11 @@ export const TALENTS_ACTIFS: TalentActif[] = [
     aide: "Épreuve d'ingéniosité (moyenne INT/AD) : au plus 1D6 PV. Maladresse : −1D6 PV. Une fois par heure.",
   },
   {
+    // Étude (règles V4, 5.2) : obligatoire pour la plupart des mages et prêtres, une fois par 24 h.
     id: 'recuperation',
     competences: ['Récupération'],
-    libelle: 'Réviser ses sortilèges (1 heure)',
+    pourAstraux: true,
+    libelle: 'Étudier ses grimoires (1 heure)',
     limite: 'jour',
     possible: (p) => (!eaMax(p) ? "Tu n'as pas d'énergie astrale." : ea(p) >= eaMax(p) ? 'Ton énergie astrale est au maximum.' : null),
     resoudre: (p) => {
@@ -151,7 +155,23 @@ export const TALENTS_ACTIFS: TalentActif[] = [
       p.ea = Math.min(eaMax(p), avant + 4);
       return `Une heure le nez dans le grimoire : +${p.ea - avant} PA.`;
     },
-    aide: 'Une pause par jour pour réviser : +4 PA.',
+    aide: 'Étude au calme, une fois par jour : +4 PA.',
+  },
+  {
+    id: 'repos',
+    competences: [],
+    pourAstraux: true,
+    libelle: 'Se reposer une heure',
+    limite: 'aucune',
+    possible: (p) => (!eaMax(p) ? "Tu n'as pas d'énergie astrale." : ea(p) >= eaMax(p) && p.ev >= evMax(p) ? 'Tu es frais comme un gardon.' : null),
+    resoudre: (p) => {
+      passerTemps(p, 1);
+      // Règles V4, 5.2 : 3 PA par heure de repos (conditions normales).
+      const avant = ea(p);
+      p.ea = Math.min(eaMax(p), avant + 3);
+      return `Une heure assis à l'écart, les yeux fermés : +${p.ea - avant} PA.`;
+    },
+    aide: 'Une heure de repos : +3 PA (règles V4, 5.2).',
   },
   {
     id: 'mendier',
@@ -208,7 +228,8 @@ export const TALENTS_ACTIFS: TalentActif[] = [
 ];
 
 /** Talents que le héros possède. */
-export const talentsDuHeros = (p: Partie) => TALENTS_ACTIFS.filter((t) => t.competences.some((c) => aTalent(p, c)));
+export const talentsDuHeros = (p: Partie) =>
+  TALENTS_ACTIFS.filter((t) => (t.pourAstraux && eaMax(p) > 0) || t.competences.some((c) => aTalent(p, c)));
 
 /** Pourquoi le talent n'est pas utilisable ici et maintenant, ou null. */
 export const empechement = (p: Partie, t: TalentActif, cadre: Cadre, zone?: string): string | null => {
@@ -261,7 +282,7 @@ const PRISES: Record<string, [Prise, string]> = {
   'SENTIR DES PIEDS': ['auto', 'Bottes retirées, les bêtes évitent ton bivouac : pas de rencontre la nuit.'],
   CUISTOT: ['auto', '+1 PV quand tu cuisines ta ration au bivouac.'],
   'PREMIERS SOINS': ['bouton', 'Dans le sac, hors combat : soigne au plus 1D6 PV, une fois par heure.'],
-  RÉCUPÉRATION: ['bouton', 'Dans le sac : une heure de révision par jour, +4 PA.'],
+  RÉCUPÉRATION: ['bouton', 'Dans le sac : une heure d\'étude par jour, +4 PA.'],
   'MENDIER ET PLEURNICHER': ['bouton', 'En ville, une fois par jour : 1D20 PO.'],
   'TIRE-LAINE': ['bouton', 'En ville, une fois par jour : 1D20 PO de larcins.'],
   'CAMPING TOUT-TERRAIN': ['bouton', 'Au bivouac : épreuve d\'ingéniosité +3 pour +2 PV et +4 PA.'],
