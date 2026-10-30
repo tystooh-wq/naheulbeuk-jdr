@@ -13,7 +13,7 @@ export interface Cite {
   rapport: number;
   /** Trajets précalculés le long des rues (Waldorg), ou réseau de rues relevé à la main (Valtordu). */
   trajets?: Record<string, Point[]>;
-  reseau?: { noeuds: Record<string, Point>; aretes: [string, string][] };
+  reseau?: { noeuds: Record<string, Point>; aretes: [string, string][]; acces?: Record<string, string> };
   /** Lieu de la carte du monde où l'on se retrouve en sortant. */
   lieuMonde: string;
   rumeurs: { normales: string[]; louches: string[] };
@@ -70,11 +70,13 @@ export const lieuCite = (c: Cite, id: string): Lieu => {
 const distance = (c: Cite, a: Point, b: Point) => Math.hypot(a[0] - b[0], (a[1] - b[1]) / c.rapport);
 
 /** Plus court chemin dans le réseau de rues (Dijkstra, il y a une quinzaine de carrefours). */
-const parLesRues = (c: Cite, depart: Point, arrivee: Point): Point[] => {
-  const { noeuds, aretes } = c.reseau!;
+const parLesRues = (c: Cite, a: Lieu, b: Lieu): Point[] => {
+  const { noeuds, aretes, acces } = c.reseau!;
+  const depart: Point = [a.x, a.y];
+  const arrivee: Point = [b.x, b.y];
   const proche = (pt: Point) => Object.keys(noeuds).reduce((m, k) => (distance(c, noeuds[k], pt) < distance(c, noeuds[m], pt) ? k : m));
-  const de = proche(depart);
-  const vers = proche(arrivee);
+  const de = acces?.[a.id] ?? proche(depart);
+  const vers = acces?.[b.id] ?? proche(arrivee);
   const dist: Record<string, number> = { [de]: 0 };
   const avant: Record<string, string> = {};
   const restants = new Set(Object.keys(noeuds));
@@ -99,7 +101,7 @@ const parLesRues = (c: Cite, depart: Point, arrivee: Point): Point[] => {
 
 export const trajetCite = (c: Cite, a: Lieu, b: Lieu): Point[] => {
   if (a.id === b.id) return [[a.x, a.y]];
-  if (c.reseau) return parLesRues(c, [a.x, a.y], [b.x, b.y]);
+  if (c.reseau) return parLesRues(c, a, b);
   return trajet(a, b, c.trajets);
 };
 

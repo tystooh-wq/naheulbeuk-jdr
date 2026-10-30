@@ -142,6 +142,11 @@ describe('villes', () => {
         expect(t[t.length - 1]).toEqual([b.x, b.y]);
       }
     expect(lieuCite(c, 'trois-boudins').auberge).toBeDefined();
+    // Chaque lieu a sa porte, et l'on entre en ville par le pont des Tricoteuses.
+    for (const l of c.lieux) expect(c.reseau!.acces![l.id], l.id).toBeDefined();
+    const entree = trajetCite(c, lieuCite(c, 'porte'), lieuCite(c, 'trois-boudins'));
+    expect(entree).toContainEqual(c.reseau!.noeuds.pontN);
+    expect(entree).toContainEqual(c.reseau!.noeuds.pontS);
     for (const l of c.lieux) for (const id of l.boutique?.stock ?? []) expect(() => objet(id), id).not.toThrow();
   });
 });
