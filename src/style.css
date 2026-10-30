@@ -1380,6 +1380,11 @@ button.combattant:hover {
   color: var(--rouge);
 }
 
+.verdict.table-critique {
+  color: var(--encre);
+  font-weight: 400;
+}
+
 .action-combat .effet {
   font-style: italic;
   color: var(--rouge);

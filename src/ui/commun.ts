@@ -22,6 +22,7 @@ import {
   type GainNiveau,
   peutPorter,
   valeursCombat,
+  blessuresActives,
   type Partie,
 } from '../rules/partie';
 import { lancer } from '../rules/des';
@@ -168,6 +169,18 @@ export const panneauSac = (p: Partie, message?: string) => {
       ${t ? `<div><b>${t.ad}</b><span>Tir (AD)</span></div>` : ''}
       ${eaMax(p) ? `<div><b>${ea(p)}/${eaMax(p)}</b><span>Énergie astrale</span></div>` : ''}
     </div>
+    ${
+      blessuresActives(p).length
+        ? `<h3>Blessures graves</h3><ul class="blessures">${blessuresActives(p)
+            .map(
+              (b) =>
+                `<li><b>${echapper(b.nom)}</b> <span class="note">${echapper(Object.entries(b.mods).map(([k, v]) => `${k} ${v}`).join(', '))}${b.mv !== undefined ? `, déplacement ${Math.round(b.mv * 100)} %` : ''} · ${
+                  b.jusqua === undefined ? 'permanent' : `guérit au jour ${b.jusqua}`
+                }</span></li>`,
+            )
+            .join('')}</ul><p class="note">Les malus d'AT, PRD, AD, COU et CHA sont déjà comptés ci-dessus.</p>`
+        : ''
+    }
     ${
       sortsConnus(p).length
         ? `<h3>Sorts connus</h3><ul class="sorts">${sortsConnus(p)

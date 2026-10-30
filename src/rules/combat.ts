@@ -4,12 +4,27 @@ import { lancerExpression, valeursCombat, type EtatCompagnon, type Partie } from
 import { singulier, type LigneRencontre, type Rencontre } from './rencontres';
 import { tirCompagnon, vueCompagnon } from './compagnons';
 import { fouiller, type Fouille } from './butin';
+import { objet } from './objets';
+import {
+  BLESSURES,
+  PARADE_CRITIQUE,
+  blessure as tirerBlessure,
+  casse as armeCasse,
+  decrireBlessure,
+  familleMonstre,
+  familleObjet,
+  ligne,
+  tableCritique,
+  tableMaladresse,
+  type BlessureGrave,
+  type Famille,
+} from './critiques';
 
 // Combat au contact, règles V4 (chapitres 8 et 10) :
 // - initiative : le plus grand Courage frappe le premier, l'Adresse départage, « Chercher des noises » passe devant ;
 // - un Assaut : chacun attaque une fois (D20 ≤ AT) et ne peut parer (D20 ≤ PRD) ou esquiver (D20 ≤ AD) qu'une fois ;
 // - dégâts au D6 moins la Protection, sauf sur une attaque critique ;
-// - 1 au D20 : critique, 20 : maladresse. Les tables de l'écran du MJ sont simplifiées ici (voir `maladresse`) ;
+// - 1 au D20 : critique, 20 : maladresse, avec les tables de l'écran Baston selon l'arme (voir critiques.ts) ;
 // - trois ennemis au plus au contact d'un même combattant ;
 // - un monstre à 3 PV ou moins peut paniquer et s'enfuir (il rapporte quand même son XP).
 // Placement (choix du jeu, les règles n'ont pas de plateau) : un terrain en cases ; à son tour, chacun peut
@@ -67,6 +82,29 @@ export interface Combattant {
   };
   /** Frapper lâchement : les dégâts de la prochaine attaque réussie sont doublés. */
   lachement?: boolean;
+  /** Famille de son arme : elle choisit les tables de critiques et de maladresses. */
+  famille: Famille;
+  /** Point de rupture de son arme (« 1à4 », « Non »). */
+  rupture?: string;
+  /** Peut faire des critiques à mains nues (Bourre-pif ; les monstres, toujours). */
+  bourrePif?: boolean;
+  /** Cases parcourues par tour (jambe blessée : moins). */
+  mv?: number;
+  /** Assauts sans connaissance : il ne frappe pas et ne se défend pas. */
+  inconscient?: number;
+  /** Hémorragie : assaut où elle a commencé (1D6 PV par minute, soit tous les 30 assauts). */
+  hemorragie?: number;
+  /** Blessures graves reçues pendant ce combat. */
+  blessures?: BlessureGrave[];
+}
+
+/** Un D20 lancé sur une table de l'écran : par qui, sur quelle table, avec quel effet. */
+export interface TirageTable {
+  lanceur: string;
+  table: string;
+  de: number;
+  texte: string;
+  effet: string;
 }
 
 export type IssueJet = 'critique' | 'reussi' | 'rate' | 'maladresse';
@@ -87,9 +125,11 @@ export interface Action {
   defense?: Defense;
   /** Pourquoi la cible n'a pas pu se défendre. */
   sansDefense?: string;
-  degats?: { des: number[]; total: number; pr: number; blessure: number; poison?: number[] };
+  degats?: { des: number[]; total: number; pr: number; blessure: number; poison?: number[]; bonus?: number };
   /** Conséquences des critiques et maladresses, en clair. */
   effets: string[];
+  /** Les D20 lancés sur les tables de critiques et de maladresses, dans l'ordre. */
+  tables?: TirageTable[];
   /** Un tir (arc, arbalète, arme de jet) plutôt qu'un coup au contact. */
   tir?: boolean;
   /** Les dégâts d'un sort. */
@@ -115,6 +155,10 @@ export interface Combat {
   armeLancee?: boolean;
   /** Projectiles tirés par le héros (identifiants d'objets). */
   projectiles: string[];
+  /** L'arme de tir du héros est tombée ou cassée : plus de tir dans ce combat. */
+  tirPerdu?: boolean;
+  /** Armes du héros cassées pendant le combat (elles disparaissent de son équipement). */
+  armesCassees?: ('arme' | 'distance')[];
 }
 
 export const AU_CONTACT = 3;
@@ -136,6 +180,9 @@ export const creerHeros = (p: Partie, id = 'heros', evMax?: number): Combattant 
   const v = valeursCombat(p);
   const armee = !!p.equipe.arme;
   const bourrePif = aCompetence(p, 'Bourre-pif');
+  const arme = p.equipe.arme ? objet(p.equipe.arme) : undefined;
+  // Blessures graves en cours : déplacement réduit.
+  const mv = Math.min(1, ...(p.blessures ?? []).filter((b) => b.jusqua === undefined || b.jusqua > p.jour).map((b) => b.mv ?? 1));
   return {
     id,
     nom: p.perso.nom,
@@ -156,6 +203,10 @@ export const creerHeros = (p: Partie, id = 'heros', evMax?: number): Combattant 
     sansParade: !armee,
     rate: 0,
     defendu: false,
+    famille: familleObjet(arme),
+    rupture: arme?.rupture,
+    bourrePif,
+    mv: mv < 1 ? Math.round(PAS * mv) : undefined,
     talents: {
       vicieux: aCompetence(p, 'Vicieux'),
       superEsquive: aCompetence(p, 'Super esquive'),
@@ -205,6 +256,8 @@ const depuisLignes = (groupes: { ligne: LigneRencontre; nombre: number }[], camp
         imparable: /parade impossible/i.test(l.notes),
       poison: /poison/i.test(l.notes),
       tireur: tireurDe(l.notes, l.degats, ad),
+      famille: familleMonstre(l.nom, l.notes),
+      bourrePif: true,
       rate: 0,
       defendu: false,
     }));
@@ -282,7 +335,7 @@ export const auContact = (c: Combat) => contacts(c, heros(c));
 export const occupant = (c: Combat, x: number, y: number) => c.combattants.find((z) => enLice(z) && z.x === x && z.y === y);
 
 /** Cases où ce combattant peut aller ce tour-ci (sans traverser personne), avec leur distance en pas. */
-export const casesAccessibles = (c: Combat, x: Combattant, pas = PAS): Map<string, number> => {
+export const casesAccessibles = (c: Combat, x: Combattant, pas = x.mv ?? PAS): Map<string, number> => {
   const vues = new Map<string, number>([[`${x.x},${x.y}`, 0]]);
   let front = [[x.x, x.y]];
   for (let d = 1; d <= pas; d++) {
@@ -358,22 +411,231 @@ export const valeurDefense = (cible: Combattant, mode: ModeDefense, attaquant?: 
 
 /** La cible peut-elle encore se défendre de ce coup (ni critique, ni déjà défendue cet assaut) ? */
 export const peutSeDefendre = (cible: Combattant, deAttaque: number, valeurAttaque: number) =>
-  !cible.defendu && jet(deAttaque, valeurAttaque) === 'reussi';
+  !cible.defendu && !cible.inconscient && jet(deAttaque, valeurAttaque) === 'reussi';
+
+// --- Critiques et maladresses (tables de l'écran Baston, voir critiques.ts) -----------------------
+
+/** Lance un D20 sur une table et le note dans l'action, pour l'afficher. */
+const tirage = <T extends { de: [number, number]; texte: string; effet: string }>(
+  action: Action,
+  lanceur: Combattant,
+  table: { nom: string; lignes: T[] },
+  rng?: Rng,
+): T => {
+  const d = lancer(20, rng);
+  const l = ligne(table.lignes, d);
+  (action.tables ??= []).push({ lanceur: lanceur.id, table: table.nom, de: d, texte: l.texte, effet: l.effet });
+  return l;
+};
+
+/** Un coup porté par `a` sur `x` : dégâts de son arme (plus un bonus), moins l'armure, sauf sur un critique. */
+const coup = (a: Combattant, x: Combattant, rng: Rng | undefined, o: { critique?: boolean; bonus?: number; expr?: string } = {}) => {
+  const j = lancerExpression(o.expr ?? a.degats, rng);
+  const total = Math.max(0, j.total + (o.bonus ?? 0));
+  const blessure = Math.max(0, total - (o.critique ? (x.talents?.prNaturelle ?? 0) : x.pr));
+  x.ev -= blessure;
+  return blessure;
+};
+
+const tuer = (x: Combattant, effets: string[]) => {
+  x.ev = Math.min(x.ev, 0);
+  effets.push(`${x.nom} ne s'en relèvera pas.`);
+};
+
+/** Une blessure grave : ses malus comptent tout de suite (AT, PRD, AD, COU, déplacement). */
+const blesser = (x: Combattant, b: BlessureGrave, effets: string[]) => {
+  x.at += b.mods.AT ?? 0;
+  x.prd += b.mods.PRD ?? 0;
+  x.ad += b.mods.AD ?? 0;
+  x.cou += b.mods.COU ?? 0;
+  if (b.mv !== undefined) x.mv = Math.min(x.mv ?? PAS, Math.round(PAS * b.mv));
+  (x.blessures ??= []).push(b);
+  effets.push(`Blessure grave pour ${x.nom} : ${b.nom.toLowerCase()}, ${decrireBlessure(b)}.`);
+};
+
+/** Assommé : un ennemi est hors de combat ; un héros ou un compagnon reste sans connaissance 1D6+4 assauts. */
+const assommer = (x: Combattant, effets: string[], rng?: Rng) => {
+  if (x.camp === 'ennemi') {
+    x.ev = Math.min(x.ev, 0);
+    effets.push(`${x.nom} s'écroule, assommé : il ne se relèvera pas avant la fin du combat.`);
+    return;
+  }
+  const n = lancer(6, rng) + 4;
+  x.inconscient = n;
+  x.rate = Math.max(x.rate, n);
+  effets.push(`${x.nom} perd connaissance pour ${n} assauts, sans défense en attendant.`);
+};
+
+/** Le combattant n'a plus d'arme : mains nues (AT −4, 1D−2, pas de parade ; Bourre-pif : pas de malus, 1D). */
+const desarmer = (c: Combat, x: Combattant, cassee: boolean, effets: string[]) => {
+  if (x.famille === 'mains-nues' || x.famille === 'bete' || x.famille === 'griffes') {
+    effets.push(`${x.nom} n'a pas d'arme à perdre.`);
+    return;
+  }
+  if (cassee && x.id === 'heros') (c.armesCassees ??= []).push('arme');
+  const pif = x.camp === 'heros' && !x.allie && x.bourrePif;
+  x.famille = 'mains-nues';
+  x.degats = pif ? '1D' : '1D-2';
+  if (!pif) x.at -= 4;
+  x.sansParade = true;
+  effets.push(
+    cassee
+      ? `L'arme de ${x.nom} se brise : il continue à mains nues.`
+      : `${x.nom} lâche son arme et continue à mains nues${x.id === 'heros' ? ' (tu la ramasseras après le combat)' : ''}.`,
+  );
+};
+
+/** Plus de tir pour ce combat : l'arc ou l'arme de jet est tombé, ou cassé. */
+const perdreTir = (c: Combat, x: Combattant, cassee: boolean, effets: string[]) => {
+  if (x.id === 'heros') {
+    c.tirPerdu = true;
+    if (cassee) (c.armesCassees ??= []).push('distance');
+  } else x.tireur = undefined;
+  effets.push(cassee ? `L'arme de tir de ${x.nom} est cassée.` : `${x.nom} lâche son arme de tir : plus de tir pour ce combat.`);
+};
+
+/** Casse son arme… ou pas : D6 contre le point de rupture du tableau de l'armement. */
+const casser = (c: Combat, x: Combattant, effets: string[], rng: Rng | undefined, tir?: { rupture?: string }) => {
+  if (!tir && (x.famille === 'mains-nues' || x.famille === 'bete' || x.famille === 'griffes')) return desarmer(c, x, true, effets);
+  const d6 = lancer(6, rng);
+  if (!armeCasse(tir ? tir.rupture : x.rupture, d6)) {
+    effets.push(`Point de rupture (D6 : ${d6}) : l'arme tient le choc, ouf.`);
+    return;
+  }
+  effets.push(`Point de rupture (D6 : ${d6}) : craac.`);
+  if (tir) perdreTir(c, x, true, effets);
+  else desarmer(c, x, true, effets);
+};
+
+/** L'allié qui prend le coup : à côté (à gauche ou à droite), ou le plus lointain. */
+const allieDe = (c: Combat, x: Combattant, sens: 'gauche' | 'droite' | 'loin') => {
+  const autres = c.combattants.filter((y) => y.camp === x.camp && y.id !== x.id && enLice(y));
+  if (sens === 'loin') return autres.sort((a, b) => ecart(x, b) - ecart(x, a))[0];
+  const proches = autres.filter((y) => ecart(x, y) <= 1).sort((a, b) => a.y - b.y);
+  return sens === 'gauche' ? proches[0] : proches[proches.length - 1];
+};
 
 /**
- * Table de maladresse simplifiée (D6), en attendant les tables de l'écran du MJ :
- * 1-2 rien de grave, 3-4 déséquilibré (rate le prochain assaut), 5 se blesse (1D6), 6 se blesse gravement (1D6+2).
+ * Attaque critique : `a` lance un D20 sur la table de son arme. Les effets (armure, blessures, saignement…)
+ * s'appliquent à `x` ; renvoie le bonus de dégâts et s'il en meurt.
  */
-export const maladresse = (c: Combattant, rng?: Rng): string => {
-  const d = lancer(6, rng);
-  if (d <= 2) return `${c.nom} trébuche, mais se rattrape (maladresse, D6 : ${d}).`;
-  if (d <= 4) {
-    c.rate += 1;
-    return `${c.nom} perd l'équilibre et ratera son prochain assaut (maladresse, D6 : ${d}).`;
+const critiqueSur = (c: Combat, action: Action, a: Combattant, x: Combattant, famille: Famille, rng?: Rng) => {
+  const table = tableCritique(famille);
+  if (!table) return { bonus: 0, deces: false };
+  const l = tirage(action, a, table, rng);
+  const effets = action.effets;
+  if (l.armure) {
+    const n = Math.min(x.pr, l.armure);
+    x.pr -= n;
+    effets.push(n ? `L'armure de ${x.nom} est abîmée : PR −${n} jusqu'à la fin du combat.` : `${x.nom} n'a pas d'armure à abîmer.`);
   }
-  const b = lancerExpression(d === 5 ? '1D' : '1D+2', rng).total;
-  c.ev -= b;
-  return `${c.nom} se blesse avec sa propre arme : −${b} PV (maladresse, D6 : ${d}).`;
+  if (l.armureDetruite) {
+    const n = Math.ceil(x.pr / 2);
+    x.pr -= n;
+    effets.push(n ? `Une pièce d'armure de ${x.nom} est détruite : PR −${n}.` : `${x.nom} n'a pas d'armure à détruire.`);
+  }
+  if (l.blessure) blesser(x, tirerBlessure(l.blessure, rng), effets);
+  if (l.malus) {
+    x.at += l.malus.AT ?? 0;
+    x.prd += l.malus.PRD ?? 0;
+    x.ad += l.malus.AD ?? 0;
+    x.cou += l.malus.COU ?? 0;
+    effets.push(`${x.nom} : ${l.effet.replace(/^Dégâts \+\d+, /, '')} jusqu'à la fin du combat.`);
+  }
+  if (l.mv !== undefined) {
+    x.mv = Math.min(x.mv ?? PAS, Math.round(PAS * l.mv));
+    effets.push(`${x.nom} boite : il se déplace moins vite.`);
+  }
+  if (l.hemorragie) {
+    x.hemorragie ??= c.assaut;
+    effets.push(`${x.nom} saigne abondamment : 1D6 PV par minute jusqu'à ce qu'on le soigne.`);
+  }
+  if (l.etourdi) {
+    x.rate = Math.max(x.rate, l.etourdi);
+    effets.push(`${x.nom} est étourdi pendant ${l.etourdi} assauts.`);
+  }
+  if (l.muet) effets.push(`${x.nom} a la mâchoire brisée : impossible de parler.`);
+  if (l.inconscient) assommer(x, effets, rng);
+  return { bonus: l.degats ?? 0, deces: !!l.deces };
+};
+
+/** Un coup critique porté avec l'arme de `a` (parade critique, maladresse atroce) : sans armure, plus la table. */
+const coupCritique = (c: Combat, action: Action, a: Combattant, x: Combattant, rng?: Rng, tir?: { degats: string }) => {
+  const k = critiqueSur(c, action, a, x, tir ? 'projectile' : a.famille, rng);
+  const b = coup(a, x, rng, { critique: true, bonus: k.bonus, expr: tir?.degats });
+  action.effets.push(`${x.nom} : −${b} PV.`);
+  if (k.deces) tuer(x, action.effets);
+};
+
+/** Maladresse (20 au D20) : le maladroit lance un D20 sur la table des maladresses de son arme. */
+const maladresse = (
+  c: Combat,
+  action: Action,
+  x: Combattant,
+  rng: Rng | undefined,
+  o: { esquive?: boolean; tir?: { degats: string; rupture?: string } } = {},
+) => {
+  const effets = action.effets;
+  const table = o.esquive ? undefined : tableMaladresse(x.famille, !!o.tir);
+  // Pas de table pour une esquive ratée, ni pour les bêtes : on perd l'équilibre.
+  if (!table) {
+    x.rate += 1;
+    effets.push(`${x.nom} ${o.esquive ? 'glisse en esquivant' : "perd l'équilibre"} et ratera son prochain assaut.`);
+    return;
+  }
+  const l = tirage(action, x, table, rng);
+  if (l.rien) {
+    effets.push(`${x.nom} se rattrape de justesse.`);
+    return;
+  }
+  if (l.rate) {
+    x.rate += l.rate;
+    effets.push(`${x.nom} ratera ${l.rate} assauts.`);
+  }
+  if (l.pv) {
+    x.ev -= l.pv;
+    effets.push(`${x.nom} : −${l.pv} PV.`);
+  }
+  if (l.allie) {
+    const y = allieDe(c, x, l.allie);
+    effets.push(y ? `${y.nom} prend le coup : −${coup(x, y, rng, { expr: o.tir?.degats })} PV.` : 'Personne à côté : le coup part dans le vide.');
+  }
+  if (l.lache) {
+    if (o.tir) perdreTir(c, x, false, effets);
+    else desarmer(c, x, false, effets);
+  }
+  if (l.casse) casser(c, x, effets, rng, o.tir);
+  if (l.seBlesse !== undefined) effets.push(`${x.nom} se blesse : −${coup(x, x, rng, { bonus: l.seBlesse, expr: o.tir?.degats })} PV.`);
+  if (l.critiqueSurSoi) coupCritique(c, action, x, x, rng, o.tir);
+  if (l.blessure) blesser(x, tirerBlessure(l.blessure, rng), effets);
+  if (l.oeilOuDoigt) blesser(x, lancer(6, rng) <= 2 ? BLESSURES['oeil-creve'] : BLESSURES.doigt, effets);
+  if (l.oeilAllie) {
+    const y = allieDe(c, x, 'gauche');
+    if (y) blesser(y, BLESSURES['oeil-creve'], effets);
+    else effets.push('Personne à côté, heureusement.');
+  }
+  if (l.inconscient) assommer(x, effets, rng);
+};
+
+/** Parade critique : le défenseur lance un D20 sur la table des parades critiques. */
+const paradeCritique = (c: Combat, action: Action, def: Combattant, a: Combattant, rng?: Rng) => {
+  const l = tirage(action, def, { nom: 'Parade critique', lignes: PARADE_CRITIQUE }, rng);
+  const effets = action.effets;
+  if (l.rien) effets.push(`${def.nom} pare, sans plus.`);
+  if (l.rate) {
+    a.rate += l.rate;
+    effets.push(`${a.nom} est repoussé et ratera son prochain assaut.`);
+  }
+  for (let i = 0; i < (l.imparables ?? 0); i++) {
+    const d = lancer(20, rng);
+    const touche = d === 1 || (d !== 20 && d <= def.at);
+    effets.push(`Coup imparable de ${def.nom} (D20 : ${d}) : ${touche ? `−${coup(def, a, rng)} PV pour ${a.nom}` : 'raté'}.`);
+  }
+  if (l.lache) desarmer(c, a, false, effets);
+  if (l.casse) desarmer(c, a, true, effets);
+  if (l.coup) effets.push(`${a.nom} reçoit un coup de ${def.nom} : −${coup(def, a, rng)} PV.`);
+  if (l.critique) coupCritique(c, action, def, a, rng);
+  if (l.critiqueSurSoi) coupCritique(c, action, a, a, rng);
 };
 
 /**
@@ -391,15 +653,21 @@ export const attaquer = (
   const cible = combattant(c, idCible);
   const { rng } = options;
   const action: Action = { attaquant: a.id, cible: cible.id, de, valeur: a.at, issue: jet(de, a.at), effets: [] };
+  // Sans Bourre-pif, pas de coup critique à mains nues : le 1 est une simple réussite.
+  if (action.issue === 'critique' && a.famille === 'mains-nues' && !a.bourrePif) {
+    action.issue = 'reussi';
+    action.effets.push('Pas de coup critique à mains nues sans Bourre-pif.');
+  }
 
   if (action.issue === 'rate') return action;
   if (action.issue === 'maladresse') {
-    action.effets.push(maladresse(a, rng));
+    maladresse(c, action, a, rng);
     return action;
   }
 
   const critique = action.issue === 'critique';
   if (critique) action.sansDefense = 'attaque critique, impossible à parer';
+  else if (cible.inconscient) action.sansDefense = 'sans connaissance';
   else if (cible.defendu) action.sansDefense = 'déjà occupé à se défendre pendant cet assaut';
   // Encaisser : on serre les dents sans parer ni esquiver, mais on garde son attaque suivante.
   else if (options.encaisser) action.sansDefense = 'encaisse le coup en serrant les dents';
@@ -423,16 +691,15 @@ export const attaquer = (
         else if (d6 >= 4) action.effets.push(`Esquive naturelle (D6 : ${d6}) : ${cible.nom} pourra attaquer quand même.`);
         else cible.rate = Math.max(cible.rate, 1);
       }
-      if (issue === 'critique' && mode === 'parade') {
-        a.rate += 1;
-        action.effets.push(`Parade critique ! ${a.nom} est déséquilibré et ratera son prochain assaut.`);
-      }
+      if (issue === 'critique' && mode === 'parade') paradeCritique(c, action, cible, a, rng);
       if (issue === 'critique' && mode === 'esquive') action.effets.push(`Esquive critique : ${cible.nom} reste au contact et pourra attaquer.`);
-      if (issue === 'maladresse') action.effets.push(maladresse(cible, rng));
+      if (issue === 'maladresse') maladresse(c, action, cible, rng, { esquive: mode === 'esquive' });
       if (issue === 'critique' || issue === 'reussi') return action;
     }
   }
 
+  // Attaque critique : table de l'arme (bonus de dégâts, blessures graves…).
+  const k = critique ? critiqueSur(c, action, a, cible, a.famille, rng) : { bonus: 0, deces: false };
   // Dégâts : au D6, moins la PR (pas sur une attaque critique).
   const j = options.desDegats ? { des: options.desDegats, total: 0 } : lancerExpression(a.degats, rng);
   if (options.desDegats) {
@@ -445,16 +712,18 @@ export const attaquer = (
     a.lachement = false;
     action.effets.push(`Frappé lâchement : dégâts doublés (${j.total}).`);
   }
+  j.total += k.bonus;
   // Critique : l'armure ne compte pas, sauf la protection naturelle (Truc de mauviette). Vicieux : 1 point d'armure ignoré.
   const pr = Math.max(0, (critique ? (cible.talents?.prNaturelle ?? 0) : cible.pr) - (a.talents?.vicieux ? 1 : 0));
   const blessure = Math.max(0, j.total - pr);
-  action.degats = { des: j.des, total: j.total, pr, blessure };
+  action.degats = { des: j.des, total: j.total, pr, blessure, bonus: k.bonus || undefined };
   if (a.poison && blessure > 0) {
     const poison = lancerExpression('1D', rng);
     action.degats.poison = poison.des;
     action.degats.blessure += poison.total;
   }
   cible.ev -= action.degats.blessure;
+  if (k.deces) tuer(cible, action.effets);
   return action;
 };
 
@@ -478,7 +747,16 @@ export const tourSuivant = (c: Combat) => {
   if (c.tour >= c.ordre.length) {
     c.tour = 0;
     c.assaut += 1;
-    c.combattants.forEach((x) => (x.defendu = false));
+    for (const x of c.combattants) {
+      x.defendu = false;
+      if (x.inconscient) x.inconscient -= 1;
+      // Hémorragie : 1D6 PV par minute (30 assauts de 2 secondes).
+      if (x.hemorragie !== undefined && enLice(x) && (c.assaut - x.hemorragie) % 30 === 0) {
+        const d = lancer(6);
+        x.ev -= d;
+        c.journal.push(`${x.nom} saigne : −${d} PV.`);
+      }
+    }
     c.recharge = Math.max(0, c.recharge - 1);
   }
 };
@@ -492,7 +770,7 @@ export const tirer = (
   idTireur: string,
   idCible: string,
   de: number,
-  tir: { ad: number; degats: string },
+  tir: { ad: number; degats: string; rupture?: string },
   options: { rng?: Rng; desDegats?: number[] } = {},
 ): Action => {
   const a = combattant(c, idTireur);
@@ -500,17 +778,21 @@ export const tirer = (
   const action: Action = { attaquant: a.id, cible: cible.id, de, valeur: tir.ad, issue: jet(de, tir.ad), effets: [], tir: true };
   if (action.issue === 'rate') return action;
   if (action.issue === 'maladresse') {
-    action.effets.push(maladresse(a, options.rng));
+    maladresse(c, action, a, options.rng, { tir });
     return action;
   }
   const critique = action.issue === 'critique';
   action.sansDefense = critique ? 'tir critique, en plein dans le mille' : 'on ne pare pas un projectile sans bouclier';
+  // Tir critique : table des projectiles.
+  const k = critique ? critiqueSur(c, action, a, cible, 'projectile', options.rng) : { bonus: 0, deces: false };
   const j = options.desDegats ? { des: options.desDegats, total: 0 } : lancerExpression(tir.degats, options.rng);
   if (options.desDegats) j.total = Math.max(0, options.desDegats.reduce((s, x) => s + x, 0) + Number(/[+-]\d+$/.exec(tir.degats)?.[0] ?? 0));
+  j.total += k.bonus;
   const pr = Math.max(0, (critique ? (cible.talents?.prNaturelle ?? 0) : cible.pr) - (a.talents?.vicieux ? 1 : 0));
   const blessure = Math.max(0, j.total - pr);
-  action.degats = { des: j.des, total: j.total, pr, blessure };
+  action.degats = { des: j.des, total: j.total, pr, blessure, bonus: k.bonus || undefined };
   cible.ev -= blessure;
+  if (k.deces) tuer(cible, action.effets);
   return action;
 };
 

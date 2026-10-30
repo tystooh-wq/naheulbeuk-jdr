@@ -1,4 +1,5 @@
 import { calculerFiche, cleCompetence, type Fiche, type Personnage } from './creation';
+import type { BlessureGrave } from './critiques';
 import { lancer, type Rng } from './des';
 import { arrondirOr } from './monnaie';
 import type { EtatDonjon } from './donjons';
@@ -118,6 +119,8 @@ export interface Partie {
   talents?: Record<string, number>;
   /** Bivouac de qualité monté ce soir (compétences de camping) : +2 PV et +4 PA à la nuit. */
   campQualite?: boolean;
+  /** Blessures graves (tables des critiques) : `jusqua` est le jour où elles guérissent, absent si permanentes. */
+  blessures?: (BlessureGrave & { jusqua?: number })[];
   /** Donjon en cours d'exploration. */
   donjon?: EtatDonjon;
   journal: string[];
@@ -235,8 +238,10 @@ export const valeursCombat = (p: Partie): ValeursCombat => {
   const pieces = porte(p);
   // Bric-à-brac : l'armure ne gêne pas la parade (les malus de PRD des pièces portées ne comptent pas).
   const bricABrac = aCompetence(f, 'Bric-à-brac');
+  const blessures = blessuresActives(p);
   const mod = (k: 'AT' | 'PRD' | 'CHA' | 'COU' | 'AD') =>
-    pieces.reduce((s, o) => s + (k === 'PRD' && bricABrac ? Math.max(0, o.mods?.[k] ?? 0) : (o.mods?.[k] ?? 0)), 0);
+    pieces.reduce((s, o) => s + (k === 'PRD' && bricABrac ? Math.max(0, o.mods?.[k] ?? 0) : (o.mods?.[k] ?? 0)), 0) +
+    blessures.reduce((s, b) => s + (b.mods[k] ?? 0), 0);
   // Les Nains manient les armes à une main humaines à deux mains : +1 aux dégâts (livret p. 5).
   const bonusNain = arme && f.origine.id === 'nain' && arme.mains === 1 && !arme.id.startsWith('hache') ? 1 : 0;
   const bonus = f.bonusDegats + bonusNain;
@@ -253,6 +258,17 @@ export const valeursCombat = (p: Partie): ValeursCombat => {
     cou: f.caracs.COU + mod('COU'),
     ad: f.caracs.AD + mod('AD'),
   };
+};
+
+/** Blessures graves encore là ce jour-ci (les guéries sont oubliées). */
+export const blessuresActives = (p: Partie) => {
+  if (p.blessures?.some((b) => b.jusqua !== undefined && b.jusqua <= p.jour)) p.blessures = p.blessures.filter((b) => b.jusqua === undefined || b.jusqua > p.jour);
+  return p.blessures ?? [];
+};
+
+/** Une nouvelle blessure grave pour le héros. */
+export const ajouterBlessure = (p: Partie, b: BlessureGrave) => {
+  p.blessures = [...(p.blessures ?? []), { ...b, jusqua: b.jours === undefined ? undefined : p.jour + b.jours }];
 };
 
 // --- Expérience et niveaux -------------------------------------------------------

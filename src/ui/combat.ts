@@ -32,7 +32,7 @@ import {
 import { fouiller, tableButin, type Fouille } from '../rules/butin';
 import { avecDe, lancer } from '../rules/des';
 import { objet } from '../rules/objets';
-import { boirePotion, lancerExpression, niveau, noter, type Partie } from '../rules/partie';
+import { ajouterBlessure, boirePotion, lancerExpression, niveau, noter, type Partie } from '../rules/partie';
 import { consommerProjectile, valeursTir } from '../rules/tir';
 import { degatsSort, ea, eaMax, lancerSort, sort, sortsConnus, valeurSort, type Sort } from '../rules/magie';
 import type { Rencontre } from '../rules/rencontres';
@@ -136,7 +136,7 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
       const cibles = auContact(c);
       const loin = adversaires(c, x);
       const t = valeursTir(p);
-      const tirImpossible = !t ? '' : c.armeLancee ? 'arme déjà lancée' : t.aSec ? 'plus de projectiles' : c.recharge > 0 ? `rechargement : encore ${c.recharge} assaut${c.recharge > 1 ? 's' : ''}` : '';
+      const tirImpossible = !t ? '' : c.tirPerdu ? 'arme de tir perdue' : c.armeLancee ? 'arme déjà lancée' : t.aSec ? 'plus de projectiles' : c.recharge > 0 ? `rechargement : encore ${c.recharge} assaut${c.recharge > 1 ? 's' : ''}` : '';
       const tirs =
         t && !cibles.length
           ? `<p class="actions-lieu">${loin
@@ -307,15 +307,31 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
     await attendre(350);
   };
 
-  /** Le joueur clique pour lancer ses dés de dégâts. */
-  const clicDegats = (zone: HTMLElement, expr: string) =>
+  /** Le joueur clique sur son dé pour le lancer. */
+  const clicDe = (zone: HTMLElement, libelle: string, bouton: string) =>
     new Promise<void>((resolve) => {
-      const el = etape(zone, `<span data-lanceur>Dégâts (${echapper(expr)}) : ${de('?', 'a-lancer')}<button id="lancer-degats">🎲 Lancer les dégâts (${echapper(expr)})</button></span>`);
+      const el = etape(zone, `<span data-lanceur>${libelle} : ${de('?', 'a-lancer')}<button id="lancer-degats">🎲 ${echapper(bouton)}</button></span>`);
       el.querySelector('button')!.addEventListener('click', () => {
         el.remove();
         resolve();
       });
     });
+
+  /** Le joueur clique pour lancer ses dés de dégâts. */
+  const clicDegats = (zone: HTMLElement, expr: string) => clicDe(zone, `Dégâts (${echapper(expr)})`, `Lancer les dégâts (${expr})`);
+
+  /** Les D20 lancés sur les tables de critiques et de maladresses : le joueur lance les siens. */
+  const montrerTables = async (zone: HTMLElement, a: Action) => {
+    for (const t of a.tables ?? []) {
+      const qui = combattant(c, t.lanceur);
+      if (qui.id === 'heros') await clicDe(zone, `<b>${echapper(t.table)}</b>, lance le D20`, `Lancer le D20 (${t.table})`);
+      const el = etape(
+        zone,
+        `${echapper(t.table)}${qui.id === 'heros' ? '' : ` <span class="note">(${echapper(qui.nom)})</span>`} ${de(t.de, 'anim')} : <span class="verdict table-critique"><b>${echapper(t.texte)}</b> <span class="note">(${echapper(t.effet)})</span></span>`,
+      );
+      await reveler(el, 20, [t.de], false);
+    }
+  };
 
   /** Joue une action à l'écran, étape par étape. `lances` : dés déjà vus par le joueur (attaque, défense). */
   const montrer = async (a: Action, lances: { attaque?: boolean; defense?: boolean } = {}, expr?: string) => {
@@ -333,12 +349,13 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
     } else if (a.sansDefense) {
       etape(zone, `<span class="note">Pas de défense : ${echapper(a.sansDefense)}.</span>`);
     }
+    await montrerTables(zone, a);
     if (a.degats) {
       const g = a.degats;
-      if (att.camp === 'heros') await clicDegats(zone, expr ?? att.degats);
+      if (att.id === 'heros') await clicDegats(zone, expr ?? att.degats);
       el = etape(
         zone,
-        `Dégâts ${g.des.map((x) => de(x, 'anim')).join('')} = ${g.total}${g.pr ? `, moins ${g.pr} d'armure` : a.issue === 'critique' ? ', armure ignorée' : ''} : <span class="verdict rate">−${g.blessure - (g.poison?.[0] ?? 0)} PV</span>`,
+        `Dégâts ${g.des.map((x) => de(x, 'anim')).join('')}${g.bonus ? ` + ${g.bonus} (critique)` : ''} = ${g.total}${g.pr ? `, moins ${g.pr} d'armure` : a.issue === 'critique' ? ', armure ignorée' : ''} : <span class="verdict rate">−${g.blessure - (g.poison?.[0] ?? 0)} PV</span>`,
       );
       await reveler(el, 6, g.des, false);
       if (g.poison) {
@@ -386,6 +403,24 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
       notes.push('Chance du rempailleur : laissé pour mort, tu te relèves quand tout le monde est parti, avec 1 PV.');
       noter(p, 'est laissé pour mort, mais la chance du rempailleur le relève.');
     }
+    // Les suites des critiques : blessures graves, saignement, armes perdues ou cassées.
+    const hh = h();
+    for (const b of hh.blessures ?? []) ajouterBlessure(p, b);
+    if (hh.blessures?.length) notes.push(`Blessure${hh.blessures.length > 1 ? 's' : ''} grave${hh.blessures.length > 1 ? 's' : ''} : ${hh.blessures.map((b) => b.nom.toLowerCase()).join(', ')} (voir ta fiche).`);
+    if (hh.hemorragie !== undefined && p.ev > 0) {
+      const d = lancer(6);
+      p.ev = Math.max(0, p.ev - d);
+      notes.push(`Tu saignes le temps de bander la plaie : −${d} PV.`);
+      if (p.ev <= 0 && c.fin !== 'defaite') c.fin = 'defaite';
+    }
+    for (const k of c.armesCassees ?? []) {
+      if (!p.equipe[k]) continue;
+      notes.push(`${objet(p.equipe[k]!).nom} : cassé, il n'en reste rien d'utile.`);
+      p.equipe[k] = undefined;
+    }
+    if (hh.famille === 'mains-nues' && p.equipe.arme && !c.armesCassees?.includes('arme') && c.fin !== 'defaite') notes.push('Tu ramasses ton arme.');
+    for (const x of c.combattants.filter((y) => y.compagnon && y.blessures?.length))
+      notes.push(`${x.nom} est gravement blessé (${x.blessures!.map((b) => b.nom.toLowerCase()).join(', ')}), mais il serre les dents.`);
     const fin = c.fin!;
     const xp = fin === 'defaite' ? 0 : xpGagnee(c);
     // Après une victoire, on ramasse son arme de jet et la moitié des projectiles (les autres sont cassés ou perdus).
@@ -605,7 +640,7 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
       }
       if (t.arme.tir?.lancee) c.armeLancee = true;
       c.recharge = t.recharge;
-      const a = tirer(c, 'heros', cible, d, { ad: t.ad, degats: t.degats });
+      const a = tirer(c, 'heros', cible, d, { ad: t.ad, degats: t.degats, rupture: t.arme.rupture });
       await montrer(a, { attaque: true }, t.degats);
       apres();
       if (!c.fin) await attendre(600);

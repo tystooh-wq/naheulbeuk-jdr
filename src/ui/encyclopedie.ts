@@ -11,16 +11,26 @@ import { LIEUX } from '../rules/waldorg';
 import { CITES } from '../rules/cites';
 import { itineraire, LIEUX_MONDE } from '../rules/monde';
 import { TABLES, type LigneRencontre, type Zone } from '../rules/rencontres';
+import {
+  BLESSURES,
+  MALADRESSE_ARME,
+  MALADRESSE_JET,
+  MALADRESSE_MAINS_NUES,
+  PARADE_CRITIQUE,
+  TABLES_CRITIQUES,
+  decrireBlessure,
+} from '../rules/critiques';
 import { competence, echapper, liste } from './outils';
 
 // Encyclopédie de debug : toutes les données du jeu, consultables à tout moment, en marge de la partie.
 
-type Rubrique = 'objets' | 'bestiaire' | 'rencontres' | 'origines' | 'metiers' | 'competences' | 'lieux';
+type Rubrique = 'objets' | 'bestiaire' | 'rencontres' | 'critiques' | 'origines' | 'metiers' | 'competences' | 'lieux';
 
 const RUBRIQUES: [Rubrique, string][] = [
   ['objets', 'Objets'],
   ['bestiaire', 'Bestiaire'],
   ['rencontres', 'Rencontres'],
+  ['critiques', 'Critiques'],
   ['origines', 'Origines'],
   ['metiers', 'Métiers'],
   ['competences', 'Compétences'],
@@ -151,6 +161,33 @@ const contenu = (r: Rubrique, q: string): string => {
         }),
         q,
       )}`;
+    case 'critiques': {
+      const table = (nom: string, lignes: { de: [number, number]; texte: string; effet: string }[]) =>
+        [
+          nom,
+          lignes.map((l) => ({
+            texte: `${l.texte} ${l.effet}`,
+            html: `<div class="ency-ligne"><span><b>${l.de[0] === l.de[1] ? l.de[0] : `${l.de[0]}-${l.de[1]}`}.</b> ${echapper(l.texte)} <span class="note">· ${echapper(l.effet)}</span></span></div>`,
+          })),
+        ] as [string, { texte: string; html: string }[]];
+      return `<p class="note">Tables de l'écran Baston. Un 1 au D20 d'attaque est un critique : imparable, l'armure ne compte pas, et on lance un D20 sur la table de son arme. Un 20 est une maladresse : D20 sur la table des maladresses. Une parade réussie sur 1 : D20 sur la table des parades critiques. Les bêtes sans arme n'ont pas de table.</p>${groupes(
+        [
+          ...Object.values(TABLES_CRITIQUES).map((t) => table(t.nom, t.lignes)),
+          table('Parade critique (effet sur l’attaquant)', PARADE_CRITIQUE),
+          table('Maladresse attaque ou parade', MALADRESSE_ARME),
+          table("Maladresse à l'arme de jet", MALADRESSE_JET),
+          table('Maladresse à mains nues', MALADRESSE_MAINS_NUES),
+          [
+            'Conséquences des blessures graves',
+            Object.values(BLESSURES).map((b) => ({
+              texte: b.nom,
+              html: `<div class="ency-ligne"><span><b>${echapper(b.nom)}</b> <span class="note">· ${echapper(decrireBlessure(b))}</span></span></div>`,
+            })),
+          ],
+        ],
+        q,
+      )}`;
+    }
     case 'origines':
       return groupes(
         [

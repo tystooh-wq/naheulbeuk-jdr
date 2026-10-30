@@ -50,8 +50,8 @@ describe('armes à distance', () => {
     const c = creerCombat(p, { ligne: TABLE_TERRES_SAUVAGES[8], nombre: 1, d20: 9, approche: 2 });
     const e = c.combattants[1];
     expect(ecart(heros(c), e)).toBe(5);
-    const a = tirer(c, 'heros', 'e1', 1, { ad: 10, degats: '1D+2' }, { desDegats: [4] });
-    expect(a.degats?.blessure).toBe(6);
+    const a = tirer(c, 'heros', 'e1', 2, { ad: 10, degats: '1D+2' }, { desDegats: [4] });
+    expect(a.degats?.blessure).toBe(6 - e.pr);
     const plan = planifier(c, e);
     expect(plan.vers).toBeDefined();
     deplacer(c, e.id, plan.vers!.x, plan.vers!.y);

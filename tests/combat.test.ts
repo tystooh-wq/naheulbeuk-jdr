@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { avecDe } from '../src/rules/des';
 import {
   attaquer,
   auContact,
@@ -123,9 +124,10 @@ describe('un assaut', () => {
     expect(heros(c).rate).toBe(1);
   });
 
-  it('parade critique : l’attaquant rate son prochain assaut', () => {
+  it('parade critique : D20 sur la table, 3 à 5 : l’attaquant est repoussé et rate son prochain assaut', () => {
     const c = creerCombat(nouvellePartie(perso), rencontre(9, 1));
-    attaquer(c, 'e1', 'heros', 3, { defense: { mode: 'parade', de: 1 } });
+    const a = attaquer(c, 'e1', 'heros', 3, { defense: { mode: 'parade', de: 1 }, rng: avecDe(4, 20) });
+    expect(a.tables).toEqual([expect.objectContaining({ lanceur: 'heros', table: 'Parade critique', de: 4 })]);
     expect(combattant(c, 'e1').rate).toBe(1);
   });
 });
