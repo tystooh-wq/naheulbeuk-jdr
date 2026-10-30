@@ -9,13 +9,16 @@ import { echapper } from './ui/outils';
 import { charger, chargerPartie, effacerTout, sauvegarderPartie } from './ui/sauvegarde';
 import { ecranMonde } from './ui/monde';
 import { ecranVille } from './ui/ville';
+import { ecranDonjon } from './ui/donjon';
+import { cite } from './rules/cites';
+import { donjon as donjonDef, entrerDonjon } from './rules/donjons';
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
 
 const ficheAvantDepart = (perso: Personnage, enregistre = true) =>
   ecranFiche(app, calculerFiche(perso), accueil, {
     enregistre,
-    suite: { libelle: 'Partir pour Waldorg', action: () => jouer(nouvellePartie(perso)) },
+    suite: { libelle: 'Partir pour Valtordu', action: () => jouer(nouvellePartie(perso)) },
   });
 
 const jouer = (partie: Partie) => {
@@ -25,13 +28,23 @@ const jouer = (partie: Partie) => {
       enJeu: { or: partie.or, ev: partie.ev, xp: partie.xp ?? 0 },
       suite: { libelle, action: retour },
     });
-  const ville = () => {
+  const ville = (accueil_?: string) => {
     partie.zone = 'ville';
     sauvegarderPartie(partie);
-    ecranVille(app, partie, fiche(ville, 'Retour en ville'), accueil, () => {
-      partie.lieuMonde = 'waldorg';
-      monde();
-    });
+    ecranVille(
+      app,
+      partie,
+      {
+        ouvrirFiche: fiche(() => ville(), 'Retour en ville'),
+        retourAccueil: accueil,
+        quitterVille: () => {
+          partie.lieuMonde = cite(partie.ville).lieuMonde;
+          monde();
+        },
+        entrerDonjon: (id) => donjon(id),
+      },
+      accueil_,
+    );
   };
   const monde = () => {
     partie.zone = 'monde';
@@ -39,9 +52,32 @@ const jouer = (partie: Partie) => {
     ecranMonde(app, partie, {
       ouvrirFiche: fiche(monde, 'Retour à la carte'),
       retourAccueil: accueil,
-      entrerVille: () => {
+      entrerVille: (id) => {
+        partie.ville = id;
         partie.lieu = 'porte';
         ville();
+      },
+      entrerDonjon: (id) => donjon(id),
+      finDePartie: () => {
+        effacerTout();
+        accueil();
+      },
+    });
+  };
+  /** Entre dans un donjon (ou y retourne, si la partie a été sauvegardée dedans). */
+  const donjon = (id?: string) => {
+    if (id && partie.donjon?.id !== id) entrerDonjon(partie, id);
+    const d = donjonDef(partie.donjon!.id);
+    const [, villeOuMonde] = d.ou.split(':');
+    sauvegarderPartie(partie);
+    ecranDonjon(app, partie, {
+      ouvrirFiche: fiche(() => donjon(), 'Retour au donjon'),
+      sortir: (texte) => {
+        sauvegarderPartie(partie);
+        if (d.ou.startsWith('ville:')) {
+          partie.ville = villeOuMonde;
+          ville(texte);
+        } else monde();
       },
       finDePartie: () => {
         effacerTout();
@@ -49,7 +85,8 @@ const jouer = (partie: Partie) => {
       },
     });
   };
-  if (partie.zone === 'monde') monde();
+  if (partie.donjon) donjon();
+  else if (partie.zone === 'monde') monde();
   else ville();
 };
 

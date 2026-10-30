@@ -23,10 +23,12 @@ import { controler, INTERVALLE_CONTROLE, type Evenement, type Resultat } from '.
 import { bivouaquer, dormir, evMax, niveau, formatHeure, noter, passerTemps, soigner, valeursCombat, type Partie } from '../rules/partie';
 import { parle, resoudre, singulier, TABLE_TERRES_SAUVAGES, TACTIQUES, tirerNombre, tirerRencontre, type Issue, type Rencontre, type Tactique } from '../rules/rencontres';
 import { objet } from '../rules/objets';
-import { QUETE_GOBELINS } from '../rules/waldorg';
+import { lierQuetes, marqueQuete, panneauJournalQuetes, panneauQuetes } from './quetes';
+import { arrondirOr, formatOr } from '../rules/monnaie';
 import { bandeau, boutonsVitesse, lierSac, lierVitesse, majHorloge, panneauJournal, panneauSac, vitesse } from './commun';
 import { animerDes, de, echapper } from './outils';
 import { ecranCombat, type BilanCombat } from './combat';
+import { cite } from '../rules/cites';
 import { EVENEMENT_PROVOQUER } from './encyclopedie';
 import { boutonAutrement, ideesValidees, NOM_EPREUVE, resoudreIdee, surChangement, valeurEpreuve, type Idee } from './idees';
 import { sauvegarderPartie } from './sauvegarde';
@@ -81,7 +83,8 @@ const boutonsIdees = (idees: Idee[]) =>
 export interface Sorties {
   ouvrirFiche: () => void;
   retourAccueil: () => void;
-  entrerVille: () => void;
+  entrerVille: (id: string) => void;
+  entrerDonjon: (id: string) => void;
   finDePartie: () => void;
 }
 
@@ -89,7 +92,8 @@ let echapActif: ((e: KeyboardEvent) => void) | undefined;
 let provoquerActif: ((e: Event) => void) | undefined;
 
 export const ecranMonde = (app: HTMLElement, p: Partie, s: Sorties) => {
-  let vue: 'lieu' | 'sac' | 'journal' = 'lieu';
+  let vue: 'lieu' | 'sac' | 'journal' | 'quetes' = 'lieu';
+  let epreuveQuete: string | undefined;
   let message: string | undefined;
   let fenetre: Fenetre | null = p.voyage ? { type: 'reprise' } : { type: 'lieu' };
   let zoom = 3;
@@ -109,6 +113,15 @@ export const ecranMonde = (app: HTMLElement, p: Partie, s: Sorties) => {
   const nuit = () => p.heure >= CREPUSCULE || p.heure < AUBE;
   centre = position();
 
+  /** Repère de quête sur la carte : une étape ici, ou une étape dans la ville de ce lieu. */
+  const marqueMonde = (l: LieuMonde) => {
+    const ici = marqueQuete(p, `monde:${l.id}`);
+    if (ici || !l.ville) return ici;
+    const ville = cite(l.ville);
+    const marques = ville.lieux.map((x) => marqueQuete(p, `ville:${ville.id}:${x.id}`));
+    return marques.includes('etape') ? 'etape' : marques.includes('nouvelle') ? 'nouvelle' : '';
+  };
+
   // --- Carte -------------------------------------------------------------------------
 
   const carte = () => {
@@ -123,11 +136,12 @@ export const ecranMonde = (app: HTMLElement, p: Partie, s: Sorties) => {
             .join('')}
           ${it ? `<polyline class="itineraire" points="${it.troncons.flatMap((t) => t.points).map((q) => q.join(',')).join(' ')}" />` : ''}
         </svg>
-        ${LIEUX_MONDE.map(
-          (l) => `<button class="poi poi-monde poi-${l.type} ${!p.voyage && l.id === p.lieuMonde ? 'ici' : ''}" style="${pct([l.x, l.y])}" data-lieu="${l.id}" aria-label="${echapper(l.nom)}">
-            <span>${ICONES[l.type]}</span><em>${echapper(l.nom)}</em>
-          </button>`,
-        ).join('')}
+        ${LIEUX_MONDE.map((l) => {
+          const q = marqueMonde(l);
+          return `<button class="poi poi-monde poi-${l.type} ${!p.voyage && l.id === p.lieuMonde ? 'ici' : ''}" style="${pct([l.x, l.y])}" data-lieu="${l.id}" aria-label="${echapper(l.nom)}${q ? ' (quête)' : ''}">
+            <span>${ICONES[l.type]}</span><em>${echapper(l.nom)}</em>${q ? `<b class="marque-quete marque-${q}">${q === 'nouvelle' ? '!' : '➤'}</b>` : ''}
+          </button>`;
+        }).join('')}
         <div class="heros" id="heros" style="${pct(position())}" aria-hidden="true"></div>
       </div>
       <div class="zoom">
@@ -138,6 +152,7 @@ export const ecranMonde = (app: HTMLElement, p: Partie, s: Sorties) => {
     </div>
     <div class="legende">${LEGENDE.map(([t, nom]) => `<span><i class="poi-mini poi-${t}">${ICONES[t]}</i>${nom}</span>`).join('')}
       <span><i class="trait-hors-piste"></i>Hors piste</span>
+      <span><i class="marque-quete marque-etape">➤</i>Quête</span>
       <span><i class="heros-mini"></i>${echapper(p.perso.nom)}</span>
       ${boutonsVitesse()}</div>`;
   };
@@ -183,22 +198,23 @@ export const ecranMonde = (app: HTMLElement, p: Partie, s: Sorties) => {
 
   const fenetreLieu = (l: LieuMonde, msg?: string) => {
     const actions: string[] = [];
-    if (l.id === 'waldorg') actions.push('<button id="entrer-ville">Entrer dans Waldorg</button>');
+    if (l.ville) actions.push(`<button id="entrer-ville" data-ville="${l.ville}">Entrer dans ${echapper(l.nom)}</button>`);
+    if (l.guerisseur) {
+      const manque = evMax(p) - p.ev;
+      const n = Math.min(manque, Math.floor(p.or / l.guerisseur));
+      if (manque > 0) actions.push(`<button class="secondaire" id="guerisseur" ${n ? '' : 'disabled'}>Voir le guérisseur du village (${n} PV pour ${formatOr(n * l.guerisseur)})</button>`);
+    }
     if (l.auberge) {
       const a = l.auberge;
       actions.push(`<button id="repas" ${p.or < a.repas ? 'disabled' : ''}>Manger un repas (${a.repas} PO)</button>`);
       actions.push(`<button id="chambre" ${p.or < a.chambre ? 'disabled' : ''}>Dormir à « ${echapper(a.nom)} » (${a.chambre} PO)</button>`);
     }
     if (l.rations) actions.push(`<button class="secondaire" id="rations" ${p.or < l.rations ? 'disabled' : ''}>Acheter des rations, 2 repas (${l.rations} PO)</button>`);
-    if (l.id !== 'waldorg') actions.push('<button class="secondaire" id="camper">Bivouaquer ici jusqu\'à l\'aube</button>');
+    if (!l.ville) actions.push('<button class="secondaire" id="camper">Bivouaquer ici jusqu\'à l\'aube</button>');
     let extra = '';
     if (l.type === 'bac') extra = '<p><button disabled>Traverser vers la Caladie</button> <span class="note">La Caladie n\'est pas encore sur la carte du jeu.</span></p>';
-    if (l.type === 'grotte') {
-      const quete = p.quetes[QUETE_GOBELINS.id];
-      extra = `<p>Une odeur de feu de bois, de fiente de poule et de gobelin mal lavé sort de la plus grande caverne. Des gloussements résonnent au fond.</p>
-        ${quete === 'acceptee' ? `<p class="note">C'est ici que les poules du fermier Barnabé ont été emmenées.</p>` : ''}
-        <p><button disabled>Entrer dans les grottes</button> <span class="note">Le donjon arrive après les combats.</span></p>`;
-    }
+    if (l.planAVenir) extra += `<p class="note">${echapper(l.nom)} a un plan officiel : on pourra s'y promener dans une prochaine version.</p>`;
+    extra += panneauQuetes(p, `monde:${l.id}`, epreuveQuete);
     const corps = `<p>${echapper(l.description)}</p>${extra}
       ${msg ? `<div class="recit">${msg}</div>` : ''}
       <p class="actions-lieu">${actions.join('')}</p>
@@ -373,7 +389,7 @@ export const ecranMonde = (app: HTMLElement, p: Partie, s: Sorties) => {
   // --- Rendu ---------------------------------------------------------------------------
 
   const render = () => {
-    const panneau = vue === 'sac' ? panneauSac(p, message) : vue === 'journal' ? panneauJournal(p) : '';
+    const panneau = vue === 'sac' ? panneauSac(p, message) : vue === 'journal' ? panneauJournal(p) : vue === 'quetes' ? panneauJournalQuetes(p) : '';
     const ouvert = vue === 'lieu' && !!fenetre;
     app.innerHTML = `<div class="page page-ville">
       ${bandeau(p, vue, 'Carte')}
@@ -592,7 +608,7 @@ export const ecranMonde = (app: HTMLElement, p: Partie, s: Sorties) => {
       }),
     );
     sur('#partir', () => fenetre?.type === 'itineraire' && partir(fenetre.vers, fenetre.allure, fenetre.horsPiste));
-    sur('#entrer-ville', () => s.entrerVille());
+    sur('#entrer-ville', (el) => s.entrerVille(el.dataset.ville!));
 
     const l = lieuMonde(p.lieuMonde);
     const dire = (msg: string) => {
@@ -612,6 +628,38 @@ export const ecranMonde = (app: HTMLElement, p: Partie, s: Sorties) => {
       noter(p, `dort à « ${l.auberge!.nom} » (${l.nom}) et récupère ${rendu} PV.`);
       dire(`Une nuit sous un vrai toit. Au matin du jour ${p.jour}, tu as récupéré <b>${rendu} PV</b>.`);
     });
+    sur('#guerisseur', () => {
+      const n = Math.min(evMax(p) - p.ev, Math.floor(p.or / l.guerisseur!));
+      p.or = arrondirOr(p.or - n * l.guerisseur!);
+      soigner(p, n);
+      noter(p, `se fait soigner à ${l.nom} (${n} PV).`);
+      dire(`Le guérisseur du village applique des herbes et marmonne. Tu récupères <b>${n} PV</b>.`);
+    });
+    lierQuetes(
+      app,
+      p,
+      {
+        message: (html) => {
+          epreuveQuete = undefined;
+          dire(html);
+        },
+        combat: (r, apres) =>
+          ecranCombat(app, p, r, (bilan) => {
+            if (bilan.fin === 'defaite') {
+              p.ev = 0;
+              fenetre = { type: 'mort' };
+              sauver();
+              return render();
+            }
+            dire(bilan.fin === 'victoire' ? `Victoire (+${bilan.xp} XP). ${echapper(apres())}` : 'Tu prends la fuite. Tu pourras revenir finir le travail.');
+          }),
+        donjon: (id) => s.entrerDonjon(id),
+      },
+      (id) => {
+        epreuveQuete = id;
+        render();
+      },
+    );
     sur('#rations', () => {
       p.or -= l.rations!;
       p.sac.push('rations');

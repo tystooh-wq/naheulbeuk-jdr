@@ -63,6 +63,8 @@ export interface Rencontre {
   d20: number;
   /** Nom de la table tirée (pour l'affichage). */
   table?: string;
+  /** Autres adversaires du même combat (un chef et ses sbires, dans un donjon). */
+  avec?: { ligne: LigneRencontre; nombre: number }[];
 }
 
 /**

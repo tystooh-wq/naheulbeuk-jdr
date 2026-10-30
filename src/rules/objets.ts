@@ -42,6 +42,8 @@ export interface Objet {
   rupture?: string;
   /** Hors des boutiques : on ne le trouve que sur un cadavre ou dans un coffre. */
   catalogueSeul?: boolean;
+  /** Objet de quête : ne se vend pas, ne se jette pas. */
+  quete?: boolean;
 }
 
 export const OBJETS: Objet[] = [
@@ -93,6 +95,17 @@ export const OBJETS: Objet[] = [
   { id: 'potion-soin-forte', nom: 'Potion de soin effet majeur', type: 'potion', prix: 100, soin: '15', description: 'La vraie potion des aventuriers prudents. Rend 15 PV.' },
 
   // --- Matériel (Matériel et services V3.0) ----------------------------------
+  // --- Spécialités de Valtordu (Valtordu pour le MJ, prix sur place) ---------------------------
+  { id: 'boudin-valtordu', nom: 'Boudin de Valtordu, nature (petit)', type: 'materiel', prix: 1, soin: '2', source: 'Valtordu pour le MJ', categorie: 'Denrées locales', effets: '+1 COU pendant 4 h (non géré)', description: "Très bon et très riche : rend 2 PV au lieu du simple PV d'un repas. Se conserve 3 jours. Ailleurs, il se revend deux fois plus cher." },
+  { id: 'boudin-epices', nom: 'Boudin aux épices (petit)', type: 'materiel', prix: 2, soin: '2', source: 'Valtordu pour le MJ', categorie: 'Denrées locales', description: 'Se conserve 7 jours. Rend 2 PV.' },
+  { id: 'boudin-oignons', nom: 'Boudin aux oignons (petit)', type: 'materiel', prix: 2, soin: '2', source: 'Valtordu pour le MJ', categorie: 'Denrées locales', description: 'Rend 2 PV. Haleine garantie.' },
+  { id: 'boudin-special', nom: 'Boudin « spécial » (petit)', type: 'materiel', prix: 3, soin: '2', source: 'Valtordu pour le MJ', categorie: 'Denrées locales', description: 'La recette est secrète. Rend 2 PV.' },
+  { id: 'pull-valtordu', nom: 'Authentique pull de Valtordu', type: 'armure', prix: 40, pr: 1, mods: { CHA: -1, AD: -1 }, emplacement: 'torse', estime: true, source: 'Valtordu pour le MJ', categorie: 'Denrées locales', description: "Épais, chaud, lourd et affreux (sauf pour les vieilles dames). Immunité totale contre le rhume des pierres. La protection de 1 est une estimation." },
+  // --- Objets de quête ------------------------------------------------------------------------
+  { id: 'colis-ozonuc', nom: "Colis d'herbes d'Archibald", type: 'materiel', prix: 0, quete: true, estime: true, description: 'À porter à la rebouteuse de Loubet. Ne pas manger.' },
+  { id: 'lettre-loubet', nom: 'Lettre cachetée de la rebouteuse', type: 'materiel', prix: 0, quete: true, estime: true, description: 'Pour Archibald Ozonuc, à Valtordu. Elle sent la lavande.' },
+  { id: 'foulard-brigand', nom: 'Foulard du chef des brigands', type: 'materiel', prix: 0, quete: true, estime: true, description: 'La preuve attendue par le seigneur de Valtordu.' },
+  { id: 'certificat-donjon-facile', nom: 'Certificat du Donjon Facile', type: 'materiel', prix: 0, quete: true, estime: true, description: "« Aventurier certifié Donjon Facile ». Ça n'impressionne personne, mais c'est joli au mur." },
   { id: 'champignons-orange', nom: 'Champignons orange', type: 'materiel', prix: 2, estime: true, description: "Ramassés au bord du chemin. Comestibles ? Hallucinogènes ? Mortels ? Un alchimiste le saurait." },
   // --- Trophées de chasse et babioles (butin des combats ; valeurs estimées, à revendre) --------
   { id: 'peau-coyote', nom: 'Peau de coyote', type: 'materiel', prix: 3, estime: true, description: 'Mitée, mais un tanneur en donnera quelque chose.' },

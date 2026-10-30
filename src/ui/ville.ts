@@ -1,4 +1,5 @@
 import planWaldorg from '../assets/waldorg.jpg';
+import planValtordu from '../assets/valtordu.jpg';
 import { calculerFiche } from '../rules/creation';
 import { lancer } from '../rules/des';
 import { objet, type Objet } from '../rules/objets';
@@ -15,9 +16,12 @@ import {
   vendre,
   type Partie,
 } from '../rules/partie';
-import { longueur, pointA, trajet } from '../rules/rues';
-import { LIEUX, QUETE_GOBELINS, RUMEURS_LOUCHES, RUMEURS_NORMALES, lieu, type Lieu, type TypeLieu } from '../rules/waldorg';
+import { cite, lieuCite, longueurCite, pointCite, trajetCite } from '../rules/cites';
+import type { Lieu, TypeLieu } from '../rules/waldorg';
+import type { Rencontre } from '../rules/rencontres';
 import { bandeau, boutonsVitesse, lierSac, lierVitesse, ligneObjet, panneauJournal, panneauSac, vitesse } from './commun';
+import { ecranCombat } from './combat';
+import { lierQuetes, marqueQuete, panneauJournalQuetes, panneauQuetes } from './quetes';
 import { animerDes, de, echapper } from './outils';
 import { marchander, type Marchandage } from '../rules/marchandage';
 import { arrondirOr, formatOr } from '../rules/monnaie';
@@ -57,17 +61,28 @@ interface Visite {
   message?: string;
 }
 
+const PLANS: Record<string, string> = { waldorg: planWaldorg, valtordu: planValtordu };
+
+export interface SortiesVille {
+  ouvrirFiche: () => void;
+  retourAccueil: () => void;
+  quitterVille: () => void;
+  entrerDonjon: (id: string) => void;
+}
+
 let echapActif: ((e: KeyboardEvent) => void) | undefined;
 
-export const ecranVille = (
-  app: HTMLElement,
-  p: Partie,
-  ouvrirFiche: () => void,
-  retourAccueil: () => void,
-  quitterVille: () => void,
-) => {
-  let visite: Visite = {};
-  let vue: 'lieu' | 'sac' | 'journal' = 'lieu';
+export const ecranVille = (app: HTMLElement, p: Partie, sorties: SortiesVille, accueilMessage?: string) => {
+  const { ouvrirFiche, retourAccueil, quitterVille } = sorties;
+  const c = cite(p.ville);
+  p.ville = c.id;
+  const LIEUX = c.lieux;
+  const lieu = (id: string) => lieuCite(c, id);
+  const plan_ = PLANS[c.id];
+  const ou = (l: Lieu) => `ville:${c.id}:${l.id}`;
+  let visite: Visite = { message: accueilMessage };
+  let vue: 'lieu' | 'sac' | 'journal' | 'quetes' = 'lieu';
+  let epreuveQuete: string | undefined;
   /** La fenêtre du lieu est ouverte au-dessus du plan. */
   let popup = true;
   /** Le héros marche : on ignore les clics le temps du trajet. */
@@ -82,16 +97,19 @@ export const ecranVille = (
   const plan = () => {
     const ici = lieu(p.lieu);
     return `<div class="plan" id="plan">
-      <img src="${planWaldorg}" alt="Plan de Waldorg" draggable="false" />
-      ${LIEUX.map(
-        (l) => `<button class="poi poi-${l.type} ${l.id === p.lieu ? 'ici' : ''}" style="left:${l.x}%;top:${l.y}%" data-lieu="${l.id}" title="${echapper(l.nom)}" aria-label="Aller à ${echapper(l.nom)}">
-          <span>${ICONES[l.type]}</span><em>${echapper(l.nom)}</em>
-        </button>`,
-      ).join('')}
+      <img src="${plan_}" alt="Plan de ${echapper(c.nom)}" draggable="false" />
+      ${LIEUX.map((l) => {
+        const q = marqueQuete(p, ou(l));
+        return `<button class="poi poi-${l.type} ${l.id === p.lieu ? 'ici' : ''}" style="left:${l.x}%;top:${l.y}%" data-lieu="${l.id}" title="${echapper(l.nom)}" aria-label="Aller à ${echapper(l.nom)}${q ? ' (quête)' : ''}">
+          <span>${ICONES[l.type]}</span><em>${echapper(l.nom)}</em>${q ? `<b class="marque-quete marque-${q}">${q === 'nouvelle' ? '!' : '➤'}</b>` : ''}
+        </button>`;
+      }).join('')}
       <svg class="trace" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><polyline id="trace" points="" /></svg>
       <div class="heros" id="heros" style="left:${ici.x}%;top:${ici.y}%" aria-hidden="true"></div>
     </div>
     <div class="legende">${LEGENDE.map(([t, nom]) => `<span><i class="poi-mini poi-${t}">${ICONES[t]}</i>${nom}</span>`).join('')}
+      <span><i class="marque-quete marque-nouvelle">!</i>Quête proposée</span>
+      <span><i class="marque-quete marque-etape">➤</i>Étape de quête</span>
       <span><i class="heros-mini"></i>${echapper(p.perso.nom)}</span>
       ${boutonsVitesse()}</div>`;
   };
@@ -150,54 +168,48 @@ export const ecranVille = (
   };
 
   const actionsLieu = (l: Lieu): string => {
+    const quetes = panneauQuetes(p, ou(l), epreuveQuete);
+    const parts: string[] = [];
     switch (l.type) {
       case 'porte':
-        return `<p><button id="quitter">Quitter Waldorg et partir sur les routes</button></p>${panneauBoutique(l)}`;
-      case 'marche':
-      case 'boutique':
-        return panneauBoutique(l);
+        parts.push(`<p><button id="quitter">${echapper(c.sortie)}</button></p>`);
+        break;
       case 'bar':
-        return `<p><button id="chope">Commander une chope et tendre l'oreille (${l.chope} PO)</button></p>`;
+        parts.push(`<p><button id="chope">Commander une chope et tendre l'oreille (${l.chope} PO)</button></p>`);
+        break;
       case 'auberge': {
         const a = l.auberge!;
-        return `<p class="actions-lieu">
+        parts.push(`<p class="actions-lieu">
           <button id="repas" ${p.or < a.repas ? 'disabled' : ''}>Manger un repas (${a.repas} PO)</button>
           <button id="chambre" ${p.or < a.chambre ? 'disabled' : ''}>Prendre une chambre pour la nuit (${a.chambre} PO)</button>
         </p>
         <p class="note">Une nuit ici rend ${{ mauvais: 2, normal: 4, excellent: 8 }[a.confort]} points de vie (8 heures de repos, ${
           { mauvais: 'mauvaises conditions', normal: 'conditions normales', excellent: 'excellentes conditions' }[a.confort]
-        }).</p>`;
+        }).</p>`);
+        break;
       }
       case 'soins': {
         const manque = evMax(p) - p.ev;
         const soignables = Math.min(manque, Math.floor(p.or / l.prixSoin!));
-        return manque === 0
-          ? `<p>Le soigneur te regarde de haut en bas : « Vous êtes en pleine forme. Revenez quand il vous manquera un bras. »</p>`
-          : `<p>Il te manque ${manque} points de vie. Tarif : ${l.prixSoin} PO le point.</p>
-             <p><button id="soigner" ${soignables === 0 ? 'disabled' : ''}>Se faire soigner (${soignables} PV pour ${soignables * l.prixSoin!} PO)</button></p>`;
+        parts.push(
+          manque === 0
+            ? `<p>Le soigneur te regarde de haut en bas : « Vous êtes en pleine forme. Revenez quand il vous manquera un bras. »</p>`
+            : `<p>Il te manque ${manque} points de vie. Tarif : ${l.prixSoin} PO le point.</p>
+             <p><button id="soigner" ${soignables === 0 ? 'disabled' : ''}>Se faire soigner (${soignables} PV pour ${soignables * l.prixSoin!} PO)</button></p>`,
+        );
+        break;
       }
-      case 'emplois': {
-        const etat = p.quetes[QUETE_GOBELINS.id];
-        return `<div class="detail-choix">
-          <h3>${echapper(QUETE_GOBELINS.titre)}</h3>
-          <p>${echapper(QUETE_GOBELINS.texte)}</p>
-          ${
-            etat
-              ? `<p class="note">Mission acceptée. La route vers les grottes ouvrira avec la carte du monde, à la prochaine étape.</p>`
-              : `<p><button id="quete">Accepter la mission</button></p>`
-          }
-        </div>`;
-      }
-      case 'info':
-        return `<p><button id="plan-gratuit">Demander un plan gratuit</button></p>`;
-      case 'caisse':
-        return `<p><button id="formulaire">Remplir le formulaire d'aventurier</button></p>`;
+      case 'emplois':
+        if (!quetes) parts.push(`<p class="note">Rien pour toi pour le moment. Repasse plus tard, ou va voir ailleurs si on a besoin de toi.</p>`);
+        break;
     }
+    if (l.action) parts.push(`<p><button class="secondaire" id="action-lieu">${echapper(l.action.bouton)}</button></p>`);
+    return quetes + parts.join('') + (l.boutique ? panneauBoutique(l) : '');
   };
 
   // En attendant les illustrations, le cadre montre le plan agrandi autour du lieu.
   const illustration = (l: Lieu) => `<figure class="illustration">
-      <div class="cadre"><img src="${planWaldorg}" alt="" draggable="false" style="transform:translate(-${l.x}%,-${l.y}%)" /></div>
+      <div class="cadre"><img src="${plan_}" alt="" draggable="false" style="transform:translate(-${l.x}%,-${l.y}%)" /></div>
       <figcaption>${echapper(l.nom)} · illustration à venir</figcaption>
     </figure>`;
 
@@ -214,7 +226,7 @@ export const ecranVille = (
         <p>${echapper(l.description)}</p>
         ${visite.message ? `<div class="recit">${visite.message}</div>` : ''}
         ${actionsLieu(l)}
-        <p>${boutonAutrement({ type: 'lieu', id: `waldorg:${l.id}`, titre: `${l.nom} (Waldorg)` })}</p>
+        <p>${boutonAutrement({ type: 'lieu', id: `${c.id}:${l.id}`, titre: `${l.nom} (${c.nom})` })}</p>
       </div>
     </div>`;
   };
@@ -224,13 +236,11 @@ export const ecranVille = (
   const ecranArrivee = () => {
     const f = fiche();
     const v = valeursCombat(p);
-    const autreVille = f.ville !== 'Waldorg';
     app.innerHTML = `<div class="page">
-      <h1>Waldorg</h1>
-      <p class="sous-titre">Capitale de la Terre de Fangh, épicentre de la magie de haut niveau. On peut tout y acheter, à condition que ce soit cher.</p>
-      ${autreVille ? `<p class="note">Normalement, un ${echapper(f.origine.nom)} commencerait à ${echapper(f.ville)}. Dans ce prototype, tout le monde débarque à Waldorg.</p>` : ''}
-      <p>Après une longue marche, ${echapper(p.perso.nom)} traverse le souk de la banlieue, où un marchand de tapis tente de lui vendre un chameau. Aux portes de la ville, un garde mâchonne une saucisse et l'examine de la tête aux pieds.</p>
-      <p>« Aventurier, hein ? Bienvenue à Waldorg. Pas de bagarre, pas de magie dans les rues, et si vous mourez, c'est à vos frais. »</p>
+      <h1>${echapper(c.nom)}</h1>
+      <p class="sous-titre">${echapper(c.sousTitre)}</p>
+      ${f.ville.toLowerCase() !== c.id ? `<p class="note">Normalement, un ${echapper(f.origine.nom)} commencerait à ${echapper(f.ville)}. Dans ce prototype, tout le monde débute à ${echapper(c.nom)}, le coin le plus tranquille pour apprendre le métier.</p>` : ''}
+      ${c.arrivee.map((t) => `<p>${echapper(t.replace('{nom}', p.perso.nom))}</p>`).join('')}
       <div class="detail-choix">
         <h3>Ton équipement de départ</h3>
         <p class="note">Comme le conseille le guide de l'équipement, le MJ t'équipe selon ta classe sociale, sans toucher à tes ${p.or} pièces d'or.</p>
@@ -241,7 +251,8 @@ export const ecranVille = (
         </ul>
         <p>Attaque ${v.at}, Parade ${v.prd}, dégâts ${echapper(v.degats)}, protection ${v.pr}.</p>
       </div>
-      <div class="actions"><button class="droite" id="entrer">Entrer dans Waldorg</button></div>
+      <p class="note">Les repères <b>!</b> sur le plan signalent des quêtes. Elles s'affichent dans l'onglet « Quêtes ».</p>
+      <div class="actions"><button class="droite" id="entrer">Entrer dans ${echapper(c.nom)}</button></div>
     </div>`;
     app.querySelector('#entrer')!.addEventListener('click', () => {
       p.arrive = true;
@@ -255,9 +266,9 @@ export const ecranVille = (
   const render = () => {
     if (!p.arrive) return ecranArrivee();
     const ouvert = vue === 'lieu' && popup;
-    const panneau = vue === 'sac' ? panneauSac(p, visite.message) : vue === 'journal' ? panneauJournal(p) : '';
+    const panneau = vue === 'sac' ? panneauSac(p, visite.message) : vue === 'journal' ? panneauJournal(p) : vue === 'quetes' ? panneauJournalQuetes(p) : '';
     app.innerHTML = `<div class="page page-ville">
-      ${bandeau(p, vue, 'Ville')}
+      ${bandeau(p, vue, c.nom)}
       <div class="scene ${ouvert ? 'popup-ouverte' : ''}" id="scene">
         ${plan()}
         ${ouvert ? popupLieu() : ''}
@@ -287,15 +298,15 @@ export const ecranVille = (
   const aller = (id: string) => {
     if (enRoute) return;
     if (id === p.lieu) return entrer();
-    const chemin = trajet(lieu(p.lieu), lieu(id));
+    const chemin = trajetCite(c, lieu(p.lieu), lieu(id));
     // À vitesse ×1, environ 7 s pour traverser la ville ; le réglage de vitesse divise cette durée.
-    const duree = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : Math.max(1500, longueur(chemin) * 70);
+    const duree = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : Math.max(1500, longueurCite(c, chemin) * 70);
     const arriver = () => {
       enRoute = false;
-      // Waldorg est grande : une bonne heure et demie pour la traverser de part en part.
-      passerTemps(p, longueur(chemin) / 60);
+      passerTemps(p, (longueurCite(c, chemin) / 100) * c.heuresTraversee);
       p.lieu = id;
       visite = {};
+      epreuveQuete = undefined;
       sauver();
       entrer();
     };
@@ -316,7 +327,7 @@ export const ecranVille = (
       avant = maintenant;
       const t = Math.min(1, avance);
       // Démarrage et arrivée en douceur.
-      const [x, y] = pointA(chemin, t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2);
+      const [x, y] = pointCite(c, chemin, t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2);
       heros.style.left = `${x}%`;
       heros.style.top = `${y}%`;
       if (t < 1) requestAnimationFrame(pas);
@@ -350,7 +361,7 @@ export const ecranVille = (
     sur('#fiche', () => ouvrirFiche());
     sur('#accueil', () => retourAccueil());
     sur('#quitter', () => {
-      noter(p, 'quitte Waldorg par la porte ouest.');
+      noter(p, `quitte ${c.nom}.`);
       quitterVille();
     });
     lierVitesse(app);
@@ -400,7 +411,7 @@ export const ecranVille = (
       const l = lieu(p.lieu);
       if (p.or < l.chope!) return message("Le patron ne fait pas crédit.");
       p.or -= l.chope!;
-      const liste = l.rumeurs === 'louches' ? RUMEURS_LOUCHES : RUMEURS_NORMALES;
+      const liste = l.rumeurs === 'louches' ? c.rumeurs.louches : c.rumeurs.normales;
       const rumeur = liste[lancer(liste.length) - 1];
       message(`Tu bois une chope en tendant l'oreille. <i>« ${echapper(rumeur)} »</i>`);
     });
@@ -422,23 +433,35 @@ export const ecranVille = (
       const n = Math.min(evMax(p) - p.ev, Math.floor(p.or / l.prixSoin!));
       p.or -= n * l.prixSoin!;
       soigner(p, n);
-      noter(p, `se fait soigner à la clinique (${n} PV).`);
+      noter(p, `se fait soigner (${l.nom}, ${n} PV).`);
       message(`Le soigneur marmonne une formule et applique un onguent qui pique. Tu récupères <b>${n} PV</b>.`);
     });
-    sur('#quete', () => {
-      p.quetes[QUETE_GOBELINS.id] = 'acceptee';
-      noter(p, `accepte la mission « ${QUETE_GOBELINS.titre} ».`);
-      message("Le fonctionnaire tamponne trois formulaires et te tend une carte griffonnée. « Barnabé vous attend. Ne revenez pas sans les poules. »");
-    });
-    sur('#plan-gratuit', () =>
-      message(
-        "L'employé te tend un plan et récite : « Au nord-ouest, le stade, les écoles de magie et le marché. Au nord-est, le palais et les riches : évitez d'y traîner. Au sud-ouest, le fort, les armureries et la Guilde des voleurs. Au sud-est, le port, le poisson et les marins. Bonne visite ! »",
-      ),
-    );
-    sur('#formulaire', () =>
-      message(
-        "Tu remplis douze pages : nom, origine, nombre de bras, allergies, donjons déjà visités. Le guichetier tamponne le tout sans le lire. « Revenez quand vous aurez un donjon à déclarer. »",
-      ),
+    sur('#action-lieu', () => message(echapper(lieu(p.lieu).action!.texte)));
+
+    // Quêtes
+    lierQuetes(
+      app,
+      p,
+      {
+        message: (html) => {
+          epreuveQuete = undefined;
+          message(html);
+        },
+        combat: (r: Rencontre, apres) =>
+          ecranCombat(app, p, r, (bilan) => {
+            if (bilan.fin === 'victoire') return message(`Victoire (+${bilan.xp} XP). ${echapper(apres())}`);
+            if (bilan.fin === 'fuite') return message('Tu prends tes jambes à ton cou. Tu pourras revenir finir le travail.');
+            // En ville, on ne meurt pas dans une cave : les voisins te ramassent.
+            p.ev = 1;
+            noter(p, 'est assommé ; des passants le ramassent.');
+            message("Tout devient noir… Tu te réveilles sur un banc, à 1 PV, des passants penchés sur toi. « Il respire ! Dommage, j'avais parié. » Tu pourras retenter ta chance.");
+          }),
+        donjon: (id) => sorties.entrerDonjon(id),
+      },
+      (id) => {
+        epreuveQuete = id;
+        render();
+      },
     );
   };
 

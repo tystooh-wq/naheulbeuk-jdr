@@ -30,6 +30,8 @@ export interface Lieu {
   /** Clinique : prix d'un point de vie soigné. */
   prixSoin?: number;
   rumeurs?: 'normales' | 'louches';
+  /** Un bouton qui donne une information (plan gratuit, formulaire…). */
+  action?: { bouton: string; texte: string };
 }
 
 const MATERIEL = ['sac', 'briquet', 'couverture', 'gourde', 'chaussettes', 'rations', 'corde', 'torche', 'lampe', 'matelas'];
@@ -55,6 +57,11 @@ export const LIEUX: Lieu[] = [
     quartier: 'Nord-Ouest',
     description:
       "Un employé en uniforme jaune moutarde distribue des plans gratuits de la ville et des conseils que personne ne lui demande. Il est ravi de voir un aventurier : « Bienvenue à Waldorg, capitale de la Terre de Fangh et de la magie de haut niveau ! »",
+    action: {
+      bouton: 'Demander un plan gratuit',
+      texte:
+        "L'employé te tend un plan et récite : « Au nord-ouest, le stade, les écoles de magie et le marché. Au nord-est, le palais et les riches : évitez d'y traîner. Au sud-ouest, le fort, les armureries et la Guilde des voleurs. Au sud-est, le port, le poisson et les marins. Bonne visite ! »",
+    },
   },
   {
     id: 'moriacs',
@@ -152,6 +159,11 @@ export const LIEUX: Lieu[] = [
     quartier: 'Sud-Ouest',
     description:
       "L'annexe de la Caisse des Donjons de la Terre de Fangh, circonscription Est. Ici, on enregistre les donjons, leurs propriétaires et les aventuriers qui les visitent. Un guichetier blasé vous tend un formulaire de douze pages.",
+    action: {
+      bouton: "Remplir le formulaire d'aventurier",
+      texte:
+        "Tu remplis douze pages : nom, origine, nombre de bras, allergies, donjons déjà visités. Le guichetier tamponne le tout sans le lire. « Revenez quand vous aurez un donjon à déclarer. »",
+    },
   },
   {
     id: 'dague',
@@ -189,12 +201,6 @@ export const LIEUX: Lieu[] = [
   },
 ];
 
-export const lieu = (id: string): Lieu => {
-  const l = LIEUX.find((x) => x.id === id);
-  if (!l) throw new Error(`Lieu inconnu : ${id}`);
-  return l;
-};
-
 export const RUMEURS_NORMALES = [
   "Il paraît que le fermier Barnabé, au nord-ouest, ne dort plus : des gobelins lui volent ses poules depuis les grottes de la colline. Le Bureau des emplois cherche quelqu'un.",
   "Le mage Yeronimus Boulak rend des services, mais ne lui envoyez pas d'elfe. Vraiment pas.",
@@ -213,10 +219,8 @@ export const RUMEURS_LOUCHES = [
   "Un espion t'assure qu'il y a un trésor au fond des grottes gobelines. Il ne dit pas pourquoi il n'y est pas allé lui-même.",
 ];
 
-export const QUETE_GOBELINS = {
-  id: 'gobelins',
-  titre: 'Les poules du fermier Barnabé',
-  texte:
-    "Le fermier Barnabé, à deux jours de marche au nord-ouest, se plaint de gobelins qui pillent son poulailler depuis les grottes de la colline voisine. Mission : chasser les gobelins, ou au moins les convaincre d'aller voler ailleurs. Récompense : 60 pièces d'or, et une douzaine d'œufs.",
-  recompense: 60,
+export const lieu = (id: string): Lieu => {
+  const l = LIEUX.find((x) => x.id === id);
+  if (!l) throw new Error(`Lieu inconnu : ${id}`);
+  return l;
 };

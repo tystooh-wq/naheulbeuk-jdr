@@ -1,6 +1,7 @@
 import { calculerFiche, cleCompetence, type Fiche, type Personnage } from './creation';
 import { lancer, type Rng } from './des';
 import { arrondirOr } from './monnaie';
+import type { EtatDonjon } from './donjons';
 import { objet, type Objet } from './objets';
 
 // L'état d'une partie en cours : le héros, sa bourse, son sac et où il se trouve.
@@ -87,6 +88,10 @@ export interface Partie {
   /** Faits marquants qui peuvent revenir plus tard (« marchand-rackette »…). */
   marques?: string[];
   quetes: Record<string, EtatQuete>;
+  /** Étape en cours de chaque quête acceptée. */
+  etapesQuetes?: Record<string, number>;
+  /** Donjon en cours d'exploration. */
+  donjon?: EtatDonjon;
   journal: string[];
   /** Le récit d'arrivée a été lu. */
   arrive: boolean;
@@ -136,14 +141,14 @@ export const nouvellePartie = (perso: Personnage): Partie => {
     or: perso.or,
     sac,
     equipe,
-    ville: 'Waldorg',
+    ville: 'valtordu',
     lieu: 'porte',
     jour: 1,
     heure: 9,
     zone: 'ville',
-    lieuMonde: 'waldorg',
+    lieuMonde: 'valtordu',
     quetes: {},
-    journal: [`Jour 1 : ${perso.nom} arrive aux portes de Waldorg avec ${perso.or} pièces d'or.`],
+    journal: [`Jour 1 : ${perso.nom} arrive à Valtordu avec ${perso.or} pièces d'or.`],
     arrive: false,
   };
 };
@@ -258,6 +263,7 @@ export const acheter = (p: Partie, id: string, prix: number): string | null => {
 export const vendre = (p: Partie, id: string, prix: number): string | null => {
   const i = p.sac.indexOf(id);
   if (i < 0) return "Tu n'as pas cet objet dans ton sac.";
+  if (objet(id).quete) return 'Un objet de quête, ça ne se vend pas.';
   p.sac.splice(i, 1);
   p.or = arrondirOr(p.or + prix);
   return null;
@@ -326,7 +332,7 @@ export const soigner = (p: Partie, points: number): number => {
 
 export const boirePotion = (p: Partie, id: string, rng?: Rng): { rendu: number; des: number[] } | string => {
   const o = objet(id);
-  if (o.type !== 'potion' || !o.soin) return "Ce n'est pas une potion.";
+  if (!o.soin) return "Ça ne se boit pas, ni ne se mange.";
   const i = p.sac.indexOf(id);
   if (i < 0) return "Tu n'as pas cette potion.";
   p.sac.splice(i, 1);

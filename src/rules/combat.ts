@@ -112,28 +112,29 @@ export const creerHeros = (p: Partie): Combattant => {
 };
 
 export const creerEnnemis = (r: Rencontre): Combattant[] => {
-  const l = r.ligne;
-  const ad = Number(/AD (\d+)/.exec(l.notes)?.[1] ?? 10);
-  const base = singulier(l);
-  return Array.from({ length: r.nombre }, (_, i) => ({
-    id: `e${i + 1}`,
-    nom: r.nombre > 1 ? `${base} ${i + 1}` : base,
-    camp: 'ennemi' as Camp,
-    at: l.at,
-    prd: l.prd,
-    ad,
-    pr: l.pr,
-    cou: l.cou,
-    degats: l.degats.replace('*', ''),
-    ev: l.ev,
-    evMax: l.ev,
-    xp: l.xp,
-    etat: (i < AU_CONTACT ? 'actif' : 'reserve') as Etat,
-    imparable: /parade impossible/i.test(l.notes),
-    poison: /poison/i.test(l.notes),
-    rate: 0,
-    defendu: false,
-  }));
+  const groupes = [{ ligne: r.ligne, nombre: r.nombre }, ...(r.avec ?? [])];
+  const tous = groupes.flatMap(({ ligne: l, nombre }) => {
+    const ad = Number(/AD (\d+)/.exec(l.notes)?.[1] ?? 10);
+    const base = singulier(l);
+    return Array.from({ length: nombre }, (_, i) => ({
+      nom: nombre > 1 ? `${base} ${i + 1}` : base,
+      camp: 'ennemi' as Camp,
+      at: l.at,
+      prd: l.prd,
+      ad,
+      pr: l.pr,
+      cou: l.cou,
+      degats: l.degats.replace('*', ''),
+      ev: l.ev,
+      evMax: l.ev,
+      xp: l.xp,
+      imparable: /parade impossible/i.test(l.notes),
+      poison: /poison/i.test(l.notes),
+      rate: 0,
+      defendu: false,
+    }));
+  });
+  return tous.map((c, i) => ({ ...c, id: `e${i + 1}`, etat: (i < AU_CONTACT ? 'actif' : 'reserve') as Etat }));
 };
 
 /** Ordre d'initiative : Courage, puis Adresse ; le héros qui cherche des noises frappe toujours le premier. */

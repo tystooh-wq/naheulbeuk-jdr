@@ -8,6 +8,7 @@ import { ORIGINES } from '../rules/origines';
 import { trajet, longueur } from '../rules/rues';
 import { CARACS, type Criteres } from '../rules/types';
 import { LIEUX } from '../rules/waldorg';
+import { CITES } from '../rules/cites';
 import { itineraire, LIEUX_MONDE } from '../rules/monde';
 import { TABLE_TERRES_SAUVAGES } from '../rules/rencontres';
 import { competence, echapper, liste } from './outils';
@@ -42,7 +43,7 @@ const criteres = (c: Criteres) =>
     .map((k) => `${k} ${c[k]!.min ? `≥ ${c[k]!.min}` : ''}${c[k]!.min && c[k]!.max ? ' et ' : ''}${c[k]!.max ? `≤ ${c[k]!.max}` : ''}`)
     .join(', ') || 'aucun';
 
-const vendeurs = (id: string) => LIEUX.filter((l) => l.boutique?.stock.includes(id)).map((l) => l.nom);
+const vendeurs = (id: string) => CITES.flatMap((c) => c.lieux.filter((l) => l.boutique?.stock.includes(id)).map((l) => `${l.nom} (${c.nom})`));
 
 const NOM_EMPLACEMENT: Record<Emplacement, string> = {
   torse: 'torse',

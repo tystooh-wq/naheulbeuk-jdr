@@ -1468,3 +1468,94 @@ button.combattant:hover {
 .choix-joueur {
   border-style: dashed;
 }
+
+/* --- Quêtes ------------------------------------------------------------------------ */
+.marque-quete {
+  position: absolute;
+  top: -10px;
+  right: -10px;
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  font-size: 12px;
+  font-style: normal;
+  line-height: 1;
+  color: var(--encre);
+  background: #f2c230;
+  border: 2px solid var(--encre);
+  box-shadow: 0 0 0 2px rgba(242, 194, 48, 0.45);
+  animation: pulse-quete 1.6s ease-in-out infinite;
+  pointer-events: none;
+}
+.marque-quete.marque-etape {
+  background: #7fc3ff;
+  box-shadow: 0 0 0 2px rgba(127, 195, 255, 0.45);
+}
+.legende .marque-quete {
+  position: static;
+  margin-right: 4px;
+  animation: none;
+}
+@keyframes pulse-quete {
+  50% { transform: scale(1.18); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .marque-quete { animation: none; }
+}
+.quete h3 { margin-top: 0; }
+.quete.en-cours { border-left: 4px solid #4a8fc9; }
+.journal-quetes { padding-left: 18px; }
+.journal-quetes li { margin-bottom: 10px; }
+
+/* --- Donjons ------------------------------------------------------------------------- */
+.titre-donjon { margin: 8px 0; }
+.cadre-mini {
+  overflow-x: auto;
+  padding: 12px;
+  border: 2px solid var(--bordure);
+  border-radius: 8px;
+  background: #1d150e;
+}
+.mini-donjon {
+  position: relative;
+  margin: 0 auto;
+}
+.mini-donjon svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.mini-donjon line {
+  stroke: #8a7350;
+  stroke-width: 10;
+  stroke-linecap: round;
+}
+.salle {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 2px;
+  border: 2px solid #8a7350;
+  border-radius: 6px;
+  background: #3a2c1d;
+  color: var(--parchemin);
+  font-size: 11px;
+  line-height: 1.1;
+  text-align: center;
+}
+.salle span { font-size: 22px; }
+.salle em { font-style: normal; overflow: hidden; max-height: 2.3em; }
+.salle:disabled { opacity: 1; cursor: default; }
+.salle-inconnue { background: #241a10; color: #8a7350; border-style: dashed; }
+.salle-danger { border-color: var(--rouge); background: #4a1d17; }
+.salle-videe { background: #4a3a26; }
+.salle-ici { border-color: #f2c230; background: #6b5434; box-shadow: 0 0 12px rgba(242, 194, 48, 0.6); }
+.salle.ouverte { cursor: pointer; outline: 2px dashed #f2c230; outline-offset: 2px; }
+.salle.ouverte:hover { background: #5c4630; }
+.legende-donjon { text-align: center; }

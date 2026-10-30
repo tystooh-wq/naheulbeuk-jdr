@@ -70,6 +70,8 @@ export const lierVitesse = (app: HTMLElement) =>
 
 // --- Bandeau du héros -------------------------------------------------------------
 
+const quetesEnCours = (p: Partie) => Object.values(p.quetes).filter((e) => e === 'acceptee').length;
+
 export const bandeau = (p: Partie, vue: string, nomCarte: string) => {
   const f = calculerFiche(p.perso);
   return `<div class="bandeau">
@@ -85,6 +87,7 @@ export const bandeau = (p: Partie, vue: string, nomCarte: string) => {
     <div class="onglets">
       <button class="secondaire petit ${vue === 'lieu' ? 'actif' : ''}" data-vue="lieu">${nomCarte}</button>
       <button class="secondaire petit ${vue === 'sac' ? 'actif' : ''}" data-vue="sac">Sac et équipement</button>
+      <button class="secondaire petit ${vue === 'quetes' ? 'actif' : ''}" data-vue="quetes">Quêtes${quetesEnCours(p) ? ` <span class="pastille">${quetesEnCours(p)}</span>` : ''}</button>
       <button class="secondaire petit ${vue === 'journal' ? 'actif' : ''}" data-vue="journal">Journal</button>
       <button class="secondaire petit" id="fiche">Fiche</button>
     </div>
@@ -152,8 +155,8 @@ export const panneauSac = (p: Partie, message?: string) => {
               const bouton =
                 o.type === 'arme' || o.type === 'armure'
                   ? `<button class="secondaire petit equiper" data-id="${id}">Équiper</button>`
-                  : o.type === 'potion' && o.soin
-                    ? `<button class="secondaire petit boire" data-id="${id}">Boire</button>`
+                  : o.soin
+                    ? `<button class="secondaire petit boire" data-id="${id}">${o.type === 'potion' ? 'Boire' : 'Manger'}</button>`
                     : '';
               return ligneObjet(p, o, `<span class="pastille">×${nb}</span> ${bouton}`);
             })
@@ -186,8 +189,9 @@ export const lierSac = (app: HTMLElement, p: Partie, message: (html: string) => 
   sur('.boire', (el) => {
     const r = boirePotion(p, el.dataset.id!);
     if (typeof r === 'string') return message(echapper(r));
-    noter(p, `boit une potion et récupère ${r.rendu} PV.`);
-    message(`${r.des.map((d) => de(d)).join('')} Glou glou… Tu récupères <b>${r.rendu} PV</b>.`);
+    const potion = objet(el.dataset.id!).type === 'potion';
+    noter(p, `${potion ? 'boit une potion' : `mange : ${objet(el.dataset.id!).nom},`} et récupère ${r.rendu} PV.`);
+    message(`${r.des.map((d) => de(d)).join('')} ${potion ? 'Glou glou…' : 'Miam.'} Tu récupères <b>${r.rendu} PV</b>.`);
   });
 };
 
