@@ -85,6 +85,7 @@ export const panneauJournalQuetes = (p: Partie): string => {
     <h2>Quêtes</h2>
     ${enCours.length ? `<ul class="journal-quetes">${enCours.map(ligne).join('')}</ul>` : '<p class="note">Aucune quête en cours. Les repères ❗ sur les plans montrent où l\'on propose du travail.</p>'}
     ${finies.length ? `<h3>Terminées</h3><ul class="journal-quetes">${finies.map((q) => `<li>✔ ${echapper(q.titre)} <span class="note">(${echapper(q.recompense.texte)})</span></li>`).join('')}</ul>` : ''}
+    <p><button class="secondaire" data-proposer-quete>📜 Proposer une quête</button> <span class="note">Une idée de quête ? Elle sera lue par le MJ.</span></p>
     ${p.sac.some((id) => objet(id).quete) ? `<p class="note">Objets de quête dans le sac : ${p.sac.filter((id) => objet(id).quete).map((id) => echapper(objet(id).nom)).join(', ')}.</p>` : ''}
   </div>`;
 };

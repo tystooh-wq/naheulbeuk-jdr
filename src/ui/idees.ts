@@ -207,13 +207,33 @@ const NOM_TYPE: Record<TypeContexte, string> = {
   rencontre: 'Rencontres',
   combat: 'Combats',
   lieu: 'Lieux',
-  proposition: 'Rencontres et événements proposés',
+  proposition: 'Rencontres, événements et quêtes proposés',
   autre: 'Divers',
 };
 
 const STATUT: Record<Idee['statut'], string> = { proposee: 'proposée', validee: 'validée', refusee: 'refusée' };
 
 const OU_PROPOSITION = ['Campagne paisible (Valtordu, Loubet)', 'Terres sauvages', 'Forêt', 'En ville', 'Dans un donjon', "N'importe où"];
+
+/** Proposer une quête : qui la donne, ce qu'il faut faire étape par étape, comment elle finit. */
+const saisieQuete = () => {
+  ouvrir(`<h2>Proposer une quête</h2>
+    <p class="sous-titre">Vos idées nous intéressent, alimentez l'algorithme !</p>
+    <form id="proposition" class="valider-idee">
+      <label>Titre <input name="titre" maxlength="80" required placeholder="Le mouton disparu de la mère Michu" /></label>
+      <label>Qui la donne, et où <input name="ou" maxlength="120" required placeholder="La mère Michu, à la ferme près de Valtordu" /></label>
+      <label>Ce qu'il faut faire, une étape par ligne <textarea name="texte" rows="5" maxlength="2000" required placeholder="Chercher des traces dans la forêt d'Ouien (épreuve d'Intelligence)&#10;Affronter le loup qui garde le mouton&#10;Ramener le mouton à la ferme"></textarea></label>
+      <label>Comment elle finit, et la récompense <textarea name="suite" rows="3" maxlength="1500" placeholder="La mère Michu pleure de joie : 20 PO et un pull de Valtordu."></textarea></label>
+      <label>Niveau conseillé <input name="niveau" type="number" min="1" max="20" value="1" /></label>
+      <p class="actions-lieu"><button type="submit">Envoyer la quête</button><button type="button" class="secondaire" data-fermer-idees>Annuler</button></p>
+      <p id="idee-retour" class="note" aria-live="polite"></p>
+    </form>`);
+  envoyerProposition((d) => ({
+    genre: 'Quête',
+    ou: `${String(d.get('ou') ?? '').trim()}, niveau ${d.get('niveau')}`,
+    etiquette: 'Étapes',
+  }));
+};
 
 /** Proposer une nouvelle rencontre ou un nouvel événement, pas seulement réagir à ceux du jeu. */
 const saisieProposition = () => {
@@ -228,11 +248,17 @@ const saisieProposition = () => {
       <p class="actions-lieu"><button type="submit">Envoyer la proposition</button><button type="button" class="secondaire" data-fermer-idees>Annuler</button></p>
       <p id="idee-retour" class="note" aria-live="polite"></p>
     </form>`);
+  envoyerProposition((d) => ({ genre: String(d.get('genre')), ou: String(d.get('ou')), etiquette: '' }));
+};
+
+/** Enregistre le formulaire de proposition affiché (rencontre, événement ou quête). */
+const envoyerProposition = (lire: (d: FormData) => { genre: string; ou: string; etiquette: string }) => {
   const f = fenetre.querySelector<HTMLFormElement>('#proposition')!;
   f.querySelector<HTMLInputElement>('[name=titre]')!.focus();
   f.addEventListener('submit', async (e) => {
     e.preventDefault();
     const d = new FormData(f);
+    const { genre, ou, etiquette } = lire(d);
     const titre = String(d.get('titre') ?? '').trim();
     const texte = String(d.get('texte') ?? '').trim();
     const suite = String(d.get('suite') ?? '').trim();
@@ -242,9 +268,10 @@ const saisieProposition = () => {
       return;
     }
     f.querySelector<HTMLButtonElement>('button[type=submit]')!.disabled = true;
+    const corps = etiquette ? `${etiquette} :\n${texte}` : texte;
     const res = await enregistrer({
-      contexte: { type: 'proposition', id: `${d.get('genre')}|${d.get('ou')}`, titre: `${d.get('genre')} : ${titre} (${d.get('ou')})` },
-      texte: suite ? `${texte}\n\nChoix : ${suite}` : texte,
+      contexte: { type: 'proposition', id: `${genre}|${ou}`, titre: `${genre} : ${titre} (${ou})` },
+      texte: suite ? `${corps}\n\n${genre === 'Quête' ? 'Fin et récompense' : 'Choix'} : ${suite}` : corps,
       date: new Date().toISOString(),
       statut: 'proposee',
     });
@@ -279,7 +306,7 @@ const liste = () => {
     <p class="note">${idees.length} idée${idees.length > 1 ? 's' : ''}. ${
       db ? 'Elles sont partagées entre les joueurs de cette page.' : 'Pas de partage disponible ici : seules les idées de ce navigateur apparaissent.'
     } ${peutValider ? 'Tu peux les valider : précise l\'épreuve et les résultats, et elles deviennent des choix jouables.' : ''}</p>
-    <p><button id="proposer">✍ Proposer une rencontre ou un événement</button></p>
+    <p class="actions-lieu"><button id="proposer">✍ Proposer une rencontre ou un événement</button><button id="proposer-quete">📜 Proposer une quête</button></p>
     ${
       idees.length
         ? [...parType]
@@ -333,6 +360,7 @@ const liste = () => {
     }),
   );
   fenetre.querySelector('#proposer')?.addEventListener('click', saisieProposition);
+  fenetre.querySelector('#proposer-quete')?.addEventListener('click', saisieQuete);
   fenetre.querySelectorAll<HTMLElement>('[data-retenir]').forEach((b) =>
     b.addEventListener('click', async () => {
       const i = toutesIdees().find((x) => x.id === b.dataset.retenir);
@@ -362,6 +390,7 @@ export const installerIdees = () => {
   document.addEventListener('keydown', (e) => e.key === 'Escape' && !fenetre.hidden && fermer());
   // Un seul écouteur pour tous les boutons « J'aurais fait autrement », même ceux dessinés plus tard.
   document.addEventListener('click', (e) => {
+    if ((e.target as HTMLElement).closest('[data-proposer-quete]')) return saisieQuete();
     const b = (e.target as HTMLElement).closest<HTMLElement>('[data-autrement]');
     if (!b) return;
     e.stopPropagation();
