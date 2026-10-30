@@ -22,6 +22,8 @@ import {
   type Partie,
 } from '../rules/partie';
 import { lancer } from '../rules/des';
+import { caracMagie, ea, eaMax, soinLeger, sortsConnus } from '../rules/magie';
+import { valeursTir } from '../rules/tir';
 import { animerDes, de, echapper } from './outils';
 
 // Éléments partagés par la ville et la carte du monde : bandeau du héros, sac, journal, vitesse.
@@ -79,6 +81,7 @@ export const bandeau = (p: Partie, vue: string, nomCarte: string) => {
     <div class="jauges">
       <span title="Énergie vitale">❤ <b>${p.ev}</b>/${evMax(p)}</span>
       <span title="Bourse (1 PO = 100 PA = 1000 PC)">● <b>${formatOr(p.or)}</b></span>
+      ${eaMax(p) ? `<span title="Énergie astrale (points astraux)">✧ <b>${ea(p)}</b>/${eaMax(p)} PA</span>` : ''}
       <span title="Points de destin">✦ <b>${p.perso.destin}</b></span>
       <span title="Niveau et expérience (prochain niveau à ${PALIERS_XP[niveau(p)] ?? '—'} XP)">★ niv. <b>${niveau(p)}</b> · ${p.xp ?? 0} XP</span>
       ${niveauEnAttente(p) ? `<button class="petit" id="monter-niveau">⬆ Passer niveau ${niveau(p) + 1} !</button>` : ''}
@@ -125,6 +128,7 @@ export const ligneObjet = (p: Partie, o: Objet, droite: string) => {
 
 export const panneauSac = (p: Partie, message?: string) => {
   const v = valeursCombat(p);
+  const t = valeursTir(p);
   const emplacement = (titre: string, cle: CleEquipement) => {
     const id = p.equipe[cle];
     if (!id && cle !== 'arme' && cle !== 'armure') return '';
@@ -143,7 +147,22 @@ export const panneauSac = (p: Partie, message?: string) => {
       <div><b>${echapper(v.degats)}</b><span>Dégâts</span></div>
       <div><b>${v.pr}</b><span>Protection</span></div>
       <div><b>${v.cha}</b><span>Charisme</span></div>
+      ${t ? `<div><b>${t.ad}</b><span>Tir (AD)</span></div>` : ''}
+      ${eaMax(p) ? `<div><b>${ea(p)}/${eaMax(p)}</b><span>Énergie astrale</span></div>` : ''}
     </div>
+    ${
+      sortsConnus(p).length
+        ? `<h3>Sorts connus</h3><ul class="sorts">${sortsConnus(p)
+            .map(
+              (s) =>
+                `<li><b>${echapper(s.nom)}</b> <span class="note">(${echapper(s.ecole)}, niveau ${s.niveau})</span><br /><span class="note">${echapper(s.description)}</span>${
+                  s.soin ? ` <button class="secondaire petit" id="soin-magique">✨ Se soigner</button>` : ''
+                }</li>`,
+            )
+            .join('')}</ul>
+           <p class="note">MagiePhys ${caracMagie(p, 'MagiePhys')} · MagiePsy ${caracMagie(p, 'MagiePsy')}. Spécialité : magie de combat (choix provisoire, les autres écoles viendront).</p>`
+        : ''
+    }
     ${EMPLACEMENTS.map(([cle, titre]) => emplacement(cle === 'armure' && p.equipe.armure && objet(p.equipe.armure).emplacement === 'complete' ? 'Armure complète' : titre, cle)).join('')}
     <h3 style="margin-top:16px">Dans le sac</h3>
     ${
@@ -184,6 +203,12 @@ export const lierSac = (app: HTMLElement, p: Partie, message: (html: string) => 
   sur('.retirer', (el) => {
     desequiper(p, el.dataset.emplacement as CleEquipement);
     message('Rangé dans le sac.');
+  });
+  sur('#soin-magique', () => {
+    const r = soinLeger(p);
+    if (typeof r === 'string') return message(echapper(r));
+    noter(p, `se soigne par magie (+${r.rendu} PV).`);
+    message(`${de(r.de)} Tu poses la main sur ta blessure et murmures la formule. <b>+${r.rendu} PV</b> pour ${r.rendu} PA.`);
   });
   sur('#monter-niveau', () => ouvrirNiveau(p, (texte) => message(texte)));
   sur('.boire', (el) => {

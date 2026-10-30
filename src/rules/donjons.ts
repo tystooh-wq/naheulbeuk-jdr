@@ -308,7 +308,7 @@ export const fouiller = (p: Partie): Salle['tresor'] | null => {
 export const combatSalle = (s: Salle): Rencontre | null => {
   if (s.contenu?.type !== 'combat') return null;
   const [premier, ...autres] = s.contenu.ennemis;
-  return { ligne: premier.ligne, nombre: premier.nombre, d20: 0, table: s.nom, avec: autres };
+  return { ligne: premier.ligne, nombre: premier.nombre, d20: 0, table: s.nom, avec: autres, approche: 1 };
 };
 
 export const termine = (e: EtatDonjon) => e.reglees.includes(donjon(e.id).finale);

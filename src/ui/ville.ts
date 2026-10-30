@@ -249,6 +249,7 @@ export const ecranVille = (app: HTMLElement, p: Partie, sorties: SortiesVille, a
         <ul>
           <li><b>Arme :</b> ${p.equipe.arme ? echapper(objet(p.equipe.arme).nom) : 'aucune'}</li>
           <li><b>Armure :</b> ${p.equipe.armure ? echapper(objet(p.equipe.armure).nom) : 'aucune'}</li>
+          ${p.equipe.distance ? `<li><b>Arme à distance :</b> ${echapper(objet(p.equipe.distance).nom)}</li>` : ''}
           <li><b>Dans le sac :</b> ${echapper(p.sac.map((id) => objet(id).nom).join(', '))}</li>
         </ul>
         <p>Attaque ${v.at}, Parade ${v.prd}, dégâts ${echapper(v.degats)}, protection ${v.pr}.</p>

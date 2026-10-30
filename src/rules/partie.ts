@@ -17,6 +17,8 @@ export interface Equipement {
   mains?: string;
   pieds?: string;
   bouclier?: string;
+  /** Arme à distance, portée en plus de l'arme de contact. */
+  distance?: string;
 }
 
 export type CleEquipement = keyof Equipement;
@@ -30,10 +32,12 @@ export const EMPLACEMENTS: [CleEquipement, string][] = [
   ['mains', 'Mains'],
   ['pieds', 'Pieds'],
   ['bouclier', 'Bouclier'],
+  ['distance', 'Arme à distance'],
 ];
 
 /** L'emplacement où va un objet, ou null s'il ne s'équipe pas. */
 export const emplacementDe = (o: Objet): CleEquipement | null => {
+  if (o.tir) return 'distance';
   if (o.type === 'arme') return 'arme';
   if (o.type !== 'armure') return null;
   const e = o.emplacement ?? 'torse';
@@ -90,6 +94,10 @@ export interface Partie {
   quetes: Record<string, EtatQuete>;
   /** Étape en cours de chaque quête acceptée. */
   etapesQuetes?: Record<string, number>;
+  /** Énergie astrale (mages) ; absente : réservoir plein. */
+  ea?: number;
+  /** Heures (jour × 24 + heure) des derniers soins magiques, pour la limite de deux par heure. */
+  soinsMagiques?: number[];
   /** Donjon en cours d'exploration. */
   donjon?: EtatDonjon;
   journal: string[];
@@ -127,8 +135,14 @@ export const equipementDepart = (perso: Personnage): { sac: string[]; equipe: Eq
   if (m === 'menestrel') extras.push('instrument');
   if (classe !== 'pauvre') extras.push('torche', 'corde');
   if (classe === 'riche') extras.push('potion-soin');
+  // Ceux qui savent tirer, et en ont les moyens, partent avec un arc court et dix flèches.
+  const tireur = aCompetence(fiche, 'Tirer correctement') && m !== 'mage' && m !== 'menestrel' && classe !== 'pauvre';
+  if (tireur) extras.push(...Array.from({ length: 10 }, () => 'fleche-de-base'));
 
-  return { sac: [...base, ...extras], equipe: { arme: peutManier(fiche, objet(arme)) === null ? arme : 'gourdin', armure } };
+  return {
+    sac: [...base, ...extras],
+    equipe: { arme: peutManier(fiche, objet(arme)) === null ? arme : 'gourdin', armure, distance: tireur ? 'arc-court-de-qualite-correcte' : undefined },
+  };
 };
 
 export const nouvellePartie = (perso: Personnage): Partie => {
@@ -256,7 +270,9 @@ export const prixVente = (o: Objet, taux: number) => Math.max(0.001, arrondirOr(
 export const acheter = (p: Partie, id: string, prix: number): string | null => {
   if (p.or < prix) return "Tu n'as pas assez d'or.";
   p.or = arrondirOr(p.or - prix);
-  p.sac.push(id);
+  const lot = objet(id).lot;
+  if (lot) p.sac.push(...Array.from({ length: lot.nombre }, () => lot.id));
+  else p.sac.push(id);
   return null;
 };
 
@@ -287,6 +303,7 @@ export const equiper = (p: Partie, id: string): string | null => {
     .reduce((s, x) => s + (x.type === 'armure' ? (x.pr ?? 0) : 0), 0);
   const refus = o.type === 'arme' ? peutManier(f, o) : peutPorter(f, o, prAilleurs);
   if (refus) return refus;
+  if (cle === 'distance' && f.metier.id === 'mage') return 'Un mage ne s\'encombre pas d\'arc : il a ses sorts.';
   if (cle === 'bouclier' && p.equipe.arme && objet(p.equipe.arme).mains === 2) return 'Impossible de tenir un bouclier avec une arme à deux mains.';
   if (cle === 'arme' && o.mains === 2 && p.equipe.bouclier) return "Il faut deux mains pour cette arme : retire d'abord ton bouclier.";
   const i = p.sac.indexOf(id);
@@ -344,7 +361,17 @@ export const boirePotion = (p: Partie, id: string, rng?: Rng): { rendu: number; 
 export const dormir = (p: Partie, confort: 'mauvais' | 'normal' | 'excellent'): number => {
   if (p.heure >= 6) p.jour += 1;
   p.heure = 7;
+  reposAstral(p, 8, confort);
   return soigner(p, { mauvais: 2, normal: 4, excellent: 8 }[confort]);
+};
+
+/** L'énergie astrale revient au repos : 2, 3 ou 4 PA par heure selon le confort (règles V4, 5.2). */
+export const reposAstral = (p: Partie, heures: number, confort: 'mauvais' | 'normal' | 'excellent') => {
+  const max = calculerFiche(p.perso).ea;
+  if (!max) return 0;
+  const avant = p.ea ?? max;
+  p.ea = Math.min(max, avant + heures * { mauvais: 2, normal: 3, excellent: 4 }[confort]);
+  return p.ea - avant;
 };
 
 /** Fait avancer l'horloge, en changeant de jour à minuit. */
@@ -387,5 +414,6 @@ export const bivouaquer = (p: Partie): { rendu: number; confort: 'mauvais' | 'no
   if (!mange) points = Math.floor(points / 2);
   if (p.heure >= 6) p.jour += 1;
   p.heure = 6;
+  reposAstral(p, 8, confort);
   return { rendu: soigner(p, points), confort, mange, matelas };
 };

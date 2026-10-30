@@ -63,6 +63,8 @@ export interface Rencontre {
   d20: number;
   /** Nom de la table tirée (pour l'affichage). */
   table?: string;
+  /** Assauts d'approche avant le contact : le temps de tirer ou de lancer des sorts (2 par défaut). */
+  approche?: number;
   /** Autres adversaires du même combat (un chef et ses sbires, dans un donjon). */
   avec?: { ligne: LigneRencontre; nombre: number }[];
 }
@@ -86,7 +88,8 @@ export const tirerNombre = (expr: string, rng?: Rng): number => {
 export const tirerRencontre = (rng?: Rng, zone: Zone = 'terres-sauvages', niveau = 1): Rencontre => {
   const d20 = lancer(20, rng);
   const ligne = TABLES[zone].ligne(d20);
-  return { ligne, d20, table: TABLES[zone].nom, nombre: Math.min(tirerNombre(ligne.nombre, rng), plafondGroupe(ligne, niveau)) };
+  // On voit venir l'ennemi de plus loin en terrain découvert qu'en forêt.
+  return { ligne, d20, table: TABLES[zone].nom, approche: zone === 'foret' ? 2 : 3, nombre: Math.min(tirerNombre(ligne.nombre, rng), plafondGroupe(ligne, niveau)) };
 };
 
 /** Le nom d'un seul membre de la bande : « coyotes affamés » → « Coyote affamé » (l'Aurochs, seul, reste un Aurochs). */

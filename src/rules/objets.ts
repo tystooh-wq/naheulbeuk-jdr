@@ -44,6 +44,29 @@ export interface Objet {
   catalogueSeul?: boolean;
   /** Objet de quête : ne se vend pas, ne se jette pas. */
   quete?: boolean;
+  /** Arme à distance (règles V4, 8.11 à 8.14). */
+  tir?: Tir;
+  /** Projectile (flèche, carreau) : se consomme au tir. */
+  munition?: Munition;
+  /** Bonus aux dégâts du projectile (« Degâts +2 »). */
+  bonusDegats?: number;
+  /** Modificateur d'Adresse au tir (colonne d'effets « AD-2* »). */
+  modTir?: number;
+  /** Vendu par lot : l'achat met `nombre` exemplaires de `id` dans le sac. */
+  lot?: { id: string; nombre: number };
+}
+
+export type Munition = 'fleche' | 'carreau';
+
+export interface Tir {
+  /** Assauts avant de pouvoir tirer à nouveau (tableau « Armes à distance usuelles »). */
+  recharge: number;
+  /** Ce qu'il faut dans le sac pour tirer ; sinon, c'est l'arme elle-même qu'on lance. */
+  munition?: Munition;
+  /** Arme de jet : lancée, elle reste par terre jusqu'à la fin du combat. */
+  lancee?: boolean;
+  /** Arme mécanique : pas de bonus de Force aux dégâts, +1 AD avec « Tirer correctement ». */
+  mecanique?: boolean;
 }
 
 export const OBJETS: Objet[] = [
@@ -101,6 +124,9 @@ export const OBJETS: Objet[] = [
   { id: 'boudin-oignons', nom: 'Boudin aux oignons (petit)', type: 'materiel', prix: 2, soin: '2', source: 'Valtordu pour le MJ', categorie: 'Denrées locales', description: 'Rend 2 PV. Haleine garantie.' },
   { id: 'boudin-special', nom: 'Boudin « spécial » (petit)', type: 'materiel', prix: 3, soin: '2', source: 'Valtordu pour le MJ', categorie: 'Denrées locales', description: 'La recette est secrète. Rend 2 PV.' },
   { id: 'pull-valtordu', nom: 'Authentique pull de Valtordu', type: 'armure', prix: 40, pr: 1, mods: { CHA: -1, AD: -1 }, emplacement: 'torse', estime: true, source: 'Valtordu pour le MJ', categorie: 'Denrées locales', description: "Épais, chaud, lourd et affreux (sauf pour les vieilles dames). Immunité totale contre le rhume des pierres. La protection de 1 est une estimation." },
+  // --- Projectiles par lots (prix unitaires du tableau d'armement) -----------------------------
+  { id: 'fleches-lot', nom: 'Flèches de base (lot de 10)', type: 'materiel', prix: 5, lot: { id: 'fleche-de-base', nombre: 10 }, description: 'Dix flèches de base dans un carquois de fortune (0,5 PO pièce).' },
+  { id: 'carreaux-lot', nom: 'Carreaux de base (lot de 10)', type: 'materiel', prix: 10, lot: { id: 'carreau-de-base', nombre: 10 }, description: "Dix carreaux d'arbalète de base (1 PO pièce)." },
   // --- Objets de quête ------------------------------------------------------------------------
   { id: 'colis-ozonuc', nom: "Colis d'herbes d'Archibald", type: 'materiel', prix: 0, quete: true, estime: true, description: 'À porter à la rebouteuse de Loubet. Ne pas manger.' },
   { id: 'lettre-loubet', nom: 'Lettre cachetée de la rebouteuse', type: 'materiel', prix: 0, quete: true, estime: true, description: 'Pour Archibald Ozonuc, à Valtordu. Elle sent la lavande.' },
@@ -199,6 +225,18 @@ const DOUBLONS: Record<string, string> = {
 
 const MODIFS: Modif[] = ['AT', 'PRD', 'COU', 'CHA', 'AD'];
 
+/** Rechargement des armes à distance par famille (règles V4, tableau 8.12). */
+const TIRS: [RegExp, Tir][] = [
+  [/^Arcs/, { recharge: 3, munition: 'fleche' }],
+  [/^Arbalètes/, { recharge: 6, munition: 'carreau', mecanique: true }],
+  [/^Haches de jet/, { recharge: 2, lancee: true }],
+  [/^Javelots/, { recharge: 2, lancee: true }],
+  [/^Sarbacane/, { recharge: 3 }],
+  [/^Lance-pierre/, { recharge: 3 }],
+  [/^Boomerang/, { recharge: 2 }],
+  [/^Flèches pour arc|^Carreaux arbalète/, { recharge: 0 }],
+];
+
 /**
  * Lit les modificateurs permanents d'une colonne d'effets (« AT-2 PRD-4 CHA-1 · COU+1 »). On écarte ceux
  * qui ne valent que dans un cas précis : au jet (« AD+1* »), entre parenthèses (« AD+1 (discrétion) »)
@@ -229,6 +267,20 @@ const depuisCatalogue = (l: LigneCatalogue): Objet => {
     rupture: l.rupture ?? undefined,
     catalogueSeul: true,
   };
+  const tir = TIRS.find(([motif]) => motif.test(l.categorie) || motif.test(l.nom));
+  if (l.type === 'arme' && tir && !/Flèches|Carreaux/.test(l.categorie)) {
+    const t = { ...tir[1] };
+    if (/Temps recharg\. doublé/.test(l.effets ?? '')) t.recharge *= 2;
+    o.tir = t;
+    o.modTir = Number(/AD([+-]\d+)\*/.exec(l.effets ?? '')?.[1] ?? 0) || undefined;
+  }
+  if (/Flèches pour arc|Carreaux arbalète/.test(l.categorie)) {
+    o.munition = /Flèches/.test(l.categorie) ? 'fleche' : 'carreau';
+    o.modTir = Number(/AD([+-]\d+)\*/.exec(l.effets ?? '')?.[1] ?? 0) || undefined;
+    o.bonusDegats = Number(/Deg[âa]ts \+(\d+)(?!D)/.exec(l.effets ?? '')?.[1] ?? 0) || undefined;
+    o.type = 'materiel';
+    return o;
+  }
   if (l.type === 'arme') {
     // « 1D+2/1D+3* » : la seconde valeur est pour le jet ; « 2D+6 (feu) » : on garde les dés.
     o.degats = (l.degats ?? '1D').split(/[/ ]/)[0].replace('1+poison', '1');

@@ -40,6 +40,8 @@ export interface Combattant {
   rate: number;
   /** A déjà paré ou esquivé pendant cet assaut. */
   defendu: boolean;
+  /** Ennemi armé d'un arc ou d'une arbalète : il tire pendant l'approche. */
+  tireur?: { ad: number; degats: string };
 }
 
 export type IssueJet = 'critique' | 'reussi' | 'rate' | 'maladresse';
@@ -63,6 +65,10 @@ export interface Action {
   degats?: { des: number[]; total: number; pr: number; blessure: number; poison?: number[] };
   /** Conséquences des critiques et maladresses, en clair. */
   effets: string[];
+  /** Un tir (arc, arbalète, arme de jet) plutôt qu'un coup au contact. */
+  tir?: boolean;
+  /** Les dégâts d'un sort. */
+  sort?: boolean;
 }
 
 export interface Combat {
@@ -73,6 +79,14 @@ export interface Combat {
   assaut: number;
   journal: string[];
   fin?: 'victoire' | 'defaite' | 'fuite';
+  /** Assauts avant que les ennemis n'arrivent au contact : on peut tirer ou lancer des sorts. */
+  distance: number;
+  /** Assauts avant que l'arme à distance du héros soit rechargée. */
+  recharge: number;
+  /** L'arme de jet du héros est partie (on la ramasse après une victoire). */
+  armeLancee?: boolean;
+  /** Projectiles tirés par le héros (identifiants d'objets). */
+  projectiles: string[];
 }
 
 export const AU_CONTACT = 3;
@@ -111,6 +125,14 @@ export const creerHeros = (p: Partie): Combattant => {
   };
 };
 
+/** « Armé d'un arc et d'une dague - AD 11 », « Arc : 1D+3, AD : 9 » : un tireur, avec son Adresse et ses dégâts au tir. */
+const tireurDe = (notes: string, degats: string, ad: number) => {
+  if (!/\barc\b|arbalète/i.test(notes)) return undefined;
+  const d = /Arc\s*:\s*(\d*D[+-]?\d*)/i.exec(notes)?.[1];
+  const a = Number(/AD\s*:?\s*(\d+)/.exec(notes)?.[1] ?? ad);
+  return { ad: a, degats: d ?? degats.replace('*', '') };
+};
+
 export const creerEnnemis = (r: Rencontre): Combattant[] => {
   const groupes = [{ ligne: r.ligne, nombre: r.nombre }, ...(r.avec ?? [])];
   const tous = groupes.flatMap(({ ligne: l, nombre }) => {
@@ -128,8 +150,9 @@ export const creerEnnemis = (r: Rencontre): Combattant[] => {
       ev: l.ev,
       evMax: l.ev,
       xp: l.xp,
-      imparable: /parade impossible/i.test(l.notes),
+        imparable: /parade impossible/i.test(l.notes),
       poison: /poison/i.test(l.notes),
+      tireur: tireurDe(l.notes, l.degats, ad),
       rate: 0,
       defendu: false,
     }));
@@ -148,7 +171,16 @@ export const initiative = (cs: Combattant[], noises = false): string[] =>
 
 export const creerCombat = (p: Partie, r: Rencontre): Combat => {
   const combattants = [creerHeros(p), ...creerEnnemis(r)];
-  const c: Combat = { combattants, ordre: initiative(combattants, aCompetence(p, 'Chercher des noises')), tour: 0, assaut: 1, journal: [] };
+  const c: Combat = {
+    combattants,
+    ordre: initiative(combattants, aCompetence(p, 'Chercher des noises')),
+    tour: 0,
+    assaut: 1,
+    journal: [],
+    distance: r.approche ?? 2,
+    recharge: 0,
+    projectiles: [],
+  };
   return c;
 };
 
@@ -283,7 +315,68 @@ export const tourSuivant = (c: Combat) => {
     c.tour = 0;
     c.assaut += 1;
     c.combattants.forEach((x) => (x.defendu = false));
+    c.recharge = Math.max(0, c.recharge - 1);
+    if (c.distance > 0) {
+      c.distance -= 1;
+      c.journal.push(c.distance ? `Les ennemis approchent : contact dans ${c.distance} assaut${c.distance > 1 ? 's' : ''}.` : 'Les ennemis arrivent au contact !');
+    }
   }
+};
+
+/** Le héros fonce au contact : fini les tirs, place au corps à corps. */
+export const charger = (c: Combat) => {
+  c.distance = 0;
+  c.journal.push(`${heros(c).nom} charge !`);
+};
+
+/**
+ * Un tir (règles V4, 8.11) : épreuve d'Adresse du tireur. Pas de parade possible sans bouclier ;
+ * critique : l'armure est ignorée, comme au contact ; maladresse : table de maladresse du jeu.
+ */
+export const tirer = (
+  c: Combat,
+  idTireur: string,
+  idCible: string,
+  de: number,
+  tir: { ad: number; degats: string },
+  options: { rng?: Rng; desDegats?: number[] } = {},
+): Action => {
+  const a = combattant(c, idTireur);
+  const cible = combattant(c, idCible);
+  const action: Action = { attaquant: a.id, cible: cible.id, de, valeur: tir.ad, issue: jet(de, tir.ad), effets: [], tir: true };
+  if (action.issue === 'rate') return action;
+  if (action.issue === 'maladresse') {
+    action.effets.push(maladresse(a, options.rng));
+    return action;
+  }
+  const critique = action.issue === 'critique';
+  action.sansDefense = critique ? 'tir critique, en plein dans le mille' : 'on ne pare pas un projectile sans bouclier';
+  const j = options.desDegats ? { des: options.desDegats, total: 0 } : lancerExpression(tir.degats, options.rng);
+  if (options.desDegats) j.total = Math.max(0, options.desDegats.reduce((s, x) => s + x, 0) + Number(/[+-]\d+$/.exec(tir.degats)?.[0] ?? 0));
+  const pr = critique ? 0 : cible.pr;
+  const blessure = Math.max(0, j.total - pr);
+  action.degats = { des: j.des, total: j.total, pr, blessure };
+  cible.ev -= blessure;
+  return action;
+};
+
+/** Dégâts d'un sort sur une cible : au D6, doublés sur une réussite critique, moins l'armure. */
+export const toucherParSort = (c: Combat, idCible: string, degats: string, critique: boolean, rng?: Rng): Action => {
+  const cible = combattant(c, idCible);
+  const j = lancerExpression(degats, rng);
+  const total = critique ? j.total * 2 : j.total;
+  const blessure = Math.max(0, total - cible.pr);
+  cible.ev -= blessure;
+  return {
+    attaquant: 'heros',
+    cible: idCible,
+    de: 0,
+    valeur: 0,
+    issue: critique ? 'critique' : 'reussi',
+    effets: [],
+    sort: true,
+    degats: { des: j.des, total, pr: cible.pr, blessure },
+  };
 };
 
 /** Un monstre très blessé (3 PV ou moins) panique : 1 à 3 sur le D6, il prend la fuite. */

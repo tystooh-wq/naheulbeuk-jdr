@@ -47,7 +47,7 @@ export interface Quete {
   niveau?: number;
 }
 
-const rencontre = (ligne: LigneRencontre, nombre: number): Rencontre => ({ ligne, nombre, d20: ligne.d20 });
+const rencontre = (ligne: LigneRencontre, nombre: number, approche = 1): Rencontre => ({ ligne, nombre, d20: ligne.d20, approche });
 
 export const QUETES: Quete[] = [
   // --- Valtordu ------------------------------------------------------------------------------------
@@ -295,7 +295,7 @@ export const tenterEtape = (p: Partie, id: string, de: number): IssueEtape => {
 };
 
 /** Le combat d'une étape, prêt pour l'écran de combat. */
-export const combatEtape = (e: EtapeQuete): Rencontre | null => (e.combat ? rencontre(e.combat.ligne, e.combat.nombre) : null);
+export const combatEtape = (e: EtapeQuete): Rencontre | null => (e.combat ? rencontre(e.combat.ligne, e.combat.nombre, e.ou.startsWith('monde:') ? 2 : 1) : null);
 
 /** Finit l'étape « donjon » si le donjon terminé est celui qu'elle attend. */
 export const donjonTermine = (p: Partie, donjon: string): IssueEtape | null => {

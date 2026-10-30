@@ -128,7 +128,7 @@ export const LIEUX: Lieu[] = [
     description:
       "Une bonne armurerie, près du fort militaire. On y trouve des armes neuves et le surplus de l'armée de Waldorg, à peine utilisé.",
     boutique: {
-      stock: ['dague-base', 'dague-qualite', 'dague-recourbee', 'epee-correcte', 'epee-bonne', 'glaive-allonge', 'glaive-bleusaille', 'hache-correcte', 'hache-bleusaille', 'marteau-correct', 'lance-base', 'batarde', 'claymore-bleusaille', 'epee-2m-base', 'baton-sorcier', 'gambison-correct', 'plastron-cuir-bouilli', 'plastron-cuir-renforce', 'cotte-sans-manches', 'tenue-eclaireur', 'tenue-lourde'],
+      stock: ['dague-base', 'dague-qualite', 'dague-recourbee', 'epee-correcte', 'epee-bonne', 'glaive-allonge', 'glaive-bleusaille', 'hache-correcte', 'hache-bleusaille', 'marteau-correct', 'lance-base', 'batarde', 'claymore-bleusaille', 'epee-2m-base', 'baton-sorcier', 'gambison-correct', 'plastron-cuir-bouilli', 'plastron-cuir-renforce', 'cotte-sans-manches', 'tenue-eclaireur', 'tenue-lourde', 'arc-court-de-qualite-correcte', 'arc-long-de-qualite-correcte', 'arbalete-de-qualite-correcte', 'javelot-de-base', 'fleches-lot', 'carreaux-lot'],
       prix: 1,
       rachat: 0.5,
       rachete: ['arme', 'armure'],

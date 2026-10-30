@@ -104,7 +104,7 @@ export const LIEUX_VALTORDU: Lieu[] = [
     description:
       "Ben, le jeune forgeron, grand et baraqué, a repris l'entreprise de son père. Il ferre surtout des chevaux, mais il a toujours quelques lames et des pièces d'armure pour les aventuriers de passage.",
     boutique: {
-      stock: ['dague-base', 'epee-correcte', 'hache-correcte', 'marteau-correct', 'lance-base', 'gambison-correct', 'veste-cuir', 'plastron-cuir'],
+      stock: ['dague-base', 'epee-correcte', 'hache-correcte', 'marteau-correct', 'lance-base', 'gambison-correct', 'veste-cuir', 'plastron-cuir', 'arc-court-de-basse-qualite', 'arc-court-de-qualite-correcte', 'javelot-de-base', 'fleches-lot'],
       prix: 1,
       rachat: 0.5,
       rachete: ['arme', 'armure'],

@@ -521,7 +521,7 @@ export const ecranMonde = (app: HTMLElement, p: Partie, s: Sorties) => {
   const installerBivouac = () => {
     const c = controler(terrainActuel(), true, undefined, !!p.voyage?.horsPiste, p, zoneEn(position()));
     if (c.type === 'rencontre') {
-      fenetre = { type: 'rencontre', r: tirerRencontre(undefined, zoneEn(position()), niveau(p)), nuit: true };
+      fenetre = { type: 'rencontre', r: { ...tirerRencontre(undefined, zoneEn(position()), niveau(p)), approche: 1 }, nuit: true };
       return render();
     }
     dormirDehors();

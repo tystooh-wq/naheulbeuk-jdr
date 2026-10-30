@@ -3,6 +3,7 @@ import {
   attaquer,
   auContact,
   butin,
+  charger,
   combattant,
   creerCombat,
   ennemis,
@@ -10,6 +11,8 @@ import {
   panique,
   peutSeDefendre,
   tenterFuite,
+  tirer,
+  toucherParSort,
   tourSuivant,
   valeurDefense,
   verifier,
@@ -23,6 +26,8 @@ import type { Fouille } from '../rules/butin';
 import { lancer } from '../rules/des';
 import { objet } from '../rules/objets';
 import { boirePotion, noter, type Partie } from '../rules/partie';
+import { consommerProjectile, valeursTir } from '../rules/tir';
+import { degatsSort, ea, eaMax, lancerSort, sort, sortsConnus, valeurSort, type Sort } from '../rules/magie';
 import type { Rencontre } from '../rules/rencontres';
 import { boutonsVitesse, lierVitesse, vitesse } from './commun';
 import { boutonAutrement } from './idees';
@@ -40,6 +45,8 @@ export interface BilanCombat {
   /** Objets ramassés sur les vaincus (déjà dans le sac). */
   objets: string[];
   fouilles: Fouille[];
+  /** Projectiles et arme de jet ramassés (ou perdus). */
+  recuperes?: string;
 }
 
 type Attente =
@@ -72,11 +79,12 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
 
   const carteCombattant = (x: Combattant) => {
     const pct = Math.max(0, Math.round((x.ev / x.evMax) * 100));
-    const cible = attente?.type === 'action' && x.camp === 'ennemi' && x.etat === 'actif';
+    const cible = attente?.type === 'action' && x.camp === 'ennemi' && x.etat === 'actif' && c.distance === 0;
     const statut = [
       x.etat === 'mort' ? 'à terre' : x.etat === 'fui' ? 'en fuite' : '',
       x.rate > 0 && x.etat === 'actif' ? 'déséquilibré' : '',
       x.defendu && x.etat === 'actif' ? 'a déjà paré' : '',
+      x.camp === 'ennemi' && x.etat === 'actif' && c.distance > 0 ? (x.tireur ? 'à distance, arc bandé' : 'approche') : '',
     ].filter(Boolean);
     const tag = cible ? 'button' : 'div';
     return `<${tag} class="combattant cote-${x.camp} etat-${x.etat} ${acteur(c).id === x.id && !c.fin ? 'son-tour' : ''} ${touche === x.id ? 'touche' : ''}" ${
@@ -84,7 +92,7 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
     }>
       <b>${echapper(x.nom)}</b>
       <span class="jauge-ev ${pct <= 30 ? 'basse' : ''}"><span style="width:${pct}%"></span></span>
-      <span>❤ ${Math.max(0, x.ev)}/${x.evMax}</span>
+      <span>❤ ${Math.max(0, x.ev)}/${x.evMax}${x.camp === 'heros' && eaMax(p) ? ` · ✦ ${ea(p)}/${eaMax(p)} PA` : ''}</span>
       <span class="note">AT ${x.at} · PRD ${x.sansParade ? '—' : x.prd} · PR ${x.pr} · ${echapper(x.degats)}</span>
       ${statut.length ? `<span class="statut">${statut.join(' · ')}</span>` : ''}
     </${tag}>`;
@@ -97,10 +105,40 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
     const x = h();
     if (attente.type === 'action') {
       const fuite = `<button class="secondaire" data-fuir>🎲 Prendre la fuite (AD ${x.ad})</button>`;
-      return `<div class="a-toi"><p><b>À toi !</b> Le temps s'arrête. Choisis ta cible et lance ton D20 : il faut faire <b>${x.at} ou moins</b>.</p>
-        <p class="actions-lieu">${auContact(c)
-          .map((e) => `<button data-cible="${e.id}">🎲 Attaquer ${echapper(e.nom)}</button>`)
-          .join('')}</p>
+      const cibles = auContact(c);
+      const t = valeursTir(p);
+      const tirImpossible = !t ? '' : c.armeLancee ? 'arme déjà lancée' : t.aSec ? 'plus de projectiles' : c.recharge > 0 ? `rechargement : encore ${c.recharge} assaut${c.recharge > 1 ? 's' : ''}` : '';
+      const tirs =
+        t && c.distance > 0
+          ? `<p class="actions-lieu">${cibles
+              .map((e) => `<button data-tirer="${e.id}" ${tirImpossible ? 'disabled' : ''}>🏹 Tirer sur ${echapper(e.nom)} (AD ${t.ad})</button>`)
+              .join('')}</p>
+             <p class="note">${echapper(t.arme.nom)} : dégâts ${echapper(t.degats)}${t.projectile ? `, ${echapper(t.projectile.nom)} (${p.sac.filter((id) => id === t.projectile!.id).length} dans le sac)` : ''}${
+              t.details.length ? ` · AD ${echapper(t.details.join(', '))}` : ''
+            }${tirImpossible ? ` · <b>${tirImpossible}</b>` : ''}</p>`
+          : '';
+      const sorts = sortsConnus(p).filter((s) => s.enCombat);
+      const boutonsSorts = sorts.length
+        ? `<p class="actions-lieu">${sorts
+            .flatMap((s) =>
+              s.zone
+                ? [`<button class="sort" data-sort="${s.id}" ${ea(p) < s.cout ? 'disabled' : ''}>✨ ${echapper(s.nom)} sur tous (${s.cout} PA, ${valeurSort(p, s)} ou moins)</button>`]
+                : cibles.map((e) => `<button class="sort" data-sort="${s.id}" data-cible-sort="${e.id}" ${ea(p) < s.cout ? 'disabled' : ''}>✨ ${echapper(s.nom)} sur ${echapper(e.nom)} (${s.cout} PA, ${valeurSort(p, s)} ou moins)</button>`),
+            )
+            .join('')}</p>`
+        : '';
+      const consigne =
+        c.distance > 0
+          ? `<p><b>À toi !</b> Les ennemis sont encore à distance : <b>contact dans ${c.distance} assaut${c.distance > 1 ? 's' : ''}</b>. ${(() => {
+              const s = `${t ? 'tire pendant qu\'ils approchent, ' : ''}${sorts.length ? 'lance un sort, ' : ''}attends-les de pied ferme ou charge.`;
+              return s[0].toUpperCase() + s.slice(1);
+            })()}</p>`
+          : `<p><b>À toi !</b> Le temps s'arrête. Choisis ta cible et lance ton D20 : il faut faire <b>${x.at} ou moins</b>.</p>`;
+      const melee =
+        c.distance > 0
+          ? `<p class="actions-lieu"><button class="secondaire" data-charger>⚔ Charger au contact</button><button class="secondaire" data-attendre>⏳ Attendre de pied ferme</button></p>`
+          : `<p class="actions-lieu">${cibles.map((e) => `<button data-cible="${e.id}">🎲 Attaquer ${echapper(e.nom)}</button>`).join('')}</p>`;
+      return `<div class="a-toi">${consigne}${tirs}${boutonsSorts}${melee}
         <p class="actions-lieu">${potions()
           .map((id) => `<button class="secondaire" data-potion="${id}">Boire : ${echapper(objet(id).nom)}</button>`)
           .join('')}${fuite}</p>
@@ -137,6 +175,7 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
               .join('')}</ul>${b.or ? `<p>En tout : <b>${b.or} PO</b>${b.objets.length ? ` et ${b.objets.length} objet${b.objets.length > 1 ? 's' : ''} dans ton sac` : ''}.</p>` : ''}`
           : ''
       }
+      ${b.recuperes ? `<p class="note">${echapper(b.recuperes.trim())}</p>` : ''}
       <p><button id="fin-combat">Continuer</button></p></div>`;
   };
 
@@ -198,12 +237,12 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
     });
 
   /** Joue une action à l'écran, étape par étape. `lances` : dés déjà vus par le joueur (attaque, défense). */
-  const montrer = async (a: Action, lances: { attaque?: boolean; defense?: boolean } = {}) => {
+  const montrer = async (a: Action, lances: { attaque?: boolean; defense?: boolean } = {}, expr?: string) => {
     const zone = app.querySelector<HTMLElement>('#action')!;
     const att = combattant(c, a.attaquant);
     const cib = combattant(c, a.cible);
-    zone.innerHTML = `<p class="qui"><b>${echapper(att.nom)}</b> attaque <b>${echapper(cib.nom)}</b></p>`;
-    let el = etape(zone, `Attaque ${de(a.de, 'anim')} contre ${a.valeur} : <span class="verdict ${a.issue}">${VERDICT[a.issue]}</span>`);
+    zone.innerHTML = `<p class="qui"><b>${echapper(att.nom)}</b> ${a.tir ? 'tire sur' : 'attaque'} <b>${echapper(cib.nom)}</b></p>`;
+    let el = etape(zone, `${a.tir ? 'Tir (AD)' : 'Attaque'} ${de(a.de, 'anim')} contre ${a.valeur} : <span class="verdict ${a.issue}">${VERDICT[a.issue]}</span>`);
     await reveler(el, 20, [a.de], !!lances.attaque);
     if (a.defense) {
       const d = a.defense;
@@ -215,7 +254,7 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
     }
     if (a.degats) {
       const g = a.degats;
-      if (att.camp === 'heros') await clicDegats(zone, att.degats);
+      if (att.camp === 'heros') await clicDegats(zone, expr ?? att.degats);
       el = etape(
         zone,
         `Dégâts ${g.des.map((x) => de(x, 'anim')).join('')} = ${g.total}${g.pr ? `, moins ${g.pr} d'armure` : a.issue === 'critique' ? ', armure ignorée' : ''} : <span class="verdict rate">−${g.blessure - (g.poison?.[0] ?? 0)} PV</span>`,
@@ -253,11 +292,22 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
     synchroniser();
     const fin = c.fin!;
     const xp = fin === 'defaite' ? 0 : xpGagnee(c);
+    // Après une victoire, on ramasse son arme de jet et la moitié des projectiles (les autres sont cassés ou perdus).
+    let recuperes = '';
+    if (fin === 'victoire') {
+      const garde = c.projectiles.slice(0, Math.floor(c.projectiles.length / 2));
+      p.sac.push(...garde);
+      if (c.projectiles.length) recuperes = `Tu récupères ${garde.length} projectile${garde.length > 1 ? 's' : ''} sur ${c.projectiles.length}.`;
+      if (c.armeLancee) recuperes += ' Tu ramasses ton arme de jet.';
+    } else if (c.armeLancee && p.equipe.distance) {
+      recuperes = `${objet(p.equipe.distance).nom} est restée sur le champ de bataille.`;
+      p.equipe.distance = undefined;
+    }
     const fouilles = fin === 'victoire' ? butin(c) : [];
     const or = fouilles.reduce((s, f) => s + f.or, 0);
     const objets = fouilles.flatMap((f) => (f.objet ? [f.objet] : []));
     p.sac.push(...objets);
-    const bilan: BilanCombat = { fin, xp, or, perdu: evDepart - p.ev, objets, fouilles };
+    const bilan: BilanCombat = { fin, xp, or, perdu: evDepart - p.ev, objets, fouilles, recuperes };
     p.xp = (p.xp ?? 0) + xp;
     p.or += or;
     const qui = r.nombre > 1 ? `${r.nombre} ${r.ligne.nom}` : r.ligne.nom;
@@ -301,6 +351,17 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
         render();
         await attendre(1000);
         tourSuivant(c);
+        continue;
+      }
+      // Pendant l'approche, les tireurs tirent et les autres avancent.
+      if (c.distance > 0) {
+        if (x.tireur) {
+          render();
+          await attendre(500);
+          const a = tirer(c, x.id, 'heros', lancer(20), x.tireur);
+          await montrer(a);
+          apres();
+        } else tourSuivant(c);
         continue;
       }
       // Tour d'un ennemi : il lance son attaque. S'il touche, le joueur choisit sa défense.
@@ -386,6 +447,85 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
       await montrer(a, { attaque: true, defense: true });
       apres();
       if (!c.fin) await attendre(600);
+      avancer();
+    });
+
+    sur('[data-tirer]', async (el) => {
+      if (attente?.type !== 'action') return (occupe = false);
+      const t = valeursTir(p);
+      if (!t) return (occupe = false);
+      attente = null;
+      const cible = el.dataset.tirer!;
+      const d = lancer(20);
+      await lancerJoueur(`Tu vises <b>${echapper(combattant(c, cible).nom)}</b>… il faut ${t.ad} ou moins.`, d);
+      if (t.projectile) {
+        consommerProjectile(p, t.projectile.id);
+        c.projectiles.push(t.projectile.id);
+      }
+      if (t.arme.tir?.lancee) c.armeLancee = true;
+      c.recharge = t.recharge;
+      const a = tirer(c, 'heros', cible, d, { ad: t.ad, degats: t.degats });
+      await montrer(a, { attaque: true }, t.degats);
+      apres();
+      if (!c.fin) await attendre(600);
+      avancer();
+    });
+
+    sur('[data-sort]', async (el) => {
+      if (attente?.type !== 'action') return (occupe = false);
+      const s: Sort = sort(el.dataset.sort!);
+      attente = null;
+      const d = lancer(20);
+      const zone = await lancerJoueur(`Tu incantes <b>${echapper(s.nom)}</b>… il faut ${valeurSort(p, s)} ou moins.`, d);
+      p.ev = h().ev;
+      const res = lancerSort(p, s, d);
+      h().ev = p.ev;
+      if (typeof res === 'string') {
+        etape(zone, echapper(res));
+        scene = zone.innerHTML;
+        attente = { type: 'action' };
+        occupe = false;
+        return render();
+      }
+      etape(zone, `<span class="verdict visible ${res.issue}">${echapper(res.texte)}</span> <span class="note">(${ea(p)} PA restants)</span>`);
+      c.journal.push(`${h().nom} lance ${s.nom} : ${res.texte}`);
+      if (res.issue === 'critique' || res.issue === 'reussi') {
+        const cibles = s.zone ? auContact(c).map((e) => e.id) : [el.dataset.cibleSort!];
+        await clicDegats(zone, `${degatsSort(p, s)}${s.zone ? ' par cible' : ''}${res.issue === 'critique' ? ', doublés' : ''}`);
+        for (const id of cibles) {
+          const a = toucherParSort(c, id, degatsSort(p, s), res.issue === 'critique');
+          const g = a.degats!;
+          const e = etape(
+            zone,
+            `${echapper(combattant(c, id).nom)} : ${g.des.map((x) => de(x, 'anim')).join('')}${res.issue === 'critique' ? ' ×2' : ''} = ${g.total}${g.pr ? `, moins ${g.pr} d'armure` : ''} : <span class="verdict rate">−${g.blessure} PV</span>`,
+          );
+          await reveler(e, 6, g.des, false);
+          c.journal.push(`${s.nom} touche ${combattant(c, id).nom} : −${g.blessure} PV.`);
+          touche = id;
+        }
+      }
+      scene = zone.innerHTML;
+      apres();
+      if (!c.fin) await attendre(600);
+      avancer();
+    });
+
+    sur('[data-charger]', async () => {
+      if (attente?.type !== 'action') return (occupe = false);
+      attente = null;
+      charger(c);
+      message(`${h().nom} fonce sur l'ennemi !`);
+      apres();
+      await attendre(700);
+      avancer();
+    });
+
+    sur('[data-attendre]', async () => {
+      if (attente?.type !== 'action') return (occupe = false);
+      attente = null;
+      message(`${h().nom} attend de pied ferme.`);
+      apres();
+      await attendre(500);
       avancer();
     });
 
