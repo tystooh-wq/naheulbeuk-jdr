@@ -1,5 +1,6 @@
 import { calculerFiche, cleCompetence, type Fiche, type Personnage } from './creation';
 import type { BlessureGrave } from './critiques';
+import { dateCourte } from './calendrier';
 import { lancer, type Rng } from './des';
 import { arrondirOr } from './monnaie';
 import type { EtatDonjon } from './donjons';
@@ -447,7 +448,7 @@ export const epreuve = (valeur: number, rng?: Rng, deLance?: number): { de: numb
 };
 
 export const noter = (p: Partie, texte: string) => {
-  p.journal.unshift(`Jour ${p.jour} : ${texte}`);
+  p.journal.unshift(`${dateCourte(p.jour)} : ${texte}`);
   p.journal = p.journal.slice(0, 30);
 };
 

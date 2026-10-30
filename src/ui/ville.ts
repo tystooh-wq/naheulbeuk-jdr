@@ -1,3 +1,4 @@
+import { dateLongue } from '../rules/calendrier';
 import planWaldorg from '../assets/waldorg.jpg';
 import planValtordu from '../assets/valtordu.jpg';
 import planLoubet from '../assets/loubet.jpg';
@@ -27,7 +28,7 @@ import {
 import { cite, lieuCite, longueurCite, pointCite, trajetCite } from '../rules/cites';
 import type { Lieu, TypeLieu } from '../rules/waldorg';
 import type { Rencontre } from '../rules/rencontres';
-import { bandeau, jaugeReputation, lierSac, lierVitesse, ligneObjet, panneauJournal, panneauSac, vitesse } from './commun';
+import { bandeau, jaugeReputation, lierSac, lierVitesse, ligneObjet, panneauGroupe, panneauJournal, panneauSac, vitesse } from './commun';
 import { ecranCombat } from './combat';
 import { ecranMort } from './mort';
 import { aTalent, bonusSituation, texteBonus } from '../rules/talents';
@@ -105,7 +106,7 @@ export const ecranVille = (app: HTMLElement, p: Partie, sorties: SortiesVille, a
   const plan_ = PLANS[c.id];
   const ou = (l: Lieu) => `ville:${c.id}:${l.id}`;
   let visite: Visite = { message: accueilMessage };
-  let vue: 'lieu' | 'sac' | 'journal' | 'quetes' = 'lieu';
+  let vue: 'lieu' | 'sac' | 'groupe' | 'journal' | 'quetes' = 'lieu';
   let epreuveQuete: string | undefined;
   /** La fenêtre du lieu est ouverte au-dessus du plan. */
   let popup = true;
@@ -300,7 +301,7 @@ export const ecranVille = (app: HTMLElement, p: Partie, sorties: SortiesVille, a
   const render = () => {
     if (!p.arrive) return ecranArrivee();
     const ouvert = vue === 'lieu' && popup;
-    const panneau = vue === 'sac' ? panneauSac(p, visite.message) : vue === 'journal' ? panneauJournal(p) : vue === 'quetes' ? panneauJournalQuetes(p) : '';
+    const panneau = vue === 'sac' ? panneauSac(p, visite.message) : vue === 'groupe' ? panneauGroupe(p, visite.message) : vue === 'journal' ? panneauJournal(p) : vue === 'quetes' ? panneauJournalQuetes(p) : '';
     app.innerHTML = `<div class="page page-ville">
       ${bandeau(p, vue, c.nom)}
       <div class="scene ${ouvert ? 'popup-ouverte' : ''}" id="scene">
@@ -465,7 +466,7 @@ export const ecranVille = (app: HTMLElement, p: Partie, sorties: SortiesVille, a
       p.or -= l.auberge!.chambre;
       const rendu = dormir(p, l.auberge!.confort);
       noter(p, `passe la nuit à « ${l.nom} » et récupère ${rendu} PV.`);
-      message(`Tu dors comme une bûche${l.auberge!.confort === 'normal' ? ', malgré les chants de marins' : ''}. Au matin du jour ${p.jour}, tu as récupéré <b>${rendu} PV</b>.`);
+      message(`Tu dors comme une bûche${l.auberge!.confort === 'normal' ? ', malgré les chants de marins' : ''}. Au matin du ${dateLongue(p.jour)}, tu as récupéré <b>${rendu} PV</b>.`);
     });
     sur('#soigner', () => {
       const l = lieu(p.lieu);

@@ -1885,3 +1885,20 @@ select.placer {
   background: var(--carte);
   color: inherit;
 }
+
+/* Onglet Groupe : une fiche par compagnon. */
+section.compagnon {
+  border-top: 1px dashed var(--encre-douce);
+  padding-top: 8px;
+  margin-top: 12px;
+}
+
+section.compagnon h3 .note {
+  font-family: inherit;
+  font-size: 0.9rem;
+  text-transform: none;
+}
+
+#horloge .fete {
+  font-style: italic;
+}

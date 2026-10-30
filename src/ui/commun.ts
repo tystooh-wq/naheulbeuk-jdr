@@ -1,5 +1,6 @@
 import { competencesDuHeros, empechement, priseCompetence, talentsDuHeros, TALENTS_ACTIFS, utiliserTalent, type Cadre, type Prise } from '../rules/talents';
-import { lierGroupe, panneauGroupe } from './groupe';
+import { lierGroupe } from './groupe';
+export { panneauGroupe } from './groupe';
 import { rangReputation, reputation, REPUTATION_MAX, REPUTATION_MIN } from '../rules/reputation';
 import { calculerFiche } from '../rules/creation';
 import { formatOr } from '../rules/monnaie';
@@ -25,6 +26,13 @@ import {
   blessuresActives,
   type Partie,
 } from '../rules/partie';
+import { date, dateCourte, dateLongue, periode } from '../rules/calendrier';
+
+/** L'horloge du bandeau : « ☼ Obouloserin 5 avril, 10 h », avec la fête du jour s'il y en a une. */
+const horloge = (p: Partie) => {
+  const f = date(p.jour).fete;
+  return `${p.heure >= 20 || p.heure < 6 ? '☾' : '☼'} <b>${dateLongue(p.jour)}</b>, ${formatHeure(p.heure)}${f ? ` <span class="fete">· ${echapper(f)}</span>` : ''}`;
+};
 import { lancer } from '../rules/des';
 import { caracMagie, ea, eaMax, soinLeger, sortsConnus } from '../rules/magie';
 import { valeursTir } from '../rules/tir';
@@ -104,11 +112,12 @@ export const bandeau = (p: Partie, vue: string, nomCarte: string) => {
       <span title="Points de destin">✦ <b>${p.perso.destin}</b></span>
       <span title="Niveau et expérience (prochain niveau à ${PALIERS_XP[niveau(p)] ?? '—'} XP)">★ niv. <b>${niveau(p)}</b> · ${p.xp ?? 0} XP</span>
       ${niveauEnAttente(p) ? `<button class="petit" id="monter-niveau">⬆ Passer niveau ${niveau(p) + 1} !</button>` : ''}
-      <span class="temps"><span title="Jour et heure" id="horloge">${p.heure >= 20 || p.heure < 6 ? '☾' : '☼'} jour <b>${p.jour}</b>, ${formatHeure(p.heure)}</span>${boutonsVitesse()}</span>
+      <span class="temps"><span title="${echapper(periode(p.jour))}" id="horloge">${horloge(p)}</span>${boutonsVitesse()}</span>
     </div>
     <div class="onglets">
       <button class="secondaire petit ${vue === 'lieu' ? 'actif' : ''}" data-vue="lieu">${nomCarte}</button>
       <button class="secondaire petit ${vue === 'sac' ? 'actif' : ''}" data-vue="sac">Sac et équipement</button>
+      <button class="secondaire petit ${vue === 'groupe' ? 'actif' : ''}" data-vue="groupe">Groupe${p.compagnons?.length ? ` <span class="pastille">${p.compagnons.length}</span>` : ''}</button>
       <button class="secondaire petit ${vue === 'quetes' ? 'actif' : ''}" data-vue="quetes">Quêtes${quetesEnCours(p) ? ` <span class="pastille">${quetesEnCours(p)}</span>` : ''}</button>
       <button class="secondaire petit ${vue === 'journal' ? 'actif' : ''}" data-vue="journal">Journal</button>
       <button class="secondaire petit" id="fiche">Fiche</button>
@@ -118,8 +127,11 @@ export const bandeau = (p: Partie, vue: string, nomCarte: string) => {
 
 /** Met à jour l'horloge sans tout redessiner (pendant un voyage). */
 export const majHorloge = (app: HTMLElement, p: Partie) => {
-  const h = app.querySelector('#horloge');
-  if (h) h.innerHTML = `${p.heure >= 20 || p.heure < 6 ? '☾' : '☼'} jour <b>${p.jour}</b>, ${formatHeure(p.heure)}`;
+  const h = app.querySelector<HTMLElement>('#horloge');
+  if (h) {
+    h.innerHTML = horloge(p);
+    h.title = periode(p.jour);
+  }
 };
 
 // --- Objets, sac et journal --------------------------------------------------------
@@ -175,7 +187,7 @@ export const panneauSac = (p: Partie, message?: string) => {
             .map(
               (b) =>
                 `<li><b>${echapper(b.nom)}</b> <span class="note">${echapper(Object.entries(b.mods).map(([k, v]) => `${k} ${v}`).join(', '))}${b.mv !== undefined ? `, déplacement ${Math.round(b.mv * 100)} %` : ''} · ${
-                  b.jusqua === undefined ? 'permanent' : `guérit au jour ${b.jusqua}`
+                  b.jusqua === undefined ? 'permanent' : `guérit le ${dateCourte(b.jusqua)}`
                 }</span></li>`,
             )
             .join('')}</ul><p class="note">Les malus d'AT, PRD, AD, COU et CHA sont déjà comptés ci-dessus.</p>`
@@ -214,7 +226,6 @@ export const panneauSac = (p: Partie, message?: string) => {
             .join('')
         : '<p class="note">Ton sac est vide. Même pas une chaussette.</p>'
     }
-    ${panneauGroupe(p)}
     ${message ? `<div class="recit">${message}</div>` : ''}
   </div>`;
 };

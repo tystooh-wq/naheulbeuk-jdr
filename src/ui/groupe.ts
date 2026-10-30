@@ -3,7 +3,7 @@ import { objet } from '../rules/objets';
 import type { EtatCompagnon, Partie } from '../rules/partie';
 import { echapper } from './outils';
 
-// Le groupe du héros : la fiche de chaque compagnon (dans « Sac et équipement »), et l'embauche des mercenaires.
+// Le groupe du héros : la fiche de chaque compagnon (onglet « Groupe »), et l'embauche des mercenaires.
 
 const ficheHtml = (p: Partie, id: string, e?: EtatCompagnon) => {
   const d = compagnon(id);
@@ -30,20 +30,25 @@ const ficheHtml = (p: Partie, id: string, e?: EtatCompagnon) => {
     <p class="note"><b>Compétences :</b> ${echapper(comp.join(', '))}</p>`;
 };
 
-/** Les compagnons, dans le panneau « Sac et équipement ». */
-export const panneauGroupe = (p: Partie) => {
+/** L'onglet « Groupe » : la fiche complète de chaque compagnon. */
+export const panneauGroupe = (p: Partie, message?: string) => {
   const g = groupe(p);
-  return `<h3>Ton groupe</h3>${
-    g.length
-      ? g
-          .map(
-            (e) => `<details class="compagnon"><summary><b>${echapper(compagnon(e.id).perso.nom)}</b> <span class="note">${echapper(compagnon(e.id).titre)} · ❤ ${e.ev}/${e.evMax}</span></summary>
-          ${ficheHtml(p, e.id, e)}
-          <p><button class="secondaire petit" data-renvoyer="${e.id}">Se séparer de ${echapper(compagnon(e.id).perso.nom.split(' ')[0])}</button></p></details>`,
-          )
-          .join('')
-      : '<p class="note">Tu voyages seul. Des compagnons peuvent te rejoindre au fil des quêtes et des rencontres, ou contre de l\'or dans les tavernes.</p>'
-  }`;
+  return `<div class="panneau">
+    <h2>Groupe</h2>
+    ${
+      g.length
+        ? g
+            .map(
+              (e) => `<section class="compagnon">
+            <h3>${echapper(compagnon(e.id).perso.nom)} <span class="note">${echapper(compagnon(e.id).titre)} · ❤ ${e.ev}/${e.evMax}</span></h3>
+            ${ficheHtml(p, e.id, e)}
+            <p><button class="secondaire petit" data-renvoyer="${e.id}">Se séparer de ${echapper(compagnon(e.id).perso.nom.split(' ')[0])}</button></p></section>`,
+            )
+            .join('')
+        : '<p class="note">Tu voyages seul. Des compagnons peuvent te rejoindre au fil des quêtes et des rencontres, ou contre de l\'or dans les tavernes.</p>'
+    }
+    ${message ? `<div class="recit">${message}</div>` : ''}
+  </div>`;
 };
 
 /** Les mercenaires à embaucher dans ce lieu. */

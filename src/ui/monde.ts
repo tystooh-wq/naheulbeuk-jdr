@@ -1,3 +1,4 @@
+import { dateLongue } from '../rules/calendrier';
 import carteFangh from '../assets/fangh.jpg';
 import {
   CARTE_MONDE,
@@ -26,7 +27,7 @@ import { bonusTactique, resoudre, singulier, TABLES, TACTIQUES, tactiquesPossibl
 import { objet } from '../rules/objets';
 import { lierQuetes, marqueQuete, panneauJournalQuetes, panneauQuetes } from './quetes';
 import { arrondirOr, formatOr } from '../rules/monnaie';
-import { bandeau, jaugeReputation, lierSac, lierVitesse, majHorloge, panneauJournal, panneauSac, vitesse } from './commun';
+import { bandeau, jaugeReputation, lierSac, lierVitesse, majHorloge, panneauGroupe, panneauJournal, panneauSac, vitesse } from './commun';
 import { animerDes, de, echapper } from './outils';
 import { ecranCombat, type BilanCombat } from './combat';
 import { cite, CITES } from '../rules/cites';
@@ -93,7 +94,7 @@ let echapActif: ((e: KeyboardEvent) => void) | undefined;
 let provoquerActif: ((e: Event) => void) | undefined;
 
 export const ecranMonde = (app: HTMLElement, p: Partie, s: Sorties) => {
-  let vue: 'lieu' | 'sac' | 'journal' | 'quetes' = 'lieu';
+  let vue: 'lieu' | 'sac' | 'groupe' | 'journal' | 'quetes' = 'lieu';
   let epreuveQuete: string | undefined;
   let message: string | undefined;
   let fenetre: Fenetre | null = p.voyage ? { type: 'reprise' } : { type: 'lieu' };
@@ -384,7 +385,7 @@ export const ecranMonde = (app: HTMLElement, p: Partie, s: Sorties) => {
         ${campingHtml(f)}
         ${aTalent(p, 'Sentir des pieds') ? '<p class="note">Sentir des pieds : tu retires tes bottes. Aucune bête sensée n\'approchera du camp cette nuit.</p>' : ''}
         <p><button id="bivouac">Installer le bivouac</button></p>`;
-    return cadreFenetre(position(), 'Bivouac', 'La nuit tombe', `Jour ${p.jour}, ${formatHeure(p.heure)}`, corps, false, {
+    return cadreFenetre(position(), 'Bivouac', 'La nuit tombe', `${dateLongue(p.jour)}, ${formatHeure(p.heure)}`, corps, false, {
       type: 'evenement',
       id: f.resultat ? 'nuit-reveil' : 'nuit-tombe',
       titre: f.resultat ? 'Réveil au bivouac' : 'La nuit tombe',
@@ -408,7 +409,7 @@ export const ecranMonde = (app: HTMLElement, p: Partie, s: Sorties) => {
           : `<p>Tu n'as plus de point de destin. C'est la fin de l'aventure. Le MJ rangera ta fiche dans le tiroir des héros disparus.</p>
              <p><button id="abandonner">Fin de la partie</button></p>`
       }`;
-    return cadreFenetre(position(), 'Ci-gît', 'Mort', `Jour ${p.jour}`, corps, false, { type: 'evenement', id: 'mort', titre: `Mort de ${p.perso.nom}` });
+    return cadreFenetre(position(), 'Ci-gît', 'Mort', `${dateLongue(p.jour)}`, corps, false, { type: 'evenement', id: 'mort', titre: `Mort de ${p.perso.nom}` });
   };
 
   const fenetreHtml = () => {
@@ -439,7 +440,7 @@ export const ecranMonde = (app: HTMLElement, p: Partie, s: Sorties) => {
   // --- Rendu ---------------------------------------------------------------------------
 
   const render = () => {
-    const panneau = vue === 'sac' ? panneauSac(p, message) : vue === 'journal' ? panneauJournal(p) : vue === 'quetes' ? panneauJournalQuetes(p) : '';
+    const panneau = vue === 'sac' ? panneauSac(p, message) : vue === 'groupe' ? panneauGroupe(p, message) : vue === 'journal' ? panneauJournal(p) : vue === 'quetes' ? panneauJournalQuetes(p) : '';
     const ouvert = vue === 'lieu' && !!fenetre;
     app.innerHTML = `<div class="page page-ville">
       ${bandeau(p, vue, 'Carte')}
@@ -586,7 +587,7 @@ export const ecranMonde = (app: HTMLElement, p: Partie, s: Sorties) => {
     const confort = b.confort === 'normal' ? 'Bien emmitouflé dans ta couverture' : 'Recroquevillé sur le sol froid';
     fenetre = {
       type: 'nuit',
-      resultat: `${confort}${b.matelas ? ', sur ton matelas de camping' : ''}, tu dors ${b.mange ? 'après un repas frugal' : 'le ventre vide'}. À l'aube du jour ${p.jour}, ${b.rendu ? `tu as récupéré <b>${b.rendu} PV</b>` : 'tu te lèves en pleine forme'}.`,
+      resultat: `${confort}${b.matelas ? ', sur ton matelas de camping' : ''}, tu dors ${b.mange ? 'après un repas frugal' : 'le ventre vide'}. À l'aube du ${dateLongue(p.jour)}, ${b.rendu ? `tu as récupéré <b>${b.rendu} PV</b>` : 'tu te lèves en pleine forme'}.`,
     };
     sauver();
     render();
@@ -678,7 +679,7 @@ export const ecranMonde = (app: HTMLElement, p: Partie, s: Sorties) => {
       p.or -= l.auberge!.chambre;
       const rendu = dormir(p, l.auberge!.confort);
       noter(p, `dort à « ${l.auberge!.nom} » (${l.nom}) et récupère ${rendu} PV.`);
-      dire(`Une nuit sous un vrai toit. Au matin du jour ${p.jour}, tu as récupéré <b>${rendu} PV</b>.`);
+      dire(`Une nuit sous un vrai toit. Au matin du ${dateLongue(p.jour)}, tu as récupéré <b>${rendu} PV</b>.`);
     });
     sur('#guerisseur', () => {
       const n = Math.min(evMax(p) - p.ev, Math.floor(p.or / l.guerisseur!));

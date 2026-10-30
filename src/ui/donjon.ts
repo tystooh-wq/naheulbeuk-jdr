@@ -21,7 +21,7 @@ import { formatOr } from '../rules/monnaie';
 import { objet } from '../rules/objets';
 import { noter, type Partie } from '../rules/partie';
 import { donjonTermine } from '../rules/quetes';
-import { bandeau, lierSac, lierVitesse, panneauJournal, panneauSac } from './commun';
+import { bandeau, lierSac, lierVitesse, panneauGroupe, panneauJournal, panneauSac } from './commun';
 import { ecranCombat } from './combat';
 import { boutonAutrement, lierIdeesLieu, panneauIdeesLieu } from './idees';
 import { animerDes, de, echapper } from './outils';
@@ -89,7 +89,7 @@ const miniCarte = (d: Donjon, e: EtatDonjon) => {
 };
 
 export const ecranDonjon = (app: HTMLElement, p: Partie, s: SortiesDonjon) => {
-  let vue: 'lieu' | 'sac' | 'journal' | 'quetes' = 'lieu';
+  let vue: 'lieu' | 'sac' | 'groupe' | 'journal' | 'quetes' = 'lieu';
   let message: string | undefined;
   /** Épreuve de piège en cours : passer, ou désamorcer (compétence Désamorcer). */
   let piegeEnCours: false | 'passer' | 'desamorcer' = false;
@@ -142,7 +142,7 @@ export const ecranDonjon = (app: HTMLElement, p: Partie, s: SortiesDonjon) => {
 
   const render = () => {
     const dj = d();
-    const panneau = vue === 'sac' ? panneauSac(p) : vue === 'journal' ? panneauJournal(p) : vue === 'quetes' ? panneauJournalQuetes(p) : panneauSalle();
+    const panneau = vue === 'sac' ? panneauSac(p) : vue === 'groupe' ? panneauGroupe(p) : vue === 'journal' ? panneauJournal(p) : vue === 'quetes' ? panneauJournalQuetes(p) : panneauSalle();
     app.innerHTML = `<div class="page page-donjon">
       ${bandeau(p, vue, 'Donjon')}
       <h1 class="titre-donjon">${echapper(dj.nom)}</h1>
