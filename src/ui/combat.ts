@@ -190,7 +190,13 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
     }
     if (attente.type === 'fouille') {
       const poubelles = !!h().talents?.poubelles;
-      return `<div class="a-toi bilan"><p><b>Victoire !</b> Les ennemis sont à terre. Tu fouilles les corps : lance ${poubelles ? 'deux D20 par corps (Fouiller dans les poubelles : le meilleur compte)' : 'un D20 par corps'} sur la table de butin. Plus c'est haut, mieux c'est.</p>
+      // Ceux qui ont fui sont partis avec leurs affaires : il n'y a que les corps à terre à fouiller.
+      const enFuite = ennemis(c).filter((x) => x.etat === 'fui').map((x) => x.nom);
+      const fuite = enFuite.length
+        ? ` <span class="note">${echapper(enFuite.join(', '))} ${enFuite.length > 1 ? 'ont' : 'a'} pris la fuite avec ${enFuite.length > 1 ? 'leurs' : 'ses'} affaires : rien à fouiller de ce côté.</span>`
+        : '';
+      const nb = attente.corps.length;
+      return `<div class="a-toi bilan"><p><b>Victoire !</b> ${nb > 1 ? `${nb} corps sont à terre` : 'Un corps est à terre'}. Tu fouilles : lance ${poubelles ? 'deux D20 par corps (Fouiller dans les poubelles : le meilleur compte)' : 'un D20 par corps'} sur la table de butin. Plus c'est haut, mieux c'est.${fuite}</p>
         <ul class="fouilles">${attente.corps
           .map((id) => `<li>${echapper(combattant(c, id).nom)} ${(poubelles ? ['?', '?'] : ['?']).map(() => de('?', 'fouille')).join('')}</li>`)
           .join('')}</ul>
