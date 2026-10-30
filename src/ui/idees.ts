@@ -34,6 +34,10 @@ export interface Idee {
   integration?: string;
   /** Locale : gardée seulement dans ce navigateur. */
   locale?: boolean;
+  /** Signature : « De la part de ». */
+  auteur?: string;
+  /** Qui l'a validée, retenue ou refusée. */
+  traitePar?: string;
   // Réglages du MJ à la validation.
   libelle?: string;
   epreuve?: CaracEpreuve | null;
@@ -122,6 +126,37 @@ const ecrireLocales = (idees: Idee[]) => {
   }
 };
 
+// La signature (« De la part de ») est retenue dans ce navigateur pour les idées suivantes.
+const CLE_SIGNATURE = 'naheulbeuk.signature';
+
+const signature = (): string => {
+  try {
+    return localStorage.getItem(CLE_SIGNATURE) ?? '';
+  } catch {
+    return '';
+  }
+};
+
+const retenirSignature = (nom: string) => {
+  try {
+    localStorage.setItem(CLE_SIGNATURE, nom);
+  } catch {
+    // Navigation privée : tant pis, on la redemandera.
+  }
+};
+
+const champSignature = () =>
+  `<label class="champ-prerequis">De la part de <input name="auteur" id="idee-auteur" maxlength="40" required value="${echapper(signature())}" placeholder="Ton prénom ou ton pseudo" /></label>`;
+
+/** Lit la signature du formulaire affiché et la retient pour la prochaine fois. */
+const lireSignature = () => {
+  const nom = fenetre.querySelector<HTMLInputElement>('#idee-auteur')?.value.trim() ?? '';
+  if (nom) retenirSignature(nom);
+  return nom;
+};
+
+const signer = (i: Idee) => `<span class="signature">De la part de <b>${echapper(i.auteur || 'anonyme')}</b></span>`;
+
 export const toutesIdees = (): Idee[] => [...partagees, ...lireLocales()].sort((a, b) => b.date.localeCompare(a.date));
 
 /** Idées validées par le MJ pour ce contexte, et celles écrites dans le jeu : elles deviennent des choix jouables. */
@@ -206,6 +241,7 @@ const saisie = (c: Contexte) => {
     <p class="note">À propos de : <b>${echapper(c.titre)}</b></p>
     <textarea id="idee-texte" rows="5" maxlength="1000" placeholder="Raconte ce que ton héros aurait fait, et comment ça aurait pu tourner…"></textarea>
     <label class="champ-prerequis">Prérequis (facultatif) <input id="idee-prerequis" maxlength="200" placeholder="Avoir une corde ; être elfe ; Charisme 12 ou plus…" /></label>
+    ${champSignature()}
     <p class="actions-lieu"><button id="idee-envoyer">Envoyer l'idée</button><button class="secondaire" data-fermer-idees>Annuler</button></p>
     <p id="idee-retour" class="note" aria-live="polite"></p>`);
   const champ = fenetre.querySelector<HTMLTextAreaElement>('#idee-texte')!;
@@ -217,9 +253,15 @@ const saisie = (c: Contexte) => {
       retour.textContent = 'Écris au moins quelques mots.';
       return;
     }
+    const auteur = lireSignature();
+    if (!auteur) {
+      retour.textContent = 'Signe ton idée : de la part de qui ?';
+      fenetre.querySelector<HTMLInputElement>('#idee-auteur')!.focus();
+      return;
+    }
     (e.target as HTMLButtonElement).disabled = true;
     const prerequis = fenetre.querySelector<HTMLInputElement>('#idee-prerequis')!.value.trim();
-    const res = await enregistrer({ contexte: c, texte: prerequis ? `Prérequis : ${prerequis}\n\n${texte}` : texte, date: new Date().toISOString(), statut: 'proposee' });
+    const res = await enregistrer({ contexte: c, texte: prerequis ? `Prérequis : ${prerequis}\n\n${texte}` : texte, date: new Date().toISOString(), statut: 'proposee', auteur });
     prevenir();
     retour.textContent =
       res === 'partagee'
@@ -257,6 +299,7 @@ const saisieQuete = () => {
       <label>Comment elle finit, et la récompense <textarea name="suite" rows="3" maxlength="1500" placeholder="La mère Michu pleure de joie : 20 PO et un pull de Valtordu."></textarea></label>
       <label>Prérequis (facultatif) <input name="prerequis" maxlength="200" placeholder="Avoir fini la quête des rats ; être nain ; savoir nager…" /></label>
       <label>Niveau conseillé <input name="niveau" type="number" min="1" max="20" value="1" /></label>
+      ${champSignature()}
       <p class="actions-lieu"><button type="submit">Envoyer la quête</button><button type="button" class="secondaire" data-fermer-idees>Annuler</button></p>
       <p id="idee-retour" class="note" aria-live="polite"></p>
     </form>`);
@@ -278,6 +321,7 @@ const saisieProposition = () => {
       <label>Ce qui se passe <textarea name="texte" rows="4" maxlength="1500" required placeholder="Sur la route, un colporteur propose…"></textarea></label>
       <label>Prérequis (facultatif) <input name="prerequis" maxlength="200" placeholder="De nuit seulement ; niveau 3 ; avoir une corde…" /></label>
       <label>Les choix possibles et ce qu'ils donnent (facultatif) <textarea name="suite" rows="3" maxlength="1500" placeholder="Acheter : épreuve de Charisme… Fuir : …"></textarea></label>
+      ${champSignature()}
       <p class="actions-lieu"><button type="submit">Envoyer la proposition</button><button type="button" class="secondaire" data-fermer-idees>Annuler</button></p>
       <p id="idee-retour" class="note" aria-live="polite"></p>
     </form>`);
@@ -301,6 +345,11 @@ const envoyerProposition = (lire: (d: FormData) => { genre: string; ou: string; 
       retour.textContent = 'Donne au moins un titre et quelques mots sur ce qui se passe.';
       return;
     }
+    const auteur = lireSignature();
+    if (!auteur) {
+      retour.textContent = 'Signe ta proposition : de la part de qui ?';
+      return;
+    }
     f.querySelector<HTMLButtonElement>('button[type=submit]')!.disabled = true;
     const corps = etiquette ? `${etiquette} :\n${texte}` : texte;
     const res = await enregistrer({
@@ -310,6 +359,7 @@ const envoyerProposition = (lire: (d: FormData) => { genre: string; ou: string; 
         .join('\n\n'),
       date: new Date().toISOString(),
       statut: 'proposee',
+      auteur,
     });
     prevenir();
     retour.textContent =
@@ -442,6 +492,9 @@ const animerFormulaire = (f: HTMLFormElement) => {
   });
 };
 
+/** Signature de celui qui valide ou refuse, s'il en a donné une. */
+const traitant = () => (signature() ? { traitePar: signature() } : {});
+
 const liste = () => {
   const idees = toutesIdees();
   const parType = new Map<TypeContexte, Idee[]>();
@@ -452,6 +505,7 @@ const liste = () => {
       db ? 'Elles sont partagées entre les joueurs de cette page.' : 'Pas de partage disponible ici : seules les idées de ce navigateur apparaissent.'
     } ${peutValider ? 'Tu peux les valider : précise l\'épreuve et les résultats, et elles deviennent des choix jouables.' : ''}</p>
     <p class="actions-lieu"><button id="proposer">✍ Proposer une rencontre ou un événement</button><button id="proposer-quete">📜 Proposer une quête</button></p>
+    <label class="champ-prerequis">Ta signature, pour tes idées et tes décisions <input id="ma-signature" maxlength="40" value="${echapper(signature())}" placeholder="Ton prénom ou ton pseudo" /></label>
     ${
       idees.length
         ? [...parType]
@@ -459,9 +513,9 @@ const liste = () => {
               ([type, is]) => `<h3>${NOM_TYPE[type]}</h3>${is
                 .map(
                   (i) => `<details class="ency-ligne idee">
-                <summary><b>${echapper(i.contexte.titre)}</b><span class="ency-chiffres">${STATUT[i.statut]}${i.locale ? ' · sur cet appareil' : ''}</span></summary>
+                <summary><b>${echapper(i.contexte.titre)}</b><span class="ency-chiffres">${i.auteur ? `${echapper(i.auteur)} · ` : ''}${STATUT[i.statut]}${i.locale ? ' · sur cet appareil' : ''}</span></summary>
                 <p>« ${echapper(i.texte)} »</p>
-                <p class="note">${new Date(i.date).toLocaleString('fr-FR')}${
+                <p class="note">${signer(i)} · ${new Date(i.date).toLocaleString('fr-FR')}${i.traitePar && i.statut !== 'proposee' ? ` · ${STATUT[i.statut]} par ${echapper(i.traitePar)}` : ''}${
                   i.statut === 'validee'
                     ? ` · ${i.epreuve ? `épreuve de ${NOM_EPREUVE[i.epreuve]}${i.modif ? ` (${i.modif > 0 ? '+' : ''}${i.modif})` : ''}` : 'sans épreuve'}`
                     : ''
@@ -512,23 +566,26 @@ const liste = () => {
         eaEchec: n('eaEchec'),
         heuresEchec: n('heuresEchec'),
         rencontreEchec: nom ? { nom, nombre: Math.max(1, n('rencontreNombre')) } : null,
+        ...traitant(),
       });
       liste();
     }),
   );
+  const maSignature = fenetre.querySelector<HTMLInputElement>('#ma-signature');
+  maSignature?.addEventListener('change', () => retenirSignature(maSignature.value.trim()));
   fenetre.querySelector('#proposer')?.addEventListener('click', saisieProposition);
   fenetre.querySelector('#proposer-quete')?.addEventListener('click', saisieQuete);
   fenetre.querySelectorAll<HTMLElement>('[data-retenir]').forEach((b) =>
     b.addEventListener('click', async () => {
       const i = toutesIdees().find((x) => x.id === b.dataset.retenir);
-      if (i) await modifier(i, { statut: 'validee' });
+      if (i) await modifier(i, { statut: 'validee', ...traitant() });
       liste();
     }),
   );
   fenetre.querySelectorAll<HTMLElement>('[data-refuser]').forEach((b) =>
     b.addEventListener('click', async () => {
       const i = toutesIdees().find((x) => x.id === b.dataset.refuser);
-      if (i) await modifier(i, { statut: 'refusee' });
+      if (i) await modifier(i, { statut: 'refusee', ...traitant() });
       liste();
     }),
   );
