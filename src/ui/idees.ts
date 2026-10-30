@@ -7,7 +7,7 @@ import { echapper } from './outils';
 // l'appareil. Le bouton « Idées » les liste ; le MJ (qui peut modifier la page) en valide certaines en
 // précisant l'épreuve et les résultats : elles deviennent alors des choix jouables dans le jeu.
 
-export type TypeContexte = 'evenement' | 'rencontre' | 'combat' | 'lieu' | 'autre';
+export type TypeContexte = 'evenement' | 'rencontre' | 'combat' | 'lieu' | 'proposition' | 'autre';
 
 export interface Contexte {
   type: TypeContexte;
@@ -207,10 +207,53 @@ const NOM_TYPE: Record<TypeContexte, string> = {
   rencontre: 'Rencontres',
   combat: 'Combats',
   lieu: 'Lieux',
+  proposition: 'Rencontres et événements proposés',
   autre: 'Divers',
 };
 
-const STATUT: Record<Idee['statut'], string> = { proposee: 'proposée', validee: 'validée, jouable', refusee: 'refusée' };
+const STATUT: Record<Idee['statut'], string> = { proposee: 'proposée', validee: 'validée', refusee: 'refusée' };
+
+const OU_PROPOSITION = ['Campagne paisible (Valtordu, Loubet)', 'Terres sauvages', 'Forêt', 'En ville', 'Dans un donjon', "N'importe où"];
+
+/** Proposer une nouvelle rencontre ou un nouvel événement, pas seulement réagir à ceux du jeu. */
+const saisieProposition = () => {
+  ouvrir(`<h2>Proposer une rencontre ou un événement</h2>
+    <p class="sous-titre">Vos idées nous intéressent, alimentez l'algorithme !</p>
+    <form id="proposition" class="valider-idee">
+      <label>Quoi <select name="genre"><option value="Rencontre">Une rencontre (créature, PNJ, bande…)</option><option value="Événement">Un événement (trouvaille, piège, scène…)</option></select></label>
+      <label>Où <select name="ou">${OU_PROPOSITION.map((o) => `<option>${echapper(o)}</option>`).join('')}</select></label>
+      <label>Titre <input name="titre" maxlength="80" required placeholder="Le colporteur de fromages maudits" /></label>
+      <label>Ce qui se passe <textarea name="texte" rows="4" maxlength="1500" required placeholder="Sur la route, un colporteur propose…"></textarea></label>
+      <label>Les choix possibles et ce qu'ils donnent (facultatif) <textarea name="suite" rows="3" maxlength="1500" placeholder="Acheter : épreuve de Charisme… Fuir : …"></textarea></label>
+      <p class="actions-lieu"><button type="submit">Envoyer la proposition</button><button type="button" class="secondaire" data-fermer-idees>Annuler</button></p>
+      <p id="idee-retour" class="note" aria-live="polite"></p>
+    </form>`);
+  const f = fenetre.querySelector<HTMLFormElement>('#proposition')!;
+  f.querySelector<HTMLInputElement>('[name=titre]')!.focus();
+  f.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const d = new FormData(f);
+    const titre = String(d.get('titre') ?? '').trim();
+    const texte = String(d.get('texte') ?? '').trim();
+    const suite = String(d.get('suite') ?? '').trim();
+    const retour = f.querySelector('#idee-retour')!;
+    if (titre.length < 3 || texte.length < 3) {
+      retour.textContent = 'Donne au moins un titre et quelques mots sur ce qui se passe.';
+      return;
+    }
+    f.querySelector<HTMLButtonElement>('button[type=submit]')!.disabled = true;
+    const res = await enregistrer({
+      contexte: { type: 'proposition', id: `${d.get('genre')}|${d.get('ou')}`, titre: `${d.get('genre')} : ${titre} (${d.get('ou')})` },
+      texte: suite ? `${texte}\n\nChoix : ${suite}` : texte,
+      date: new Date().toISOString(),
+      statut: 'proposee',
+    });
+    prevenir();
+    retour.textContent =
+      res === 'partagee' ? 'Merci ! Ta proposition est partagée avec le MJ.' : res === 'locale' ? 'Merci ! Ta proposition est gardée dans ce navigateur.' : "Impossible d'enregistrer la proposition.";
+    setTimeout(liste, 1600);
+  });
+};
 
 const formulaireValidation = (i: Idee) => `<form class="valider-idee" data-idee="${echapper(i.id)}">
     <label>Libellé du choix dans le jeu <input name="libelle" maxlength="120" value="${echapper(i.libelle ?? i.texte.slice(0, 80))}" /></label>
@@ -236,6 +279,7 @@ const liste = () => {
     <p class="note">${idees.length} idée${idees.length > 1 ? 's' : ''}. ${
       db ? 'Elles sont partagées entre les joueurs de cette page.' : 'Pas de partage disponible ici : seules les idées de ce navigateur apparaissent.'
     } ${peutValider ? 'Tu peux les valider : précise l\'épreuve et les résultats, et elles deviennent des choix jouables.' : ''}</p>
+    <p><button id="proposer">✍ Proposer une rencontre ou un événement</button></p>
     ${
       idees.length
         ? [...parType]
@@ -250,7 +294,15 @@ const liste = () => {
                     ? ` · ${i.epreuve ? `épreuve de ${NOM_EPREUVE[i.epreuve]}${i.modif ? ` (${i.modif > 0 ? '+' : ''}${i.modif})` : ''}` : 'sans épreuve'}`
                     : ''
                 }</p>
-                ${peutRegler(i) && i.statut !== 'refusee' ? formulaireValidation(i) : ''}
+                ${
+                  i.contexte.type === 'proposition'
+                    ? peutRegler(i) && i.statut === 'proposee'
+                      ? `<p class="actions-lieu"><button data-retenir="${echapper(i.id)}">Retenir pour le jeu</button><button class="secondaire" data-refuser="${echapper(i.id)}">Refuser</button></p><p class="note">Une proposition retenue sera écrite dans le jeu à la prochaine version.</p>`
+                      : ''
+                    : peutRegler(i) && i.statut !== 'refusee'
+                      ? formulaireValidation(i)
+                      : ''
+                }
               </details>`,
                 )
                 .join('')}`,
@@ -277,6 +329,14 @@ const liste = () => {
         pvEchec: n('pvEchec'),
         orEchec: n('orEchec'),
       });
+      liste();
+    }),
+  );
+  fenetre.querySelector('#proposer')?.addEventListener('click', saisieProposition);
+  fenetre.querySelectorAll<HTMLElement>('[data-retenir]').forEach((b) =>
+    b.addEventListener('click', async () => {
+      const i = toutesIdees().find((x) => x.id === b.dataset.retenir);
+      if (i) await modifier(i, { statut: 'validee' });
       liste();
     }),
   );

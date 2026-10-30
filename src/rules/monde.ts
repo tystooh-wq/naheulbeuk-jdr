@@ -172,9 +172,9 @@ export const LIEUX_MONDE: LieuMonde[] = [
     y: 1333,
     zone: 'campagne',
     planAVenir: true,
-    echoppe: true,
+    guerisseur: 1,
     description:
-      "Le village sans aventure, sur la rivière Glandebruine, en aval de Valtordu. Son seul fait d'armes : un gamin de huit ans (le futur Ranger) y a réparé un fauteuil à bascule. Ville-étape sur la route du sud.",
+      "Le village sans aventure, sur la rivière Glandebruine, en aval de Valtordu. Son seul fait d'armes : un gamin de huit ans (le futur Ranger) y a réparé un fauteuil à bascule. Ville-étape sur la route du sud. Une vieille rebouteuse y soigne pour pas cher.",
     auberge: { nom: "L'Auberge du Fauteuil", repas: 1, chambre: 2, confort: 'normal' },
     rations: 4,
   },

@@ -1559,3 +1559,4 @@ button.combattant:hover {
 .salle.ouverte { cursor: pointer; outline: 2px dashed #f2c230; outline-offset: 2px; }
 .salle.ouverte:hover { background: #5c4630; }
 .legende-donjon { text-align: center; }
+.ency-ligne.idee > p:first-of-type { white-space: pre-line; }

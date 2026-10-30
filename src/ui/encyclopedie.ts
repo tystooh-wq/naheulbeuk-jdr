@@ -10,7 +10,7 @@ import { CARACS, type Criteres } from '../rules/types';
 import { LIEUX } from '../rules/waldorg';
 import { CITES } from '../rules/cites';
 import { itineraire, LIEUX_MONDE } from '../rules/monde';
-import { TABLE_TERRES_SAUVAGES } from '../rules/rencontres';
+import { TABLES, type LigneRencontre, type Zone } from '../rules/rencontres';
 import { competence, echapper, liste } from './outils';
 
 // Encyclopédie de debug : toutes les données du jeu, consultables à tout moment, en marge de la partie.
@@ -129,18 +129,26 @@ const contenu = (r: Rubrique, q: string): string => {
       )}`;
     }
     case 'rencontres':
-      return `<p class="note">Table « Rencontres en terre sauvage 1 » (D20). Sur la carte du monde, « Provoquer » fait surgir la rencontre pour tester un combat.</p>${groupes(
-        [
-          [
-            'Terres sauvages',
-            TABLE_TERRES_SAUVAGES.map((l) => ({
+      return `<p class="note">Les tables de rencontres au D20, une par région de la carte. Sur la carte du monde, « Provoquer » fait surgir la rencontre pour tester un combat.</p>${groupes(
+        (Object.keys(TABLES) as Zone[]).map((zone) => {
+          // Les lignes qui se suivent et se répètent (table de campagne) sont regroupées : « 2-4 ».
+          const plages: { de: number; a: number; l: LigneRencontre }[] = [];
+          for (let d = 1; d <= 20; d++) {
+            const l = TABLES[zone].ligne(d);
+            const der = plages[plages.length - 1];
+            if (der && der.l === l) der.a = d;
+            else plages.push({ de: d, a: d, l });
+          }
+          return [
+            TABLES[zone].nom,
+            plages.map(({ de, a, l }) => ({
               texte: `${l.rencontre} ${l.notes}`,
-              html: `<div class="ency-ligne ency-rencontre"><span><b>${l.d20}.</b> ${echapper(l.rencontre)}<span class="ency-chiffres">AT ${l.at} · PRD ${l.prd} · EV ${l.ev} · PR ${l.pr} · ${echapper(l.degats)} · COU ${l.cou} · ${l.xp} XP</span>${
+              html: `<div class="ency-ligne ency-rencontre"><span><b>${de === a ? de : `${de}-${a}`}.</b> ${echapper(l.rencontre)}<span class="ency-chiffres">AT ${l.at} · PRD ${l.prd} · EV ${l.ev} · PR ${l.pr} · ${echapper(l.degats)} · COU ${l.cou} · ${l.xp} XP</span>${
                 l.notes ? `<br><span class="note">${echapper(l.notes)}</span>` : ''
-              }</span><button class="secondaire petit" data-provoquer="${l.d20}">Provoquer</button></div>`,
+              }</span><button class="secondaire petit" data-provoquer="${zone}:${a}">Provoquer</button></div>`,
             })),
-          ],
-        ],
+          ] as [string, { texte: string; html: string }[]];
+        }),
         q,
       )}`;
     case 'origines':
@@ -286,7 +294,7 @@ export const installerEncyclopedie = () => {
     const b = (e.target as HTMLElement).closest<HTMLElement>('[data-provoquer]');
     if (!b) return;
     fermer();
-    window.dispatchEvent(new CustomEvent(EVENEMENT_PROVOQUER, { detail: Number(b.dataset.provoquer) }));
+    window.dispatchEvent(new CustomEvent(EVENEMENT_PROVOQUER, { detail: b.dataset.provoquer }));
   });
   document.addEventListener('keydown', (e) => e.key === 'Escape' && !fenetre.hidden && fermer());
 };

@@ -21,7 +21,7 @@ import {
 import { avecDe, lancer, type Rng } from '../rules/des';
 import { controler, INTERVALLE_CONTROLE, type Evenement, type Resultat } from '../rules/evenements';
 import { bivouaquer, dormir, evMax, niveau, formatHeure, noter, passerTemps, soigner, valeursCombat, type Partie } from '../rules/partie';
-import { parle, resoudre, singulier, TABLE_TERRES_SAUVAGES, TACTIQUES, tirerNombre, tirerRencontre, type Issue, type Rencontre, type Tactique } from '../rules/rencontres';
+import { parle, resoudre, singulier, TABLES, TACTIQUES, tirerNombre, tirerRencontre, type Issue, type Rencontre, type Tactique, type Zone } from '../rules/rencontres';
 import { objet } from '../rules/objets';
 import { lierQuetes, marqueQuete, panneauJournalQuetes, panneauQuetes } from './quetes';
 import { arrondirOr, formatOr } from '../rules/monnaie';
@@ -850,9 +850,10 @@ export const ecranMonde = (app: HTMLElement, p: Partie, s: Sorties) => {
   if (provoquerActif) window.removeEventListener(EVENEMENT_PROVOQUER, provoquerActif);
   provoquerActif = (e: Event) => {
     if (!app.querySelector('#carte') || enMarche) return;
-    const ligne = TABLE_TERRES_SAUVAGES[(e as CustomEvent<number>).detail - 1];
+    const [zone, d] = (e as CustomEvent<string>).detail.split(':');
+    const ligne = TABLES[zone as Zone].ligne(Number(d));
     vue = 'lieu';
-    fenetre = { type: 'rencontre', r: { ligne, d20: ligne.d20, nombre: tirerNombre(ligne.nombre) }, nuit: false };
+    fenetre = { type: 'rencontre', r: { ligne, d20: Number(d), table: TABLES[zone as Zone].nom, nombre: tirerNombre(ligne.nombre) }, nuit: false };
     render();
   };
   window.addEventListener(EVENEMENT_PROVOQUER, provoquerActif);
