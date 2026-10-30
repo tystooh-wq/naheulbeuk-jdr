@@ -1,6 +1,6 @@
 import { calculerFiche, cleCompetence } from './creation';
 import { lancer, type Rng } from './des';
-import { lancerExpression, valeursCombat, type EtatCompagnon, type Partie } from './partie';
+import { lancerExpression, mainGauche, valeursCombat, type EtatCompagnon, type Partie } from './partie';
 import { singulier, type LigneRencontre, type Rencontre } from './rencontres';
 import { tirCompagnon, vueCompagnon } from './compagnons';
 import { fouiller, type Fouille } from './butin';
@@ -96,6 +96,8 @@ export interface Combattant {
   hemorragie?: number;
   /** Blessures graves reçues pendant ce combat. */
   blessures?: BlessureGrave[];
+  /** Ambidextrie : la deuxième arme, pour une deuxième attaque à chaque assaut (AT déjà à −5). */
+  mainGauche?: { nom: string; at: number; degats: string; famille: Famille; rupture?: string };
 }
 
 /** Un D20 lancé sur une table de l'écran : par qui, sur quelle table, avec quel effet. */
@@ -158,7 +160,7 @@ export interface Combat {
   /** L'arme de tir du héros est tombée ou cassée : plus de tir dans ce combat. */
   tirPerdu?: boolean;
   /** Armes du héros cassées pendant le combat (elles disparaissent de son équipement). */
-  armesCassees?: ('arme' | 'distance')[];
+  armesCassees?: ('arme' | 'armeGauche' | 'distance')[];
 }
 
 export const AU_CONTACT = 3;
@@ -175,6 +177,12 @@ const aCompetence = (p: Partie, nom: string) => {
 /** Esquive, modificateurs conseillés sur l'Adresse selon la PR (règles V4, 8.18). Null : impossible. */
 export const modEsquive = (pr: number): number | null =>
   pr <= 1 ? 1 : pr === 2 ? 0 : pr <= 4 ? -2 : pr === 5 ? -4 : pr === 6 ? -5 : pr === 7 ? -6 : null;
+
+const deuxiemeArme = (p: Partie): Combattant['mainGauche'] => {
+  const g = mainGauche(p);
+  if (!g || 'refus' in g) return undefined;
+  return { nom: g.arme.nom, at: g.at, degats: g.degats, famille: familleObjet(g.arme), rupture: g.arme.rupture };
+};
 
 export const creerHeros = (p: Partie, id = 'heros', evMax?: number): Combattant => {
   const v = valeursCombat(p);
@@ -207,6 +215,7 @@ export const creerHeros = (p: Partie, id = 'heros', evMax?: number): Combattant 
     rupture: arme?.rupture,
     bourrePif,
     mv: mv < 1 ? Math.round(PAS * mv) : undefined,
+    mainGauche: deuxiemeArme(p),
     talents: {
       vicieux: aCompetence(p, 'Vicieux'),
       superEsquive: aCompetence(p, 'Super esquive'),
@@ -430,11 +439,14 @@ const tirage = <T extends { de: [number, number]; texte: string; effet: string }
 
 /** Un coup porté par `a` sur `x` : dégâts de son arme (plus un bonus), moins l'armure, sauf sur un critique. */
 const coup = (a: Combattant, x: Combattant, rng: Rng | undefined, o: { critique?: boolean; bonus?: number; expr?: string } = {}) => {
-  const j = lancerExpression(o.expr ?? a.degats, rng);
+  const expr = o.expr ?? a.degats;
+  const j = lancerExpression(expr, rng);
   const total = Math.max(0, j.total + (o.bonus ?? 0));
-  const blessure = Math.max(0, total - (o.critique ? (x.talents?.prNaturelle ?? 0) : x.pr));
+  const pr = o.critique ? (x.talents?.prNaturelle ?? 0) : x.pr;
+  const blessure = Math.max(0, total - pr);
   x.ev -= blessure;
-  return blessure;
+  // « −4 PV (1D+3 : 6, moins 2 d'armure) » : le détail du jet, pour qu'on suive le calcul.
+  return `−${blessure} PV (${expr}${o.bonus ? ` +${o.bonus}` : ''} : ${total}${pr ? `, moins ${pr} d'armure` : o.critique ? ', armure ignorée' : ''})`;
 };
 
 const tuer = (x: Combattant, effets: string[]) => {
@@ -562,8 +574,7 @@ const critiqueSur = (c: Combat, action: Action, a: Combattant, x: Combattant, fa
 /** Un coup critique porté avec l'arme de `a` (parade critique, maladresse atroce) : sans armure, plus la table. */
 const coupCritique = (c: Combat, action: Action, a: Combattant, x: Combattant, rng?: Rng, tir?: { degats: string }) => {
   const k = critiqueSur(c, action, a, x, tir ? 'projectile' : a.famille, rng);
-  const b = coup(a, x, rng, { critique: true, bonus: k.bonus, expr: tir?.degats });
-  action.effets.push(`${x.nom} : −${b} PV.`);
+  action.effets.push(`${x.nom} : ${coup(a, x, rng, { critique: true, bonus: k.bonus, expr: tir?.degats })}.`);
   if (k.deces) tuer(x, action.effets);
 };
 
@@ -598,14 +609,14 @@ const maladresse = (
   }
   if (l.allie) {
     const y = allieDe(c, x, l.allie);
-    effets.push(y ? `${y.nom} prend le coup : −${coup(x, y, rng, { expr: o.tir?.degats })} PV.` : 'Personne à côté : le coup part dans le vide.');
+    effets.push(y ? `${y.nom} prend le coup de ${x.nom} : ${coup(x, y, rng, { expr: o.tir?.degats })}.` : 'Personne à côté : le coup part dans le vide.');
   }
   if (l.lache) {
     if (o.tir) perdreTir(c, x, false, effets);
     else desarmer(c, x, false, effets);
   }
   if (l.casse) casser(c, x, effets, rng, o.tir);
-  if (l.seBlesse !== undefined) effets.push(`${x.nom} se blesse : −${coup(x, x, rng, { bonus: l.seBlesse, expr: o.tir?.degats })} PV.`);
+  if (l.seBlesse !== undefined) effets.push(`${x.nom} se blesse avec sa propre arme : ${coup(x, x, rng, { bonus: l.seBlesse, expr: o.tir?.degats })}.`);
   if (l.critiqueSurSoi) coupCritique(c, action, x, x, rng, o.tir);
   if (l.blessure) blesser(x, tirerBlessure(l.blessure, rng), effets);
   if (l.oeilOuDoigt) blesser(x, lancer(6, rng) <= 2 ? BLESSURES['oeil-creve'] : BLESSURES.doigt, effets);
@@ -629,11 +640,11 @@ const paradeCritique = (c: Combat, action: Action, def: Combattant, a: Combattan
   for (let i = 0; i < (l.imparables ?? 0); i++) {
     const d = lancer(20, rng);
     const touche = d === 1 || (d !== 20 && d <= def.at);
-    effets.push(`Coup imparable de ${def.nom} (D20 : ${d}) : ${touche ? `−${coup(def, a, rng)} PV pour ${a.nom}` : 'raté'}.`);
+    effets.push(`Coup imparable de ${def.nom} (D20 : ${d}) : ${touche ? `${a.nom} ${coup(def, a, rng)}` : 'raté'}.`);
   }
   if (l.lache) desarmer(c, a, false, effets);
   if (l.casse) desarmer(c, a, true, effets);
-  if (l.coup) effets.push(`${a.nom} reçoit un coup de ${def.nom} : −${coup(def, a, rng)} PV.`);
+  if (l.coup) effets.push(`${a.nom} reçoit un coup de ${def.nom} : ${coup(def, a, rng)}.`);
   if (l.critique) coupCritique(c, action, def, a, rng);
   if (l.critiqueSurSoi) coupCritique(c, action, a, a, rng);
 };
@@ -724,6 +735,31 @@ export const attaquer = (
   }
   cible.ev -= action.degats.blessure;
   if (k.deces) tuer(cible, action.effets);
+  return action;
+};
+
+/**
+ * Deuxième attaque de l'ambidextre, avec l'arme de la main gauche (AT −5) : on prête au combattant les valeurs
+ * de sa deuxième arme le temps du coup. Les critiques et maladresses suivent la table de cette arme.
+ */
+export const attaquerMainGauche = (c: Combat, idAttaquant: string, idCible: string, de: number, rng?: Rng): Action => {
+  const a = combattant(c, idAttaquant);
+  const g = a.mainGauche!;
+  const droite = { at: a.at, degats: a.degats, famille: a.famille, rupture: a.rupture, sansParade: a.sansParade };
+  const cassees = c.armesCassees?.length ?? 0;
+  Object.assign(a, { at: g.at, degats: g.degats, famille: g.famille, rupture: g.rupture });
+  const action = attaquer(c, idAttaquant, idCible, de, { rng });
+  // Ce qui a changé l'AT pendant le coup (blessure grave…) compte pour les deux mains ; pas le passage à mains nues.
+  const desarme = a.famille === 'mains-nues';
+  const delta = a.at - g.at + (desarme && a.degats === '1D-2' ? 4 : 0);
+  // C'est la deuxième arme qui est cassée, pas celle de la main droite.
+  if (c.armesCassees && c.armesCassees.length > cassees) c.armesCassees[c.armesCassees.length - 1] = 'armeGauche';
+  Object.assign(a, droite);
+  a.at += delta;
+  if (desarme) {
+    a.mainGauche = undefined;
+    action.effets.push('Plus de deuxième arme : fini les attaques des deux mains.');
+  } else g.at += delta;
   return action;
 };
 

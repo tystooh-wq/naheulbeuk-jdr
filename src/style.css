@@ -1902,3 +1902,110 @@ section.compagnon h3 .note {
 #horloge .fete {
   font-style: italic;
 }
+
+/* Bonhomme d'équipement (fiche officielle) : un emplacement par localisation, autour d'une silhouette. */
+.poupee {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr minmax(90px, 0.8fr) 1fr;
+  grid-template-areas:
+    'distance tete bouclier'
+    'arme armure armeGauche'
+    'mains armure bras'
+    'jambes . pieds';
+  gap: 8px;
+  margin: 12px 0;
+  padding: 12px;
+  border: 2px solid var(--encre);
+  border-radius: 12px;
+  background: rgba(255, 250, 240, 0.6);
+}
+
+.poupee .silhouette {
+  position: absolute;
+  left: 50%;
+  top: 12px;
+  bottom: 40px;
+  height: calc(100% - 52px);
+  transform: translateX(-50%);
+  fill: var(--encre);
+  opacity: 0.12;
+  pointer-events: none;
+}
+
+.case-equipement {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 64px;
+  padding: 6px 8px;
+  border: 2px solid var(--encre-douce);
+  border-radius: 8px;
+  background: #fffaf0;
+  font-size: 0.9rem;
+  transition: box-shadow 0.15s, border-color 0.15s, background 0.15s;
+}
+
+.case-equipement .titre-case {
+  font-variant: small-caps;
+  font-weight: 700;
+  color: var(--rouge);
+}
+
+.case-equipement.vide {
+  border-style: dashed;
+  background: rgba(255, 250, 240, 0.7);
+}
+
+.case-equipement.fermee {
+  border-style: dashed;
+  background: repeating-linear-gradient(135deg, rgba(43, 29, 14, 0.06) 0 6px, transparent 6px 12px);
+  opacity: 0.75;
+}
+
+.case-equipement .retirer {
+  align-self: flex-start;
+  margin-top: 2px;
+}
+
+.case-equipement.apercu-oui {
+  border-color: var(--vert);
+  border-style: solid;
+  box-shadow: 0 0 0 3px rgba(46, 125, 50, 0.35);
+}
+
+.case-equipement.apercu-non {
+  border-color: var(--rouge);
+  border-style: solid;
+  box-shadow: 0 0 0 3px rgba(160, 30, 20, 0.3);
+}
+
+.poupee .apercu-equipement {
+  grid-column: 1 / -1;
+  margin: 4px 0 0;
+  min-height: 1.4em;
+}
+
+.objet[data-apercu] {
+  cursor: default;
+}
+
+.objet[data-apercu]:hover {
+  background: rgba(255, 250, 240, 0.9);
+}
+
+@media (max-width: 560px) {
+  .poupee {
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas:
+      'tete distance'
+      'arme armeGauche'
+      'armure bouclier'
+      'bras mains'
+      'jambes pieds';
+  }
+  .poupee .silhouette {
+    display: none;
+  }
+}

@@ -16,7 +16,7 @@ import {
   casse,
 } from '../src/rules/critiques';
 import { objet } from '../src/rules/objets';
-import { ajouterBlessure, blessuresActives, nouvellePartie, valeursCombat } from '../src/rules/partie';
+import { ajouterBlessure, blessuresActives, equiper, essaiEquiper, mainGauche, nouvellePartie, valeursCombat } from '../src/rules/partie';
 import { TABLE_TERRES_SAUVAGES, type Rencontre } from '../src/rules/rencontres';
 
 const perso: Personnage = {
@@ -131,5 +131,46 @@ describe('blessures graves du héros', () => {
     p.jour += 21;
     expect(blessuresActives(p)).toHaveLength(0);
     expect(valeursCombat(p).at).toBe(avant.at);
+  });
+});
+
+describe('ambidextrie', () => {
+  const voleur: Personnage = { ...perso, jets: { COU: 12, INT: 10, CHA: 10, AD: 13, FO: 13 }, competencesChoisies: [] };
+  const avecAmbidextrie = () => {
+    const p = nouvellePartie(voleur);
+    // La compétence et le niveau 2, comme si le héros l'avait apprise.
+    p.perso.competencesChoisies = [...p.perso.competencesChoisies, 'Ambidextrie'];
+    p.perso.progression = { ...(p.perso.progression ?? { niveau: 1, ev: 0, at: 0, prd: 0, caracs: {} }), niveau: 2 } as never;
+    p.equipe.arme = 'dague-base';
+    p.equipe.bouclier = undefined;
+    p.sac.push('dague-base');
+    return p;
+  };
+
+  it('sans la compétence et le niveau 2, pas d’arme en main gauche', () => {
+    const p = nouvellePartie(perso);
+    p.sac.push('dague-base');
+    expect(essaiEquiper(p, 'dague-base', 'armeGauche').refus).toMatch(/Ambidextrie/);
+  });
+
+  it('une arme dans chaque main ; pas de bouclier ni d’arme à deux mains avec', () => {
+    const p = avecAmbidextrie();
+    expect(equiper(p, 'dague-base', 'armeGauche')).toBeNull();
+    expect(p.equipe.armeGauche).toBe('dague-base');
+    p.sac.push('bouclier-de-base');
+    expect(essaiEquiper(p, 'bouclier-de-base').refus).toMatch(/main gauche/);
+  });
+
+  it('deuxième attaque seulement avec AD 14, à AT −5', () => {
+    const p = avecAmbidextrie();
+    equiper(p, 'dague-base', 'armeGauche');
+    const g = mainGauche(p);
+    expect(g && 'refus' in g && g.refus).toMatch(/AD 14/);
+    p.perso.jets.AD = 14;
+    const g2 = mainGauche(p)!;
+    expect('refus' in g2).toBe(false);
+    if (!('refus' in g2)) expect(g2.at).toBe(valeursCombat(p).at - 5);
+    const c = creerCombat(p, rencontre());
+    expect(combattant(c, 'heros').mainGauche?.at).toBe(valeursCombat(p).at - 5);
   });
 });

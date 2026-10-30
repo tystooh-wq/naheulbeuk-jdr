@@ -1,5 +1,6 @@
 import { competencesDuHeros, empechement, priseCompetence, talentsDuHeros, TALENTS_ACTIFS, utiliserTalent, type Cadre, type Prise } from '../rules/talents';
 import { lierGroupe } from './groupe';
+import { apercu, lierPoupee, poupee } from './poupee';
 export { panneauGroupe } from './groupe';
 import { rangReputation, reputation, REPUTATION_MAX, REPUTATION_MIN } from '../rules/reputation';
 import { calculerFiche } from '../rules/creation';
@@ -8,7 +9,6 @@ import { formatMods, objet, type Objet } from '../rules/objets';
 import {
   boirePotion,
   desequiper,
-  EMPLACEMENTS,
   type CleEquipement,
   equiper,
   evMax,
@@ -160,15 +160,6 @@ export const ligneObjet = (p: Partie, o: Objet, droite: string) => {
 export const panneauSac = (p: Partie, message?: string) => {
   const v = valeursCombat(p);
   const t = valeursTir(p);
-  const emplacement = (titre: string, cle: CleEquipement) => {
-    const id = p.equipe[cle];
-    if (!id && cle !== 'arme' && cle !== 'armure') return '';
-    return ligneObjet(
-      p,
-      id ? objet(id) : { id: '', nom: 'Rien', type: 'materiel', prix: 0, description: cle === 'arme' ? 'Tu te bats à mains nues (1D-2).' : 'Aucune protection.' },
-      id ? `<button class="secondaire petit retirer" data-emplacement="${cle}">Retirer</button>` : '',
-    ).replace('<b>', `<span class="pastille">${titre}</span><br /><b>`);
-  };
   const ids = [...new Set(p.sac)];
   return `<div class="panneau">
     <h2>Sac et équipement</h2>
@@ -181,6 +172,30 @@ export const panneauSac = (p: Partie, message?: string) => {
       ${t ? `<div><b>${t.ad}</b><span>Tir (AD)</span></div>` : ''}
       ${eaMax(p) ? `<div><b>${ea(p)}/${eaMax(p)}</b><span>Énergie astrale</span></div>` : ''}
     </div>
+    ${poupee(p)}
+    <h3 style="margin-top:16px">Dans le sac</h3>
+    ${
+      ids.length
+        ? ids
+            .map((id) => {
+              const o = objet(id);
+              const nb = p.sac.filter((x) => x === id).length;
+              const cases = apercu(p, id);
+              const gauche = cases.find(([k, refus]) => k === 'armeGauche' && !refus);
+              const bouton =
+                o.type === 'arme' || o.type === 'armure'
+                  ? `<button class="secondaire petit equiper" data-id="${id}">${o.type === 'arme' && !o.tir ? 'Main droite' : 'Équiper'}</button>${
+                      gauche ? ` <button class="secondaire petit equiper" data-id="${id}" data-vers="armeGauche">Main gauche</button>` : ''
+                    }`
+                  : o.soin || o.mana
+                    ? `<button class="secondaire petit boire" data-id="${id}">${o.type === 'potion' ? 'Boire' : 'Manger'}</button>`
+                    : '';
+              const ligne = ligneObjet(p, o, `<span class="pastille">×${nb}</span> ${bouton}`);
+              return cases.length ? ligne.replace('<div class="objet">', `<div class="objet" tabindex="-1" data-apercu="${echapper(JSON.stringify(cases))}">`) : ligne;
+            })
+            .join('')
+        : '<p class="note">Ton sac est vide. Même pas une chaussette.</p>'
+    }
     ${
       blessuresActives(p).length
         ? `<h3>Blessures graves</h3><ul class="blessures">${blessuresActives(p)
@@ -207,25 +222,6 @@ export const panneauSac = (p: Partie, message?: string) => {
         : ''
     }
     ${panneauCompetences(p)}
-    ${EMPLACEMENTS.map(([cle, titre]) => emplacement(cle === 'armure' && p.equipe.armure && objet(p.equipe.armure).emplacement === 'complete' ? 'Armure complète' : titre, cle)).join('')}
-    <h3 style="margin-top:16px">Dans le sac</h3>
-    ${
-      ids.length
-        ? ids
-            .map((id) => {
-              const o = objet(id);
-              const nb = p.sac.filter((x) => x === id).length;
-              const bouton =
-                o.type === 'arme' || o.type === 'armure'
-                  ? `<button class="secondaire petit equiper" data-id="${id}">Équiper</button>`
-                  : o.soin || o.mana
-                    ? `<button class="secondaire petit boire" data-id="${id}">${o.type === 'potion' ? 'Boire' : 'Manger'}</button>`
-                    : '';
-              return ligneObjet(p, o, `<span class="pastille">×${nb}</span> ${bouton}`);
-            })
-            .join('')
-        : '<p class="note">Ton sac est vide. Même pas une chaussette.</p>'
-    }
     ${message ? `<div class="recit">${message}</div>` : ''}
   </div>`;
 };
@@ -268,9 +264,10 @@ export const lierSac = (app: HTMLElement, p: Partie, message: (html: string) => 
   const sur = (sel: string, fn: (el: HTMLElement) => void) =>
     app.querySelectorAll<HTMLElement>(sel).forEach((el) => el.addEventListener('click', () => fn(el)));
   lierGroupe(app, p, message);
+  lierPoupee(app);
   sur('.equiper', (el) => {
     const o = objet(el.dataset.id!);
-    const refus = equiper(p, o.id);
+    const refus = equiper(p, o.id, el.dataset.vers as CleEquipement | undefined);
     message(refus ? `<span class="alerte">${echapper(refus)}</span>` : `Tu t'équipes : <b>${echapper(o.nom)}</b>.`);
   });
   sur('.retirer', (el) => {

@@ -11,6 +11,8 @@ import { objet, type Objet } from './objets';
 /** Ce que le héros porte : une arme, et une protection par localisation (règles : pas d'empilement). */
 export interface Equipement {
   arme?: string;
+  /** Deuxième arme à une main (Ambidextrie, à partir du niveau 2). */
+  armeGauche?: string;
   /** Torse, ou armure complète (qui couvre alors tout). */
   armure?: string;
   tete?: string;
@@ -27,6 +29,7 @@ export type CleEquipement = keyof Equipement;
 
 export const EMPLACEMENTS: [CleEquipement, string][] = [
   ['arme', 'Arme'],
+  ['armeGauche', 'Main gauche'],
   ['armure', 'Torse'],
   ['tete', 'Tête'],
   ['bras', 'Bras'],
@@ -46,8 +49,10 @@ export const emplacementDe = (o: Objet): CleEquipement | null => {
   return e === 'torse' || e === 'complete' ? 'armure' : e;
 };
 
+// La deuxième arme ne compte pas dans les malus de tous les jours : seulement quand elle frappe.
 const porte = (p: Partie): Objet[] =>
-  EMPLACEMENTS.map(([k]) => p.equipe[k])
+  EMPLACEMENTS.filter(([k]) => k !== 'armeGauche')
+    .map(([k]) => p.equipe[k])
     .filter((id): id is string => !!id)
     .map(objet);
 
@@ -244,21 +249,44 @@ export const valeursCombat = (p: Partie): ValeursCombat => {
     pieces.reduce((s, o) => s + (k === 'PRD' && bricABrac ? Math.max(0, o.mods?.[k] ?? 0) : (o.mods?.[k] ?? 0)), 0) +
     blessures.reduce((s, b) => s + (b.mods[k] ?? 0), 0);
   // Les Nains manient les armes à une main humaines à deux mains : +1 aux dégâts (livret p. 5).
-  const bonusNain = arme && f.origine.id === 'nain' && arme.mains === 1 && !arme.id.startsWith('hache') ? 1 : 0;
-  const bonus = f.bonusDegats + bonusNain;
-  const base = arme?.degats ?? '1D-2';
-  const [des, fixe] = base.split(/(?=[+-])/);
-  const total = Number(fixe ?? 0) + bonus;
   return {
     at: f.at + mod('AT'),
     prd: f.prd + mod('PRD'),
     // Truc de mauviette : +1 de protection naturelle.
     pr: protectionTotale(p) + (aCompetence(f, 'Truc de mauviette') ? 1 : 0),
-    degats: `${des}${total === 0 ? '' : total > 0 ? `+${total}` : total}`,
+    degats: degatsAvec(f, arme),
     cha: f.caracs.CHA + mod('CHA'),
     cou: f.caracs.COU + mod('COU'),
     ad: f.caracs.AD + mod('AD'),
   };
+};
+
+/** Dégâts d'une arme dans les mains du héros : ceux de l'arme plus son bonus de Force. */
+const degatsAvec = (f: Fiche, arme?: Objet) => {
+  // Les Nains manient les armes à une main humaines à deux mains : +1 aux dégâts (livret p. 5).
+  const bonusNain = arme && f.origine.id === 'nain' && arme.mains === 1 && !arme.id.startsWith('hache') ? 1 : 0;
+  const bonus = f.bonusDegats + bonusNain;
+  const [des, fixe] = (arme?.degats ?? '1D-2').split(/(?=[+-])/);
+  const total = Number(fixe ?? 0) + bonus;
+  return `${des}${total === 0 ? '' : total > 0 ? `+${total}` : total}`;
+};
+
+/** Ambidextrie (compétence) : une arme dans chaque main, à partir du niveau 2. */
+export const ambidextre = (p: Partie) => aCompetence(calculerFiche(p.perso), 'Ambidextrie') && niveau(p) >= 2;
+
+/**
+ * La deuxième attaque de l'ambidextre (compétence AMBIDEXTRIE) : avec deux armes à une main et au moins AD 14,
+ * une deuxième attaque à chaque assaut, avec la deuxième arme, à AT −5. Null : pas de deuxième attaque, et pourquoi.
+ */
+export const mainGauche = (p: Partie): { at: number; degats: string; arme: Objet } | { refus: string } | null => {
+  if (!p.equipe.armeGauche) return null;
+  const f = calculerFiche(p.perso);
+  const v = valeursCombat(p);
+  const arme = objet(p.equipe.armeGauche);
+  if (!ambidextre(p)) return { refus: 'Il faut la compétence Ambidextrie et le niveau 2.' };
+  if (v.ad < 14) return { refus: `Il faut AD 14 pour frapper des deux mains (tu as ${v.ad}).` };
+  const droite = p.equipe.arme ? objet(p.equipe.arme) : undefined;
+  return { at: v.at - (droite?.mods?.AT ?? 0) + (arme.mods?.AT ?? 0) - 5, degats: degatsAvec(f, arme), arme };
 };
 
 /** Blessures graves encore là ce jour-ci (les guéries sont oubliées). */
@@ -330,12 +358,30 @@ export const vendre = (p: Partie, id: string, prix: number): string | null => {
   return null;
 };
 
-/** Équipe une arme ou une protection du sac ; ce qui occupait la place retourne dans le sac. */
-export const equiper = (p: Partie, id: string): string | null => {
+/** Ce qu'il faudrait pour équiper cet objet : l'emplacement visé, ce qu'il libère, ou la raison du refus. */
+export const essaiEquiper = (
+  p: Partie,
+  id: string,
+  vers?: CleEquipement,
+): { cle: CleEquipement; liberes: CleEquipement[]; refus: null } | { refus: string } => {
   const o = objet(id);
   const f = calculerFiche(p.perso);
-  const cle = emplacementDe(o);
-  if (!cle) return "Ça ne s'équipe pas.";
+  const naturel = emplacementDe(o);
+  if (!naturel) return { refus: "Ça ne s'équipe pas." };
+  const cle = vers ?? naturel;
+  if (cle === 'armeGauche') {
+    if (naturel !== 'arme') return { refus: "La main gauche tient une arme de contact, ou rien." };
+    if (!ambidextre(p)) return { refus: 'Une arme dans chaque main : il faut la compétence Ambidextrie, à partir du niveau 2.' };
+    if (o.mains === 2) return { refus: 'Une arme à deux mains ne va pas dans la main gauche.' };
+    if (!p.equipe.arme) return { refus: "Prends d'abord une arme dans la main droite." };
+    if (objet(p.equipe.arme).mains === 2) return { refus: 'Ta main droite tient une arme à deux mains.' };
+    if (p.equipe.bouclier) return { refus: 'Ta main gauche tient déjà un bouclier.' };
+    const refus = peutManier(f, o);
+    return refus ? { refus } : { cle, liberes: ['armeGauche'], refus: null };
+  }
+  if (cle !== naturel) return { refus: 'Ça ne va pas à cet endroit.' };
+  if (cle === 'bouclier' && p.equipe.armeGauche) return { refus: 'Ta main gauche tient déjà une arme.' };
+  if (cle === 'arme' && o.mains === 2 && p.equipe.armeGauche) return { refus: "Il faut deux mains pour cette arme : range d'abord ton arme de main gauche." };
   // Une armure complète couvre toutes les localisations ; une pièce séparée la remplace.
   const complete = o.emplacement === 'complete';
   const liberes: CleEquipement[] = complete
@@ -347,10 +393,18 @@ export const equiper = (p: Partie, id: string): string | null => {
     .filter((x) => !liberes.some((k) => p.equipe[k] === x.id))
     .reduce((s, x) => s + (x.type === 'armure' ? (x.pr ?? 0) : 0), 0);
   const refus = o.type === 'arme' ? peutManier(f, o) : peutPorter(f, o, prAilleurs);
-  if (refus) return refus;
-  if (cle === 'distance' && f.metier.id === 'mage') return 'Un mage ne s\'encombre pas d\'arc : il a ses sorts.';
-  if (cle === 'bouclier' && p.equipe.arme && objet(p.equipe.arme).mains === 2) return 'Impossible de tenir un bouclier avec une arme à deux mains.';
-  if (cle === 'arme' && o.mains === 2 && p.equipe.bouclier) return "Il faut deux mains pour cette arme : retire d'abord ton bouclier.";
+  if (refus) return { refus };
+  if (cle === 'distance' && f.metier.id === 'mage') return { refus: 'Un mage ne s\'encombre pas d\'arc : il a ses sorts.' };
+  if (cle === 'bouclier' && p.equipe.arme && objet(p.equipe.arme).mains === 2) return { refus: 'Impossible de tenir un bouclier avec une arme à deux mains.' };
+  if (cle === 'arme' && o.mains === 2 && p.equipe.bouclier) return { refus: "Il faut deux mains pour cette arme : retire d'abord ton bouclier." };
+  return { cle, liberes, refus: null };
+};
+
+/** Équipe une arme ou une protection du sac (à l'emplacement `vers`, sinon le sien) ; ce qui occupait la place retourne dans le sac. */
+export const equiper = (p: Partie, id: string, vers?: CleEquipement): string | null => {
+  const e = essaiEquiper(p, id, vers);
+  if (e.refus !== null) return e.refus;
+  const { cle, liberes } = e;
   const i = p.sac.indexOf(id);
   if (i < 0) return "Tu n'as pas cet objet dans ton sac.";
   p.sac.splice(i, 1);

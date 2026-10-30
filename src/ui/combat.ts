@@ -1,6 +1,7 @@
 import {
   acteur,
   attaquer,
+  attaquerMainGauche,
   adversaires,
   auContact,
   bilanCompagnons,
@@ -61,6 +62,8 @@ export interface BilanCombat {
 
 type Attente =
   | { type: 'action' }
+  /** Ambidextrie : la deuxième attaque, avec l'arme de la main gauche. */
+  | { type: 'mainGauche' }
   | { type: 'defense'; attaquant: string; de: number }
   | { type: 'fouille'; corps: string[]; reste: { fin: 'victoire'; xp: number; recuperes: string; notes: string[] } }
   | { type: 'fin'; bilan: BilanCombat }
@@ -174,6 +177,13 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
           .map((id) => `<button class="secondaire" data-potion="${id}">Boire : ${echapper(objet(id).nom)}</button>`)
           .join('')}${fuite}</p>
         <p>${boutonAutrement({ type: 'combat', id: r.ligne.nom, titre: `Combat contre ${r.nombre > 1 ? `${r.nombre} ${r.ligne.nom}` : r.ligne.nom}` })}</p></div>`;
+    }
+    if (attente.type === 'mainGauche') {
+      const g = x.mainGauche!;
+      return `<div class="a-toi"><p><b>Ambidextrie !</b> Ta main gauche tient ${echapper(g.nom)} : une deuxième attaque, plus difficile (AT −5). Il faut <b>${g.at} ou moins</b>. Deux fois plus de chances de toucher… et de te blesser tout seul.</p>
+        <p class="actions-lieu">${auContact(c)
+          .map((e) => `<button data-main-gauche="${e.id}">🎲 Frapper ${echapper(e.nom)} de la main gauche</button>`)
+          .join('')}<button class="secondaire" data-sans-gauche>Pas de deuxième coup</button></p></div>`;
     }
     if (attente.type === 'defense') {
       const a = combattant(c, attente.attaquant);
@@ -350,12 +360,14 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
       etape(zone, `<span class="note">Pas de défense : ${echapper(a.sansDefense)}.</span>`);
     }
     await montrerTables(zone, a);
+    // Les suites des critiques et maladresses avant les dégâts du coup lui-même : c'est dans cet ordre que ça se passe.
+    for (const e of a.effets) etape(zone, `<span class="effet">${echapper(e)}</span>`);
     if (a.degats) {
       const g = a.degats;
       if (att.id === 'heros') await clicDegats(zone, expr ?? att.degats);
       el = etape(
         zone,
-        `Dégâts ${g.des.map((x) => de(x, 'anim')).join('')}${g.bonus ? ` + ${g.bonus} (critique)` : ''} = ${g.total}${g.pr ? `, moins ${g.pr} d'armure` : a.issue === 'critique' ? ', armure ignorée' : ''} : <span class="verdict rate">−${g.blessure - (g.poison?.[0] ?? 0)} PV</span>`,
+        `Dégâts sur ${echapper(cib.nom)} ${g.des.map((x) => de(x, 'anim')).join('')}${g.bonus ? ` + ${g.bonus} (critique)` : ''} = ${g.total}${g.pr ? `, moins ${g.pr} d'armure` : a.issue === 'critique' ? ', armure ignorée' : ''} : <span class="verdict rate">−${g.blessure - (g.poison?.[0] ?? 0)} PV</span>`,
       );
       await reveler(el, 6, g.des, false);
       if (g.poison) {
@@ -364,7 +376,6 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
       }
       touche = cib.id;
     }
-    for (const e of a.effets) etape(zone, `<span class="effet">${echapper(e)}</span>`);
     c.journal.push(resumer(a));
     scene = zone.innerHTML;
   };
@@ -598,8 +609,36 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
       await lancerJoueur(`Tu attaques <b>${echapper(combattant(c, cible).nom)}</b>…`, d);
       const a = attaquer(c, 'heros', cible, d);
       await montrer(a, { attaque: true });
+      // Ambidextrie : une deuxième attaque dans le même assaut, avec l'autre main, s'il reste quelqu'un au contact.
+      verifier(c);
+      synchroniser();
+      if (!c.fin && h().mainGauche && h().etat === 'actif' && !h().rate && auContact(c).length) {
+        attente = { type: 'mainGauche' };
+        occupe = false;
+        return render();
+      }
       apres();
       if (!c.fin) await attendre(600);
+      avancer();
+    });
+
+    sur('[data-main-gauche]', async (el) => {
+      if (attente?.type !== 'mainGauche') return (occupe = false);
+      attente = null;
+      const cible = el.dataset.mainGauche!;
+      const d = lancer(20);
+      await lancerJoueur(`De l'autre main, tu attaques <b>${echapper(combattant(c, cible).nom)}</b>… il faut ${h().mainGauche!.at} ou moins.`, d);
+      const a = attaquerMainGauche(c, 'heros', cible, d);
+      await montrer(a, { attaque: true }, h().mainGauche?.degats);
+      apres();
+      if (!c.fin) await attendre(600);
+      avancer();
+    });
+
+    sur('[data-sans-gauche]', async () => {
+      if (attente?.type !== 'mainGauche') return (occupe = false);
+      attente = null;
+      apres();
       avancer();
     });
 
