@@ -262,7 +262,7 @@ export const ecranCreation = (
               .map((v, j) => `<span class="score-reserve ${utilises.has(j) && !anim ? 'place' : ''}">${de(anim ? '?' : v - 7, anim ? 'a-animer' : '')}<b>${anim ? '…' : v}</b></span>`)
               .join('')}</div>
              ${anim ? '' : `<p class="note">Choisis pour chaque caractéristique le score qu'elle reçoit. ${utilises.size ? '<button class="secondaire petit" id="vider">Tout reprendre</button>' : ''}</p>`}`
-          : '<p><button id="lancer-tout">Lancer les cinq dés</button></p>'
+          : `<p data-lanceur>${CARACS.map(() => de('?', 'a-lancer')).join('')}<button id="lancer-tout">Lancer les cinq dés</button></p>`
       }
       <div class="liste-caracs">${CARACS.map(ligne).join('')}</div>
       ${b.jets && !anim ? resumeOrigines() : ''}`;
@@ -280,7 +280,7 @@ export const ecranCreation = (
       if (score === undefined) {
         return `<div class="ligne-carac a-venir">
           <div class="nom">${NOM_CARAC[c]}</div>
-          <div>${c === prochaine && !anim ? `<button id="lancer">Lancer le dé</button>` : de('?')}</div>
+          <div>${c === prochaine && !anim ? `${de('?', 'a-lancer')}<button id="lancer">Lancer le dé</button>` : de('?')}</div>
           <div class="valeur">—</div>
           <div class="texte"></div>
         </div>`;
@@ -412,7 +412,7 @@ export const ecranCreation = (
                         b.animation ? '' : echapper(describeMods(version.mods) + ' ' + version.note)
                       }</p>`
                     : `<p class="alerte">L'Homme-Bête existe en 6 versions. Lance le D6 pour savoir laquelle tu es.</p>
-                       <p><button id="version">Lancer le D6</button></p>`
+                       <p>${de('?', 'a-lancer')}<button id="version">Lancer le D6</button></p>`
                   : ''
               }
               <div class="colonnes">
@@ -665,7 +665,7 @@ export const ecranCreation = (
       <p>Chaque point de destin peut te sauver la vie. On lance 1D4 et on retire 1 : de 0 à 3. Oui, les guignards n'en ont pas.</p>
       ${
         b.jetDestin === undefined
-          ? '<p><button id="destin">Lancer 1D4</button></p>'
+          ? `<p>${de('?', 'a-lancer')}<button id="destin">Lancer 1D4</button></p>`
           : `<p>${de(animDestin ? '?' : b.jetDestin, animDestin ? 'a-animer' : '')} ${
               animDestin ? '' : `− 1 = <b>${b.destin} point${b.destin! > 1 ? 's' : ''} de destin</b>${b.destin === 0 ? '. Aïe.' : '.'}`
             }</p>`
@@ -676,7 +676,7 @@ export const ecranCreation = (
       }</p>
       ${
         !b.jetsOr?.length
-          ? '<p><button id="or">Lancer 2D6</button></p>'
+          ? `<p data-lanceur>${de('?', 'a-lancer')}${de('?', 'a-lancer')}<button id="or">Lancer 2D6</button></p>`
           : `<p>${b.jetsOr
               .map((paire) => paire.map((d) => de(animOr ? '?' : d, animOr ? 'a-animer' : '')).join(''))
               .join(' + ')} ${animOr ? '' : `× 10 = <b>${or} pièces d'or</b>. ${classeSociale(or, m.fortuneDouble)}`}</p>`

@@ -1124,6 +1124,40 @@ body.ency-ouverte {
   color: var(--encre-douce);
 }
 
+/* Le joueur lance ses dés en cliquant dessus : le bouton qui fait le lancer est caché. */
+button.lance-par-de {
+  display: none;
+}
+
+.de.a-lancer[role='button'] {
+  cursor: pointer;
+  color: var(--encre);
+  border-color: var(--or, #b8860b);
+  animation: appel-de 1.6s ease-in-out infinite;
+}
+
+.de.a-lancer[role='button']:hover,
+.de.a-lancer[role='button']:focus-visible {
+  transform: translateY(-2px) rotate(-6deg) scale(1.08);
+  outline: 2px solid var(--or, #b8860b);
+  outline-offset: 2px;
+}
+
+@keyframes appel-de {
+  0%, 100% { box-shadow: 0 2px 0 rgba(0, 0, 0, 0.15), 0 0 0 0 rgba(184, 134, 11, 0.55); }
+  50% { box-shadow: 0 2px 0 rgba(0, 0, 0, 0.15), 0 0 0 7px rgba(184, 134, 11, 0); }
+}
+
+/* Pendant qu'il roule sur la page, le dé passe au-dessus du reste. */
+.de.jete {
+  position: relative;
+  z-index: 50;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .de.a-lancer[role='button'] { animation: none; }
+}
+
 /* --- Combat ------------------------------------------------------------------------ */
 
 .page-combat h2 {

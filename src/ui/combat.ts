@@ -196,9 +196,9 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
         ? ` <span class="note">${echapper(enFuite.join(', '))} ${enFuite.length > 1 ? 'ont' : 'a'} pris la fuite avec ${enFuite.length > 1 ? 'leurs' : 'ses'} affaires : rien à fouiller de ce côté.</span>`
         : '';
       const nb = attente.corps.length;
-      return `<div class="a-toi bilan"><p><b>Victoire !</b> ${nb > 1 ? `${nb} corps sont à terre` : 'Un corps est à terre'}. Tu fouilles : lance ${poubelles ? 'deux D20 par corps (Fouiller dans les poubelles : le meilleur compte)' : 'un D20 par corps'} sur la table de butin. Plus c'est haut, mieux c'est.${fuite}</p>
+      return `<div class="a-toi bilan" data-lanceur><p><b>Victoire !</b> ${nb > 1 ? `${nb} corps sont à terre` : 'Un corps est à terre'}. Tu fouilles : lance ${poubelles ? 'deux D20 par corps (Fouiller dans les poubelles : le meilleur compte)' : 'un D20 par corps'} sur la table de butin. Plus c'est haut, mieux c'est.${fuite}</p>
         <ul class="fouilles">${attente.corps
-          .map((id) => `<li>${echapper(combattant(c, id).nom)} ${(poubelles ? ['?', '?'] : ['?']).map(() => de('?', 'fouille')).join('')}</li>`)
+          .map((id) => `<li>${echapper(combattant(c, id).nom)} ${(poubelles ? ['?', '?'] : ['?']).map(() => de('?', 'fouille a-lancer')).join('')}</li>`)
           .join('')}</ul>
         <p><button id="lancer-fouille">🎲 Fouiller (lancer ${attente.corps.length * (poubelles ? 2 : 1)} D20)</button></p></div>`;
     }
@@ -310,7 +310,7 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
   /** Le joueur clique pour lancer ses dés de dégâts. */
   const clicDegats = (zone: HTMLElement, expr: string) =>
     new Promise<void>((resolve) => {
-      const el = etape(zone, `<button id="lancer-degats">🎲 Lancer les dégâts (${echapper(expr)})</button>`);
+      const el = etape(zone, `<span data-lanceur>Dégâts (${echapper(expr)}) : ${de('?', 'a-lancer')}<button id="lancer-degats">🎲 Lancer les dégâts (${echapper(expr)})</button></span>`);
       el.querySelector('button')!.addEventListener('click', () => {
         el.remove();
         resolve();

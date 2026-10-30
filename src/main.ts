@@ -4,6 +4,7 @@ import { nouvellePartie, type Partie } from './rules/partie';
 import { ecranCreation } from './ui/creation';
 import { installerEncyclopedie } from './ui/encyclopedie';
 import { installerIdees } from './ui/idees';
+import { installerDesCliquables } from './ui/outils';
 import { ecranFiche } from './ui/fiche';
 import { echapper } from './ui/outils';
 import { charger, chargerPartie, effacerTout, sauvegarderPartie } from './ui/sauvegarde';
@@ -136,5 +137,6 @@ export const accueil = () => {
 };
 
 installerIdees();
+installerDesCliquables();
 installerEncyclopedie();
 accueil();
