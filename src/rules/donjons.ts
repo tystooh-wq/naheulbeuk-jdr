@@ -597,6 +597,43 @@ export const accessibles = (e: EtatDonjon, d: Donjon, p?: Partie): string[] => {
   return s.vers.filter((v) => passable(e, d, s.id, v, p));
 };
 
+/** Une salle déjà visitée dont le contenu est réglé (ou vide) : on peut la traverser sans s'arrêter. */
+export const nettoyee = (e: EtatDonjon, s: Salle, p?: Partie) => e.vues.includes(s.id) && (!contenuIci(s, p).contenu || reglee(e, s, p));
+
+/**
+ * Les salles déjà visitées qu'on peut rejoindre d'un coup, avec le chemin le plus court (sans la salle de départ) :
+ * on ne traverse que des salles visitées et nettoyées, par des portes ouvertes. La destination, elle, peut ne pas l'être.
+ */
+export const destinations = (e: EtatDonjon, d: Donjon, p?: Partie): Map<string, string[]> => {
+  const chemins = new Map<string, string[]>([[e.salle, []]]);
+  const file = [e.salle];
+  while (file.length) {
+    const ici = file.shift()!;
+    const suivantes = ici === e.salle ? accessibles(e, d, p) : nettoyee(e, salle(d, ici), p) ? salle(d, ici).vers.filter((v) => passable(e, d, ici, v, p)) : [];
+    for (const v of suivantes) {
+      if (chemins.has(v) || !e.vues.includes(v)) continue;
+      chemins.set(v, [...chemins.get(ici)!, v]);
+      file.push(v);
+    }
+  }
+  chemins.delete(e.salle);
+  return chemins;
+};
+
+/** Traverse plusieurs salles d'un coup ; s'arrête si quelque chose bloque en route. Renvoie le nombre de salles parcourues. */
+export const voyager = (p: Partie, vers: string): { pas: number; refus: string | null } => {
+  const e = p.donjon!;
+  const chemin = destinations(e, donjon(e.id), p).get(vers);
+  if (!chemin) return { pas: 0, refus: 'Pas de chemin sûr jusque-là.' };
+  let pas = 0;
+  for (const id of chemin) {
+    const refus = avancer(p, id);
+    if (refus) return { pas, refus };
+    pas++;
+  }
+  return { pas, refus: null };
+};
+
 export const avancer = (p: Partie, vers: string): string | null => {
   const e = p.donjon!;
   const d = donjon(e.id);

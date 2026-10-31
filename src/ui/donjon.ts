@@ -2,6 +2,8 @@ import { eaMax } from '../rules/magie';
 import { avecDe, lancer, type Rng } from '../rules/des';
 import {
   accessibles,
+  destinations,
+  voyager,
   affronterPiege,
   valeurPiege,
   ambiance,
@@ -120,6 +122,20 @@ const icone = (d: Donjon, e: EtatDonjon, id: string, p: Partie) => {
   return '·';
 };
 
+/** Attributs d'un repère de salle : voisine (data-aller), plus loin par des salles nettoyées (data-trajet), ou rien. */
+const cible = (id: string, nom: string, ouvertes: string[], loin: Map<string, string[]>) => {
+  if (ouvertes.includes(id)) return `data-aller="${id}" title="${nom}"`;
+  const c = loin.get(id);
+  if (!c) return 'disabled';
+  return `data-trajet="${id}" title="${nom} : y aller (${c.length} salles, ${dureeMarche(c.length)})"`;
+};
+
+/** Dix minutes par salle traversée. */
+const dureeMarche = (salles: number) => {
+  const min = salles * 10;
+  return min >= 60 ? `${Math.floor(min / 60)} h${min % 60 ? String(min % 60).padStart(2, '0') : ''}` : `${min} min`;
+};
+
 const miniCarte = (d: Donjon, e: EtatDonjon, p: Partie) => {
   const visibles = new Set(e.vues);
   // On devine les salles voisines de celles qu'on a vues, sans savoir ce qu'elles contiennent.
@@ -133,6 +149,7 @@ const miniCarte = (d: Donjon, e: EtatDonjon, p: Partie) => {
   const couloirs = new Set<string>();
   for (const id of e.vues) for (const v of salle(d, id).vers) couloirs.add([id, v].sort().join('|'));
   const ouvertes = accessibles(e, d, p);
+  const loin = destinations(e, d, p);
   return `<div class="mini-donjon" style="width:${larg * CASE}px;height:${haut * CASE}px">
     <svg viewBox="0 0 ${larg * CASE} ${haut * CASE}" aria-hidden="true">
       ${[...couloirs]
@@ -149,9 +166,9 @@ const miniCarte = (d: Donjon, e: EtatDonjon, p: Partie) => {
       .map((s) => {
         const vue = e.vues.includes(s.id);
         const etat = !vue ? 'inconnue' : s.id === e.salle ? 'ici' : bloquee(e, s, p) ? 'danger' : 'videe';
-        const peut = ouvertes.includes(s.id);
+        const peut = ouvertes.includes(s.id) || loin.has(s.id);
         return `<button class="salle salle-${etat} ${peut ? 'ouverte' : ''}" style="left:${s.x * CASE + 8}px;top:${s.y * CASE + 8}px;width:${CASE - 16}px;height:${CASE - 16}px"
-          ${peut ? `data-aller="${s.id}"` : 'disabled'} aria-label="${vue ? echapper(s.nom) : 'Salle inconnue'}">
+          ${cible(s.id, vue ? echapper(s.nom) : 'Salle inconnue', ouvertes, loin)} aria-label="${vue ? echapper(s.nom) : 'Salle inconnue'}">
           <span>${vue ? icone(d, e, s.id, p) : '?'}</span><em>${vue ? echapper(s.nom) : '???'}</em>
         </button>`;
       })
@@ -196,6 +213,7 @@ const planEtage = (d: Donjon, e: EtatDonjon, p: Partie, niveau: string) => {
   const couloirs = new Set<string>();
   for (const id of vues) for (const v of salle(d, id).vers) if (ici(v) && (e.vues.includes(v) || devinees.has(v))) couloirs.add([id, v].sort().join('|'));
   const ouvertes = accessibles(e, d, p);
+  const loin = destinations(e, d, p);
   const pos = (id: string) => salle(d, id);
   return `<div class="plan-donjon">
     <img src="${PLANS[niveau]}" alt="Plan : ${echapper(d.niveaux!.find((n) => n.id === niveau)!.nom)}" />
@@ -213,9 +231,9 @@ const planEtage = (d: Donjon, e: EtatDonjon, p: Partie, niveau: string) => {
         const s = salle(d, id);
         const vue = e.vues.includes(id);
         const etat = !vue ? 'inconnue' : id === e.salle ? 'ici' : bloquee(e, s, p) ? 'danger' : 'videe';
-        const peut = ouvertes.includes(id);
-        return `<button class="repere-salle salle-${etat} ${peut ? 'ouverte' : ''}" style="left:${s.px}%;top:${s.py}%" ${peut ? `data-aller="${id}"` : 'disabled'}
-          title="${vue ? echapper(s.nom) : 'Salle inconnue'}" aria-label="${vue ? echapper(s.nom) : 'Salle inconnue'}">${id === e.salle ? '🧍' : vue ? icone(d, e, id, p) : '?'}</button>`;
+        const peut = ouvertes.includes(id) || loin.has(id);
+        return `<button class="repere-salle salle-${etat} ${peut ? 'ouverte' : ''}" style="left:${s.px}%;top:${s.py}%" ${cible(id, vue ? echapper(s.nom) : 'Salle inconnue', ouvertes, loin)}
+          aria-label="${vue ? echapper(s.nom) : 'Salle inconnue'}">${id === e.salle ? '🧍' : vue ? icone(d, e, id, p) : '?'}</button>`;
       })
       .join('')}
   </div>`;
@@ -472,7 +490,7 @@ export const ecranDonjon = (app: HTMLElement, p: Partie, s: SortiesDonjon) => {
     const dj = d();
     const e = p.donjon!;
     if (!dj.niveaux) return `<div class="cadre-mini">${miniCarte(dj, e, p)}</div>
-      <p class="note legende-donjon">⇲ entrée · ⚔ combat · ⚠ piège · ♨ repos · ♛ salle finale · ? inconnu. Clique sur une salle voisine pour y aller.</p>`;
+      <p class="note legende-donjon">⇲ entrée · ⚔ combat · ⚠ piège · ♨ repos · ♛ salle finale · ? inconnu. Clique sur une salle voisine pour y aller, ou sur une salle déjà nettoyée pour la rejoindre d'un coup.</p>`;
     const etageIci = salle(dj, e.salle).niveau!;
     const etage = etageVu ?? etageIci;
     const connus = dj.niveaux.filter((n) => n.id === etageIci || e.vues.some((v) => salle(dj, v).niveau === n.id));
@@ -480,7 +498,7 @@ export const ecranDonjon = (app: HTMLElement, p: Partie, s: SortiesDonjon) => {
       .map((n) => `<button class="${n.id === etage ? '' : 'secondaire'}" data-etage="${n.id}">${n.id === etageIci ? '🧍 ' : ''}${echapper(n.nom)}</button>`)
       .join('')}</div>
       ${planEtage(dj, e, p, etage)}
-      <p class="note legende-donjon">🧍 toi · ⚔ combat · ⚠ piège · ☺ quelqu'un · 🍺 taverne · 🛒 boutique · ♨ repos · ⇲ sortie · ? inconnu. Clique sur une salle voisine pour y aller.</p>
+      <p class="note legende-donjon">🧍 toi · ⚔ combat · ⚠ piège · ☺ quelqu'un · 🍺 taverne · 🛒 boutique · ♨ repos · ⇲ sortie · ? inconnu. Clique sur une salle voisine pour y aller, ou sur une salle déjà nettoyée pour la rejoindre d'un coup.</p>
       ${ddn() ? panneauHautsFaits() : ''}`;
   };
 
@@ -614,6 +632,17 @@ export const ecranDonjon = (app: HTMLElement, p: Partie, s: SortiesDonjon) => {
       const e = p.donjon!;
       const sa = salle(d(), e.salle);
       dire(refus ? echapper(refus) : !contenuIci(sa, p).contenu && !sa.tresor && !d().niveaux ? echapper(ambiance()) : undefined);
+    });
+    sur('[data-trajet]', (el) => {
+      if (scene?.resultat?.combat) return dire("Pas le temps de filer : il faut se battre d'abord (on peut toujours fuir pendant le combat).");
+      const { pas, refus } = voyager(p, el.dataset.trajet!);
+      piegeEnCours = false;
+      deEnCours = undefined;
+      scene = undefined;
+      epreuveQuete = undefined;
+      etageVu = undefined;
+      const recit = pas ? `Tu traverses ${pas > 1 ? `${pas - 1} salle${pas > 2 ? 's' : ''} déjà nettoyée${pas > 2 ? 's' : ''}` : 'le passage'} (${dureeMarche(pas)} de marche).` : '';
+      dire(echapper([recit, refus ?? ''].filter(Boolean).join(' ')));
     });
     sur('#reculer', () => {
       reculer();

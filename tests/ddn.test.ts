@@ -4,6 +4,9 @@ import {
   accessibles,
   avancer,
   chercher,
+  destinations,
+  regler,
+  voyager,
   contenuIci,
   DONJONS,
   entrerDonjon,
@@ -114,6 +117,26 @@ describe('Donjon de Naheulbeuk', () => {
     expect(forcerSerrure(p, { porte: 'cave-2' }, 'enfoncer', 1).reussi).toBe(false);
     passerTemps(p, 1);
     expect(forcerSerrure(p, { porte: 'cave-2' }, 'enfoncer', 1).reussi).toBe(true);
+  });
+
+  it("on traverse d'un coup les salles déjà visitées et nettoyées, pas les autres", () => {
+    const p = partie();
+    const e = p.donjon!;
+    e.vues.push('n0-2', 'n0-7', 'n0-9', 'n0-12', 'n0-11', 'n0-dortoir');
+    // L'assistant de Zangdar (n0-12, en journée) a déjà été vu.
+    regler(e, 'n0-12#0');
+    regler(e, 'n0-9');
+    const d = destinations(e, DDN, p);
+    expect(d.get('n0-9')).toEqual(['n0-2', 'n0-7', 'n0-9']);
+    // La salle des plantons orques n'est pas réglée : on s'y arrête, on ne passe pas au-delà.
+    expect(d.has('n0-11')).toBe(true);
+    expect(d.has('n0-dortoir')).toBe(false);
+    regler(e, 'n0-11');
+    expect(destinations(e, DDN, p).has('n0-dortoir')).toBe(true);
+    const avant = p.heure;
+    expect(voyager(p, 'n0-9')).toEqual({ pas: 3, refus: null });
+    expect(e.salle).toBe('n0-9');
+    expect(p.heure).toBeCloseTo(avant + 0.5);
   });
 
   it('la « putain de porte » ne s\'ouvre que de l\'autre côté', () => {
