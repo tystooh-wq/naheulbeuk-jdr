@@ -188,13 +188,29 @@ const connecter = async () => {
   );
 };
 
-const enregistrer = async (idee: Omit<Idee, 'id'>): Promise<'partagee' | 'locale' | 'echec'> => {
+/**
+ * Adresse du script de la feuille « Idées Naheulbeuk » (Google Apps Script, voir naheulbeuk-hebergement/script-idees.gs).
+ * Quand elle est renseignée, les idées qu'on ne peut pas écrire dans la base partagée partent dans la feuille,
+ * et plus rien n'est gardé dans le navigateur.
+ */
+export const ENVOI_IDEES = '';
+
+const enregistrer = async (idee: Omit<Idee, 'id'>): Promise<'partagee' | 'envoyee' | 'locale' | 'echec'> => {
   if (db) {
     try {
       await db.collection(COLLECTION).add({ ...idee });
       return 'partagee';
     } catch {
-      // Pas le droit d'écrire (visiteur en lecture seule) : on garde l'idée sur l'appareil.
+      // Pas le droit d'écrire (visiteur en lecture seule) : on l'envoie à la feuille, sinon on la garde sur l'appareil.
+    }
+  }
+  if (ENVOI_IDEES) {
+    try {
+      // « no-cors » et texte brut : Apps Script n'accepte pas les requêtes préalables ; on ne lit pas la réponse.
+      await fetch(ENVOI_IDEES, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(idee) });
+      return 'envoyee';
+    } catch {
+      return 'echec';
     }
   }
   const locales = lireLocales();
@@ -295,11 +311,11 @@ const saisie = (c: Contexte) => {
     const res = await enregistrer({ contexte: c, texte: prerequis ? `Prérequis : ${prerequis}\n\n${texte}` : texte, date: new Date().toISOString(), statut: 'proposee', auteur });
     prevenir();
     retour.textContent =
-      res === 'partagee'
+      res === 'partagee' || res === 'envoyee'
         ? 'Merci ! Ton idée est partagée avec le MJ.'
         : res === 'locale'
           ? "Merci ! Ton idée est gardée dans ce navigateur : pour que le MJ la voie, ouvre « 💡 Idées » et copie tes idées pour lui."
-          : "Impossible d'enregistrer l'idée dans ce navigateur.";
+          : "Impossible d'envoyer l'idée. Vérifie ta connexion et réessaie.";
     setTimeout(fermer, 1600);
   });
 };
@@ -394,7 +410,7 @@ const envoyerProposition = (lire: (d: FormData) => { genre: string; ou: string; 
     });
     prevenir();
     retour.textContent =
-      res === 'partagee' ? 'Merci ! Ta proposition est partagée avec le MJ.' : res === 'locale' ? 'Merci ! Ta proposition est gardée dans ce navigateur.' : "Impossible d'enregistrer la proposition.";
+      res === 'partagee' || res === 'envoyee' ? 'Merci ! Ta proposition est partagée avec le MJ.' : res === 'locale' ? 'Merci ! Ta proposition est gardée dans ce navigateur.' : "Impossible d'enregistrer la proposition.";
     setTimeout(liste, 1600);
   });
 };
