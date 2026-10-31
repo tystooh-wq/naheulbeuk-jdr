@@ -73,6 +73,7 @@ import { lierQuetes, panneauJournalQuetes, panneauQuetes } from './quetes';
 import { sauvegarderPartie } from './sauvegarde';
 import { ecranMort } from './mort';
 import { aTalent, bonusSituation, texteBonus } from '../rules/talents';
+import MASQUES from '../assets/ddn/masques.json';
 import planN0 from '../assets/ddn/n0.jpg';
 import planCave from '../assets/ddn/cave.jpg';
 import planSout from '../assets/ddn/souterrains.jpg';
@@ -156,26 +157,26 @@ const miniCarte = (d: Donjon, e: EtatDonjon, p: Partie) => {
 };
 
 /** Un étage sur son plan officiel : les salles vues, les couloirs connus, le héros, les salles où l'on peut aller. */
-/** Largeur / hauteur des plans (pour que les éclaircies du brouillard restent rondes). */
-const RAPPORT = 1.47;
-
-/** Le brouillard : le plan reste dans l'ombre, sauf autour des salles vues et des couloirs parcourus. */
-const brouillard = (niveau: string, vues: Salle[], devinees: Salle[], couloirs: Salle[][]) => {
-  const W = RAPPORT * 100;
-  const x = (s: Salle) => (s.px! * W) / 100;
-  return `<svg class="brouillard" viewBox="0 0 ${W} 100" preserveAspectRatio="none" aria-hidden="true">
+/** Le brouillard : le plan reste dans l'ombre, sauf la surface des salles vues (qui s'arrête aux murs,
+ * donc les passages secrets restent cachés) ; les salles devinées sont à demi dévoilées. */
+const brouillard = (niveau: string, vues: string[], devinees: string[]) => {
+  const [W, H] = (MASQUES.plans as Record<string, number[]>)[niveau] ?? [1000, 680];
+  const zone = (id: string, opacite: number) => {
+    const m = (MASQUES.salles as unknown as Record<string, [number, number, number, number, string]>)[id];
+    return m ? `<image href="${m[4]}" x="${m[0]}" y="${m[1]}" width="${m[2]}" height="${m[3]}" opacity="${opacite}" />` : '';
+  };
+  return `<svg class="brouillard" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true">
     <defs>
-      <filter id="flou-${niveau}"><feGaussianBlur stdDeviation="2.2" /></filter>
-      <mask id="vu-${niveau}">
-        <rect width="${W}" height="100" fill="white" />
+      <filter id="flou-${niveau}"><feGaussianBlur stdDeviation="${W / 400}" /></filter>
+      <mask id="vu-${niveau}" maskUnits="userSpaceOnUse" x="0" y="0" width="${W}" height="${H}">
+        <rect width="${W}" height="${H}" fill="white" />
         <g filter="url(#flou-${niveau})">
-          ${couloirs.map(([a, b]) => `<line x1="${x(a)}" y1="${a.py}" x2="${x(b)}" y2="${b.py}" stroke="black" stroke-width="8" stroke-linecap="round" />`).join('')}
-          ${vues.map((s) => `<circle cx="${x(s)}" cy="${s.py}" r="12" fill="black" />`).join('')}
-          ${devinees.map((s) => `<circle cx="${x(s)}" cy="${s.py}" r="5" fill="#666" />`).join('')}
+          ${devinees.map((id) => zone(id, 0.45)).join('')}
+          ${vues.map((id) => zone(id, 1)).join('')}
         </g>
       </mask>
     </defs>
-    <rect width="${W}" height="100" fill="#1d150e" mask="url(#vu-${niveau})" />
+    <rect width="${W}" height="${H}" fill="#1d150e" mask="url(#vu-${niveau})" />
   </svg>`;
 };
 
@@ -195,7 +196,7 @@ const planEtage = (d: Donjon, e: EtatDonjon, p: Partie, niveau: string) => {
   const pos = (id: string) => salle(d, id);
   return `<div class="plan-donjon">
     <img src="${PLANS[niveau]}" alt="Plan : ${echapper(d.niveaux!.find((n) => n.id === niveau)!.nom)}" />
-    ${brouillard(niveau, vues.map(pos), [...devinees].map(pos), [...couloirs].filter((c) => c.split('|').every((x) => e.vues.includes(x))).map((c) => c.split('|').map(pos)))}
+    ${brouillard(niveau, vues, [...devinees])}
     <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
       ${[...couloirs]
         .map((c) => {
