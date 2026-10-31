@@ -2,9 +2,12 @@ import { creature } from './bestiaire';
 import { ea, eaMax } from './magie';
 import { lancer, type Rng } from './des';
 import { arrondirOr } from './monnaie';
-import { epreuve, lancerExpression, noter, passerTemps, soigner, type Partie } from './partie';
-import { valeurEpreuveQuete, type CaracQuete } from './quetes';
+import { objet } from './objets';
+import { epreuve, lancerExpression, niveau, noter, passerTemps, soigner, type Partie } from './partie';
+import { valeurEpreuve, type CaracQuete } from './epreuves';
 import type { LigneRencontre, Rencontre } from './rencontres';
+import type { Evenement } from './evenements';
+import { DDN } from './ddn-salles';
 
 // Donjons : une suite de salles reliées entre elles, montrées sur une mini-carte façon Darkest Dungeon.
 // On avance de salle en salle (dix minutes à chaque fois) ; chaque salle peut cacher un combat, un piège,
@@ -13,29 +16,132 @@ import type { LigneRencontre, Rencontre } from './rencontres';
 export interface Ennemis {
   ligne: LigneRencontre;
   nombre: number;
+  /** Renforts par compagnon du héros (le manuel : « calculez les ennemis selon votre équipe »). */
+  parCompagnon?: number;
 }
 
+/** Plage horaire [début, fin[ en heures ; la fin peut dépasser 24 (« 18 à 26 » : de 18 h à 2 h du matin). */
+export type Horaire = [number, number];
+
+export const dansHoraire = (heure: number, hs: Horaire[]) => hs.some(([a, b]) => (heure >= a && heure < b) || (heure + 24 >= a && heure + 24 < b));
+
 export type Contenu =
-  | { type: 'combat'; ennemis: Ennemis[]; texte: string }
-  | { type: 'piege'; carac: CaracQuete; modif?: number; degats: string; texte: string; evite: string; subit: string }
+  | {
+      type: 'combat';
+      ennemis: Ennemis[];
+      texte: string;
+      /** Créatures pensantes : on peut se rendre plutôt que mourir. */
+      pensants?: boolean;
+      /** Un adversaire qui ne revient pas (Zangdar, la liche…) : la salle ne se repeuple pas. */
+      unique?: boolean;
+      /** Ce qu'on trouve sur eux une fois vaincus (une clé…), en plus du butin ordinaire. */
+      gagne?: string[];
+      /** Marque posée à la victoire (« ddn:liche-morte »). */
+      marque?: string;
+    }
+  /** Une scène écrite (un PNJ, une énigme, un piège bizarre) : des choix, parfois un dé, parfois un combat. */
+  | {
+      type: 'scene';
+      scene: Evenement;
+      /** Rejouable (un PNJ qu'on revoit) ; sinon la salle est réglée après un choix. */
+      permanente?: boolean;
+      /** Il faut la régler avant d'aller plus loin. */
+      bloque?: boolean;
+      unique?: boolean;
+    }
+  /** Une taverne : chope (avec une rumeur), repas, aux heures d'ouverture. */
+  | { type: 'taverne'; texte: string; chope: number; repas: number; rumeurs: string[] }
+  /** Une échoppe : on y achète au prix du catalogue. */
+  | { type: 'boutique'; nom: string; texte: string; stock: string[]; /** Des ragots contre quelques pièces. */ ragots?: { prix: number; textes: string[]; marque?: string } }
+  | { type: 'piege'; carac: CaracQuete; modif?: number; degats: string; texte: string; evite: string; subit: string; /** Effet en plus des dégâts (marque…). */ suite?: (p: Partie) => string }
   | { type: 'repos'; pv: number; texte: string; /** Points astraux rendus aux mages. */ pa?: number; /** Durée de la pause (30 minutes par défaut). */ heures?: number };
+
+/** Une serrure (porte ou coffre) : clé, crochetage, épaule ou énigme. */
+export interface Serrure {
+  /** Ce qu'on en voit. */
+  texte: string;
+  /** La clé (objet) qui l'ouvre ; plusieurs clés : il les faut toutes. */
+  cle?: string | string[];
+  /** Crochetage possible : épreuve d'Adresse avec ce modificateur (−3 sans la compétence Serrurier). */
+  crochetage?: number;
+  /** Peut s'enfoncer ou se fracasser : épreuve de Force avec ce modificateur. */
+  force?: number;
+  /** Dégâts si le crochetage rate (serrure piégée) ; triplés sur un 20. */
+  piege?: string;
+  /** S'ouvre en répondant à cette énigme (numéro dans ENIGMES de ddn.ts). */
+  enigme?: number;
+}
+
+/** Une porte entre deux salles : cachée, fermée à clé, coincée ou fermée par une énigme. Une fois ouverte, elle le reste. */
+export interface Porte extends Serrure {
+  /** Passage secret : invisible tant qu'on ne l'a pas trouvé (épreuve du joueur, en cherchant). */
+  cachee?: { carac: CaracQuete; modif?: number };
+  /** La porte ne gêne que depuis la salle où elle est décrite (de l'autre côté, on ouvre sans peine). */
+  sensUnique?: boolean;
+  /** Ouverte d'office à ces heures-là (une boutique pendant les heures d'ouverture). */
+  libre?: Horaire[];
+}
+
+/** Une autre version de la salle, selon l'heure ou la partie (la taverne fermée, Zangdar qui dort…). */
+export interface Variante {
+  quand?: Horaire[];
+  si?: (p: Partie) => boolean;
+  contenu?: Contenu;
+  /** Ce qui change dans la description. */
+  description?: string;
+}
 
 export interface Salle {
   id: string;
   nom: string;
-  /** Case de la mini-carte (colonne, ligne). */
+  /** Case de la mini-carte (colonne, ligne), pour les donjons sans plan. */
   x: number;
   y: number;
+  /** Donjon sur plans officiels : l'étage, et la position sur son plan (en % de la largeur et de la hauteur). */
+  niveau?: string;
+  px?: number;
+  py?: number;
+  /** Portes vers certaines salles voisines (identifiant de la salle d'en face). */
+  portes?: Record<string, Porte>;
+  /** On peut quitter le donjon d'ici (entrée, porte de la taverne, balcon avec une corde) : le libellé du bouton. */
+  sortie?: string;
+  /** Ce qui manque pour sortir par là (une corde assez longue…), ou null. */
+  sortieSi?: (p: Partie) => string | null;
   description: string;
   vers: string[];
   contenu?: Contenu;
+  /** Versions de la salle selon l'heure : la première qui convient remplace `contenu`. */
+  variantes?: Variante[];
   /** Trouvé en fouillant la salle, une fois son contenu réglé. */
-  tresor?: { or?: number; objets?: string[]; texte: string };
+  tresor?: Tresor;
+}
+
+export interface Tresor {
+  or?: number;
+  objets?: string[];
+  texte: string;
+  /** Dans un coffre fermé. */
+  serrure?: Serrure;
+  /** Planqué : il faut d'abord le trouver (en cherchant, comme un passage secret). */
+  cachee?: { carac: CaracQuete; modif?: number };
+  /** Une fouille qui prend du temps (le foutoir des gobelins…), en heures. */
+  heures?: number;
+  /** Haut fait gagné en fouillant ici (Pause casse-croûte). */
+  hautFait?: string;
+}
+
+export interface Niveau {
+  id: string;
+  nom: string;
 }
 
 export interface Donjon {
   id: string;
   nom: string;
+  /** Étages dessinés sur les plans officiels (sinon : mini-carte en cases). */
+  niveaux?: Niveau[];
+  /** Plusieurs façons d'entrer (porte principale, taverne…), parfois à certaines heures seulement. */
+  entrees?: { salle: string; libelle: string; ouverte?: Horaire[] }[];
   /** Où se trouve l'entrée (même notation que les quêtes). */
   ou: string;
   intro: string;
@@ -59,6 +165,17 @@ export interface EtatDonjon {
   fouillees: string[];
   /** Jour où chaque salle a été réglée (« r:salle ») ou fouillée (« f:salle ») : le donjon se repeuple après une semaine. */
   quand?: Record<string, number>;
+  /** Portes ouvertes (« salleA|salleB », dans l'ordre alphabétique), coffres ouverts (« coffre:salle ») et cachettes trouvées (« vu: ») : ils le restent. */
+  ouvertes?: string[];
+  /** Le héros croupit dans un cachot (il s'est rendu) ; ses affaires sont au bureau des geôliers. */
+  prisonnier?: boolean;
+  confisque?: { sac: string[]; equipe: Partie['equipe']; or: number };
+  /** Jour de la capture, et jours déjà passés au cachot (pain sec, torture). */
+  capture?: number;
+  /** Niveau du héros en entrant (haut fait « Massive level up »). */
+  niveauEntree?: number;
+  /** Or trouvé dans les coffres de ce donjon (haut fait « Chasseurs de trésors »). */
+  orTrouve?: number;
 }
 
 /** Jours avant que les monstres reviennent et que les coffres se remplissent. */
@@ -233,6 +350,7 @@ export const DONJONS: Donjon[] = [
       },
     ],
   },
+  DDN,
 ];
 
 export const donjon = (id: string): Donjon => {
@@ -246,7 +364,7 @@ export const donjonIci = (ou: string) => DONJONS.find((d) => d.ou === ou);
 export const salle = (d: Donjon, id: string): Salle => d.salles.find((s) => s.id === id)!;
 
 /** Ce qui est encore vide ou pillé : on oublie ce qui a été réglé ou fouillé il y a une semaine ou plus. */
-const purger = (e: EtatDonjon, jour: number) => {
+export const purger = (e: EtatDonjon, jour: number) => {
   const q = e.quand ?? {};
   const frais = (cle: string) => q[cle] === undefined || jour - q[cle] < REPEUPLEMENT;
   e.reglees = e.reglees.filter((s) => frais(`r:${s}`));
@@ -255,13 +373,15 @@ const purger = (e: EtatDonjon, jour: number) => {
 };
 
 /** Entre dans un donjon. Les salles vidées et pillées depuis moins d'une semaine le restent ; le plan déjà vu aussi. */
-export const entrerDonjon = (p: Partie, id: string): EtatDonjon => {
+export const entrerDonjon = (p: Partie, id: string, par?: string): EtatDonjon => {
   const d = donjon(id);
+  const entree = par && d.entrees?.some((x) => x.salle === par) ? par : d.entree;
   const m = p.memoireDonjons?.[id];
   if (m) {
     purger(m, p.jour);
-    p.donjon = { ...m, salle: d.entree, precedente: undefined, vues: m.vues.includes(d.entree) ? m.vues : [d.entree, ...m.vues] };
-  } else p.donjon = { id, salle: d.entree, vues: [d.entree], reglees: [], fouillees: [], quand: {} };
+    p.donjon = { ...m, salle: entree, precedente: undefined, prisonnier: undefined, vues: m.vues.includes(entree) ? m.vues : [...m.vues, entree] };
+  } else p.donjon = { id, salle: entree, vues: [entree], reglees: [], fouillees: [], quand: {} };
+  p.donjon.niveauEntree = niveau(p);
   noter(p, `entre dans ${d.nom}.`);
   return p.donjon;
 };
@@ -282,20 +402,185 @@ export const repeuplement = (e: EtatDonjon): number | null => {
   return jours.length ? Math.min(...jours) + REPEUPLEMENT : null;
 };
 
+/** Ce que contient la salle en ce moment : la première variante qui convient, sinon le contenu ordinaire. */
+export const contenuIci = (s: Salle, p?: Partie): { contenu?: Contenu; cle: string; description?: string } => {
+  if (p && s.variantes) {
+    const i = s.variantes.findIndex((v) => (!v.quand || dansHoraire(p.heure, v.quand)) && (!v.si || v.si(p)));
+    if (i >= 0) return { contenu: s.variantes[i].contenu, cle: `${s.id}#${i}`, description: s.variantes[i].description };
+  }
+  return { contenu: s.contenu, cle: s.id };
+};
+
+/** Le contenu de la salle est-il déjà réglé (combat gagné, piège passé…) ? */
+export const reglee = (e: EtatDonjon, s: Salle, p?: Partie) => e.reglees.includes(contenuIci(s, p).cle);
+
 /** Le contenu de la salle reste à régler : on ne peut pas passer, seulement reculer. */
-export const bloquee = (e: EtatDonjon, s: Salle) => !!s.contenu && s.contenu.type !== 'repos' && !e.reglees.includes(s.id);
+export const bloquee = (e: EtatDonjon, s: Salle, p?: Partie) => {
+  const { contenu: c, cle } = contenuIci(s, p);
+  if (!c || e.reglees.includes(cle)) return false;
+  if (c.type === 'combat' || c.type === 'piege') return true;
+  return c.type === 'scene' && !!c.bloque;
+};
+
+const clePorte = (a: string, b: string) => [a, b].sort().join('|');
+
+/** La porte entre deux salles, vue depuis `de` (une porte à sens unique ne gêne que de son côté). */
+export const porteEntre = (d: Donjon, de: string, vers: string): Porte | undefined => {
+  const ici = salle(d, de).portes?.[vers];
+  if (ici) return ici;
+  const enFace = salle(d, vers).portes?.[de];
+  return enFace && !enFace.sensUnique ? enFace : undefined;
+};
+
+export const estOuverte = (e: EtatDonjon, a: string, b: string) => !!e.ouvertes?.includes(clePorte(a, b));
+
+const marquer = (e: EtatDonjon, cle: string) => {
+  if (!e.ouvertes?.includes(cle)) (e.ouvertes ??= []).push(cle);
+};
+
+export const ouvrir = (e: EtatDonjon, a: string, b: string) => marquer(e, clePorte(a, b));
+
+const aVerrou = (s: Serrure) => s.cle !== undefined || s.crochetage !== undefined || s.force !== undefined || s.enigme !== undefined;
+
+/** Un passage secret déjà repéré. */
+export const trouvee = (e: EtatDonjon, a: string, b: string) => !!e.ouvertes?.includes(`vu:${clePorte(a, b)}`);
+
+/** Peut-on passer de `de` à `vers` (porte ouverte, passage trouvé, boutique ouverte…) ? */
+export const passable = (e: EtatDonjon, d: Donjon, de: string, vers: string, p?: Partie) => {
+  const porte = porteEntre(d, de, vers);
+  if (!porte || estOuverte(e, de, vers)) return true;
+  if (porte.libre && p && dansHoraire(p.heure, porte.libre)) return true;
+  if (porte.cachee && !trouvee(e, de, vers)) return false;
+  return !aVerrou(porte);
+};
+
+/** Les portes fermées autour de la salle que le héros connaît (on ne voit pas les passages secrets pas encore trouvés). */
+export const portesAutour = (e: EtatDonjon, d: Donjon, p?: Partie) => {
+  const s = salle(d, e.salle);
+  return s.vers
+    .map((v) => ({ vers: v, porte: porteEntre(d, s.id, v) }))
+    .filter((x): x is { vers: string; porte: Porte } => !!x.porte && !passable(e, d, s.id, x.vers, p) && (!x.porte.cachee || trouvee(e, s.id, x.vers)));
+};
+
+/** Reste-t-il ici un passage secret ou une cachette à trouver ? */
+export const secretsIci = (e: EtatDonjon, d: Donjon) => {
+  const s = salle(d, e.salle);
+  const passages = s.vers.filter((v) => porteEntre(d, s.id, v)?.cachee && !trouvee(e, s.id, v));
+  const cachette = !!s.tresor?.cachee && !e.ouvertes?.includes(`vu:coffre:${s.id}`);
+  return { passages, cachette };
+};
+
+/** Le héros cherche un passage secret ou une cachette (son D20 contre la caractéristique de chacun). */
+export const chercher = (p: Partie, de: number): { trouves: string[]; texte: string } => {
+  const e = p.donjon!;
+  const d = donjon(e.id);
+  const s = salle(d, e.salle);
+  passerTemps(p, 1 / 6);
+  const { passages, cachette } = secretsIci(e, d);
+  const trouves: string[] = [];
+  for (const v of passages) {
+    const c = porteEntre(d, s.id, v)!.cachee!;
+    if (epreuve(valeurEpreuve(p, { carac: c.carac, modif: c.modif, situation: 'cachette' }), undefined, de).reussi) {
+      marquer(e, `vu:${clePorte(s.id, v)}`);
+      trouves.push(v);
+    }
+  }
+  if (cachette) {
+    const c = s.tresor!.cachee!;
+    if (epreuve(valeurEpreuve(p, { carac: c.carac, modif: c.modif, situation: 'cachette' }), undefined, de).reussi) {
+      marquer(e, `vu:coffre:${s.id}`);
+      trouves.push('coffre');
+    }
+  }
+  const textes = trouves.map((v) => (v === 'coffre' ? `une cachette : ${s.tresor!.texte.split('.')[0].toLowerCase()}` : porteEntre(d, s.id, v)!.texte));
+  return {
+    trouves,
+    texte: trouves.length ? `Tu trouves ${textes.join(', et ')} !` : 'Tu tâtes les murs, tu soulèves les tapis, tu tapotes les pierres… Rien. Ou alors c\'est très bien caché.',
+  };
+};
+
+/** Une serrure à ouvrir ici : la porte vers `vers`, ou le coffre de la salle. */
+export type Cible = { porte: string } | { coffre: true };
+
+export const serrureDe = (d: Donjon, e: EtatDonjon, cible: Cible): Serrure | undefined =>
+  'porte' in cible ? porteEntre(d, e.salle, cible.porte) : salle(d, e.salle).tresor?.serrure;
+
+const deverrouiller = (e: EtatDonjon, cible: Cible) => ('porte' in cible ? ouvrir(e, e.salle, cible.porte) : marquer(e, `coffre:${e.salle}`));
+
+export const coffreOuvert = (e: EtatDonjon, id: string) => !!e.ouvertes?.includes(`coffre:${id}`);
+
+const cles = (s: Serrure) => (s.cle === undefined ? [] : Array.isArray(s.cle) ? s.cle : [s.cle]);
+
+/** Les clés qui manquent pour cette serrure (vide : on a tout). */
+export const clesManquantes = (p: Partie, s: Serrure) => cles(s).filter((c) => !p.sac.includes(c));
+
+export const ouvrirAvecCle = (p: Partie, cible: Cible): string | null => {
+  const e = p.donjon!;
+  const s = serrureDe(donjon(e.id), e, cible);
+  if (!s || !cles(s).length) return 'Pas de serrure à clé ici.';
+  if (clesManquantes(p, s).length) return 'Il te manque la clé.';
+  deverrouiller(e, cible);
+  return null;
+};
+
+/** Valeur du crochetage : Adresse + modificateur de la serrure, −3 sans Serrurier, −2 sans outils. */
+export const valeurCrochetage = (p: Partie, s: Serrure) =>
+  valeurEpreuve(p, { carac: 'AD', modif: (s.crochetage ?? 0) - 3 - (p.sac.includes('outils-crochetage') ? 0 : 2), situation: 'serrure' });
+
+export const valeurForce = (p: Partie, s: Serrure) => valeurEpreuve(p, { carac: 'FO', modif: s.force ?? 0 });
+
+export interface Effraction {
+  reussi: boolean;
+  valeur: number;
+  degats: number;
+  des: number[];
+  texte: string;
+}
+
+/** Crocheter (Adresse) ou enfoncer (Force) une serrure, avec le D20 du joueur. Dix minutes à chaque essai. */
+export const forcerSerrure = (p: Partie, cible: Cible, facon: 'crocheter' | 'enfoncer', de: number, rng?: Rng): Effraction => {
+  const e = p.donjon!;
+  const s = serrureDe(donjon(e.id), e, cible)!;
+  const valeur = facon === 'crocheter' ? valeurCrochetage(p, s) : valeurForce(p, s);
+  passerTemps(p, 1 / 6);
+  if (epreuve(valeur, undefined, de).reussi) {
+    deverrouiller(e, cible);
+    return { reussi: true, valeur, degats: 0, des: [], texte: facon === 'crocheter' ? 'Clic. La serrure cède.' : 'Dans un grand fracas, ça cède !' };
+  }
+  if (facon === 'enfoncer') {
+    p.ev = Math.max(0, p.ev - 1);
+    return { reussi: false, valeur, degats: 1, des: [], texte: "Ça ne bouge pas d'un pouce. Ton épaule, elle, a bougé. Et tout l'étage a entendu." };
+  }
+  if (s.piege) {
+    const jet = lancerExpression(s.piege, rng);
+    const degats = de === 20 ? jet.total * 3 : jet.total;
+    p.ev -= degats;
+    noter(p, `se fait électrocuter par une serrure piégée (−${degats} PV).`);
+    return { reussi: false, valeur, degats, des: jet.des, texte: de === 20 ? 'Raté, et en beauté : le piège te part en pleine figure, dégâts triplés !' : 'Raté : la serrure était piégée !' };
+  }
+  return { reussi: false, valeur, degats: 0, des: [], texte: 'Raté : le mécanisme résiste. Tu peux réessayer.' };
+};
+
+/** Ouvre une serrure à énigme si la réponse est la bonne. */
+export const repondreSerrure = (p: Partie, cible: Cible, bonne: boolean): boolean => {
+  const e = p.donjon!;
+  passerTemps(p, 1 / 12);
+  if (bonne) deverrouiller(e, cible);
+  return bonne;
+};
 
 /** Les salles où l'on peut aller d'ici. */
-export const accessibles = (e: EtatDonjon, d: Donjon): string[] => {
+export const accessibles = (e: EtatDonjon, d: Donjon, p?: Partie): string[] => {
+  if (e.prisonnier) return [];
   const s = salle(d, e.salle);
-  if (bloquee(e, s)) return e.precedente ? [e.precedente] : [];
-  return s.vers;
+  if (bloquee(e, s, p)) return e.precedente ? [e.precedente] : [];
+  return s.vers.filter((v) => passable(e, d, s.id, v, p));
 };
 
 export const avancer = (p: Partie, vers: string): string | null => {
   const e = p.donjon!;
   const d = donjon(e.id);
-  if (!accessibles(e, d).includes(vers)) return 'Pas par là.';
+  if (!accessibles(e, d, p).includes(vers)) return 'Pas par là.';
   e.precedente = e.salle;
   e.salle = vers;
   if (!e.vues.includes(vers)) e.vues.push(vers);
@@ -312,8 +597,8 @@ export const regler = (e: EtatDonjon, id: string, jour?: number) => {
 /** Valeur de l'épreuve du piège : passer (Détecter +2 : on le repère à temps) ou le désamorcer (Adresse, Désamorcer +4). */
 export const valeurPiege = (p: Partie, c: Extract<Contenu, { type: 'piege' }>, desamorcer = false) =>
   desamorcer
-    ? valeurEpreuveQuete(p, { carac: 'AD', modif: c.modif, echec: '', situation: 'desamorcer' })
-    : valeurEpreuveQuete(p, { carac: c.carac, modif: c.modif, echec: '', situation: 'piege' });
+    ? valeurEpreuve(p, { carac: 'AD', modif: c.modif, situation: 'desamorcer' })
+    : valeurEpreuve(p, { carac: c.carac, modif: c.modif, situation: 'piege' });
 
 export const affronterPiege = (
   p: Partie,
@@ -323,46 +608,64 @@ export const affronterPiege = (
 ): { reussi: boolean; valeur: number; degats: number; des: number[]; texte: string } => {
   const e = p.donjon!;
   const s = salle(donjon(e.id), e.salle);
-  const c = s.contenu;
+  const { contenu: c, cle } = contenuIci(s, p);
   if (c?.type !== 'piege') throw new Error('Pas de piège ici.');
   const valeur = valeurPiege(p, c, desamorcer);
-  regler(e, s.id, p.jour);
+  regler(e, cle, p.jour);
   if (epreuve(valeur, rng, de).reussi)
     return { reussi: true, valeur, degats: 0, des: [], texte: desamorcer ? 'Clic. Tu bloques le mécanisme avec la pointe de ta dague : le piège ne fera plus de mal à personne.' : c.evite };
   const jet = lancerExpression(c.degats, rng);
   p.ev -= jet.total;
   noter(p, `tombe dans un piège (${s.nom}) : −${jet.total} PV.`);
-  return { reussi: false, valeur, degats: jet.total, des: jet.des, texte: c.subit };
+  const suite = c.suite?.(p);
+  return { reussi: false, valeur, degats: jet.total, des: jet.des, texte: suite ? `${c.subit} ${suite}` : c.subit };
 };
 
 export const seReposer = (p: Partie): { pv: number; pa: number } => {
   const e = p.donjon!;
   const s = salle(donjon(e.id), e.salle);
-  if (s.contenu?.type !== 'repos' || e.reglees.includes(s.id)) return { pv: 0, pa: 0 };
-  regler(e, s.id, p.jour);
-  passerTemps(p, s.contenu.heures ?? 0.5);
+  const { contenu: c, cle } = contenuIci(s, p);
+  if (c?.type !== 'repos' || e.reglees.includes(cle)) return { pv: 0, pa: 0 };
+  regler(e, cle, p.jour);
+  passerTemps(p, c.heures ?? 0.5);
   const avant = ea(p);
-  if (s.contenu.pa && eaMax(p)) p.ea = Math.min(eaMax(p), avant + s.contenu.pa);
-  return { pv: soigner(p, s.contenu.pv), pa: ea(p) - avant };
+  if (c.pa && eaMax(p)) p.ea = Math.min(eaMax(p), avant + c.pa);
+  return { pv: soigner(p, c.pv), pa: ea(p) - avant };
 };
 
 export const fouiller = (p: Partie): Salle['tresor'] | null => {
   const e = p.donjon!;
   const s = salle(donjon(e.id), e.salle);
-  if (!s.tresor || e.fouillees.includes(s.id) || bloquee(e, s)) return null;
+  if (!peutFouiller(e, s, p)) return null;
   e.fouillees.push(s.id);
   (e.quand ??= {})[`f:${s.id}`] = p.jour;
-  p.or = arrondirOr(p.or + (s.tresor.or ?? 0));
-  p.sac.push(...(s.tresor.objets ?? []));
-  return s.tresor;
+  // Les objets comptent aussi pour « Chasseurs de trésors », à leur prix.
+  e.orTrouve = (e.orTrouve ?? 0) + (s.tresor!.or ?? 0) + (s.tresor!.objets ?? []).reduce((t, id) => t + objet(id).prix, 0);
+  if (s.tresor!.heures) passerTemps(p, s.tresor!.heures);
+  p.or = arrondirOr(p.or + (s.tresor!.or ?? 0));
+  p.sac.push(...(s.tresor!.objets ?? []));
+  return s.tresor!;
 };
 
+/** Le trésor de la salle est-il à portée (trouvé, coffre ouvert, salle calme) ? */
+export const peutFouiller = (e: EtatDonjon, s: Salle, p?: Partie) =>
+  !!s.tresor &&
+  !e.fouillees.includes(s.id) &&
+  !bloquee(e, s, p) &&
+  (!s.tresor.cachee || !!e.ouvertes?.includes(`vu:coffre:${s.id}`)) &&
+  (!s.tresor.serrure || coffreOuvert(e, s.id));
+
 /** Le combat de la salle, prêt pour l'écran de combat. */
-export const combatSalle = (s: Salle): Rencontre | null => {
-  if (s.contenu?.type !== 'combat') return null;
-  const [premier, ...autres] = s.contenu.ennemis;
-  return { ligne: premier.ligne, nombre: premier.nombre, d20: 0, table: s.nom, avec: autres, approche: 1 };
+export const combatSalle = (s: Salle, p?: Partie): Rencontre | null => {
+  const c = contenuIci(s, p).contenu;
+  if (c?.type !== 'combat') return null;
+  const n = (x: Ennemis) => ({ ligne: x.ligne, nombre: x.nombre + (x.parCompagnon ?? 0) * (p?.compagnons?.length ?? 0) });
+  const [premier, ...autres] = c.ennemis.map(n);
+  return { ligne: premier.ligne, nombre: premier.nombre, d20: 0, table: s.nom, avec: autres, approche: 1, reddition: c.pensants || undefined };
 };
+
+/** L'étage d'une salle (donjon sur plans). */
+export const niveauDe = (d: Donjon, id: string) => d.niveaux?.find((n) => n.id === salle(d, id).niveau);
 
 export const termine = (e: EtatDonjon) => e.reglees.includes(donjon(e.id).finale);
 

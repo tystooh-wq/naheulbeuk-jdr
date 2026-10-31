@@ -1601,6 +1601,48 @@ button.combattant:hover {
 .salle.ouverte { cursor: pointer; outline: 2px dashed #f2c230; outline-offset: 2px; }
 .salle.ouverte:hover { background: #5c4630; }
 .legende-donjon { text-align: center; }
+
+/* Donjon sur plans (Naheulbeuk) : le plan de l'étage à gauche, la salle à droite. */
+.donjon-plans .donjon-colonnes { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+@media (max-width: 900px) { .donjon-plans .donjon-colonnes { grid-template-columns: 1fr; } }
+.etages { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; }
+.etages button { font-size: 12px; padding: 3px 8px; }
+.plan-donjon { position: relative; border: 2px solid var(--bordure); border-radius: 8px; overflow: hidden; background: #1d150e; }
+.plan-donjon img { display: block; width: 100%; height: auto; filter: sepia(0.35) brightness(0.8); }
+.plan-donjon svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.plan-donjon line { stroke: #f2c230; stroke-width: 3; stroke-dasharray: 6 4; opacity: 0.8; vector-effect: non-scaling-stroke; }
+.repere-salle {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 2px solid #8a7350;
+  border-radius: 50%;
+  background: #3a2c1d;
+  color: var(--parchemin);
+  font-size: 14px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+}
+.repere-salle:disabled { opacity: 1; cursor: default; }
+.repere-salle.salle-ici { width: 34px; height: 34px; font-size: 18px; z-index: 2; }
+.repere-salle.ouverte { cursor: pointer; outline: 2px dashed #f2c230; outline-offset: 2px; }
+.repere-salle.ouverte:hover { background: #5c4630; }
+.porte-donjon { border-left: 4px solid #8a7350; padding: 4px 10px; margin: 10px 0; }
+.enigme input { min-width: 0; flex: 1; }
+.enigme form { display: flex; gap: 6px; }
+.stock-donjon { list-style: none; padding: 0; columns: 2; column-gap: 16px; }
+.stock-donjon li { display: flex; justify-content: space-between; align-items: center; gap: 6px; margin: 3px 0; break-inside: avoid; }
+@media (max-width: 600px) { .stock-donjon { columns: 1; } }
+.hauts-faits { margin-top: 10px; }
+.hauts-faits ul { list-style: none; padding-left: 4px; }
+.hauts-faits li { margin: 4px 0; opacity: 0.65; }
+.hauts-faits li.acquis { opacity: 1; }
+.prison { border-left: 4px solid var(--rouge); }
 .ency-ligne.idee > p:first-of-type { white-space: pre-line; }
 
 /* Compétences dans le sac */

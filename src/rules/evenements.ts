@@ -17,6 +17,8 @@ export interface Resultat {
   combat?: { rencontre: Rencontre; victoire?: (p: Partie) => string };
   /** L'histoire continue : « Continuer » ouvre cet événement. */
   suite?: Evenement;
+  /** Dans un donjon : false si la scène n'est pas réglée pour autant (on a reculé, raté, fui…). */
+  regle?: boolean;
 }
 
 export interface Choix {

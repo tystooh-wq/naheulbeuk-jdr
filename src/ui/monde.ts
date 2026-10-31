@@ -86,7 +86,7 @@ export interface Sorties {
   ouvrirFiche: () => void;
   retourAccueil: () => void;
   entrerVille: (id: string) => void;
-  entrerDonjon: (id: string) => void;
+  entrerDonjon: (id: string, par?: string) => void;
   finDePartie: () => void;
 }
 
@@ -707,7 +707,7 @@ export const ecranMonde = (app: HTMLElement, p: Partie, s: Sorties) => {
             }
             dire(bilan.fin === 'victoire' ? `Victoire (+${bilan.xp} XP). ${echapper(apres())}` : 'Tu prends la fuite. Tu pourras revenir finir le travail.');
           }),
-        donjon: (id) => s.entrerDonjon(id),
+        donjon: (id, par) => s.entrerDonjon(id, par),
       },
       (id) => {
         epreuveQuete = id;

@@ -94,7 +94,7 @@ export interface SortiesVille {
   ouvrirFiche: () => void;
   retourAccueil: () => void;
   quitterVille: () => void;
-  entrerDonjon: (id: string) => void;
+  entrerDonjon: (id: string, par?: string) => void;
   finDePartie: () => void;
 }
 
@@ -565,7 +565,7 @@ export const ecranVille = (app: HTMLElement, p: Partie, sorties: SortiesVille, a
             noter(p, 'tombe au combat.');
             ecranMort(app, p, 'Tout devient noir… Tu t\'effondres au milieu du combat.', (texte) => message(texte), sorties.finDePartie);
           }),
-        donjon: (id) => sorties.entrerDonjon(id),
+        donjon: (id, par) => sorties.entrerDonjon(id, par),
       },
       (id) => {
         epreuveQuete = id;

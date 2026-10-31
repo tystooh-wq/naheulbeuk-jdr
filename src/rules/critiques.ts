@@ -10,7 +10,7 @@ import type { Objet } from './objets';
 /** La famille d'arme décide de la table de critiques et de maladresses. */
 export type Famille = 'tranchante' | 'contondante' | 'projectile' | 'mains-nues' | 'griffes' | 'bete';
 
-export type CaracBlessure = 'AD' | 'CHA' | 'COU' | 'FO' | 'AT' | 'PRD';
+export type CaracBlessure = 'AD' | 'CHA' | 'COU' | 'FO' | 'AT' | 'PRD' | 'INT';
 
 export interface BlessureGrave {
   nom: string;

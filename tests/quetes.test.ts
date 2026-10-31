@@ -28,6 +28,7 @@ const existe = (ou: string) => {
   const [type, a, b] = ou.split(':');
   if (type === 'monde') return LIEUX_MONDE.some((l) => l.id === a);
   if (type === 'ville') return CITES.some((c) => c.id === a && c.lieux.some((l) => l.id === b));
+  if (type === 'donjon') return DONJONS.some((d) => d.id === a && d.salles.some((s) => s.id === b));
   return false;
 };
 
@@ -40,7 +41,7 @@ describe('quêtes', () => {
         for (const id of [e.donne, e.reprend].filter(Boolean)) expect(() => objet(id!)).not.toThrow();
         if (e.donjon) expect(DONJONS.some((d) => d.id === e.donjon)).toBe(true);
       }
-      for (const id of q.recompense.objets ?? []) expect(() => objet(id)).not.toThrow();
+      for (const id of [...(q.recompense.objets ?? []), ...(q.remet ?? [])]) expect(() => objet(id)).not.toThrow();
     }
   });
 

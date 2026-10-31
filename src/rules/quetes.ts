@@ -1,16 +1,18 @@
-import { bonusSituation, type Situation } from './talents';
+import type { Situation } from './talents';
 import { ajouterButin, reagir, recruter } from './compagnons';
 import { changerReputation, quetesRefusees, villeDe } from './reputation';
 import { calculerFiche } from './creation';
 import { arrondirOr } from './monnaie';
-import { epreuve, noter, valeursCombat, type Partie } from './partie';
+import { epreuve, noter, type Partie } from './partie';
+import { valeurEpreuve, type CaracQuete } from './epreuves';
+import { QUETES_DDN } from './quetes-ddn';
 import { TABLE_TERRES_SAUVAGES, type LigneRencontre, type Rencontre } from './rencontres';
 
 // Quêtes : un donneur, des étapes qui se jouent à des endroits précis (un lieu de ville, un lieu de la carte,
 // un donjon), et une récompense à la fin. Les endroits s'écrivent « ville:<ville>:<lieu> », « monde:<lieu> »
 // ou « donjon:<donjon> ».
 
-export type CaracQuete = 'COU' | 'INT' | 'CHA' | 'AD' | 'FO';
+export type { CaracQuete };
 
 export interface EtapeQuete {
   ou: string;
@@ -31,6 +33,12 @@ export interface EtapeQuete {
   reprend?: string;
   /** Mauvaise conduite ajoutée en réussissant l'étape. */
   malConduite?: number;
+  /** L'étape se valide d'elle-même dès que la partie remplit cette condition (une marque, un objet…). */
+  auto?: (p: Partie) => boolean;
+  /** Ce qui manque pour tenter l'étape ici (null : rien ne manque). */
+  requiert?: (p: Partie) => string | null;
+  /** Pas besoin d'épreuve si… (on a la clé, par exemple). */
+  dispense?: (p: Partie) => boolean;
 }
 
 export interface Quete {
@@ -48,6 +56,8 @@ export interface Quete {
   prix?: number;
   /** Niveau conseillé, affiché avant d'accepter. */
   niveau?: number;
+  /** Objets de quête confiés en acceptant (une poudre, une lettre…). */
+  remet?: string[];
 }
 
 const rencontre = (ligne: LigneRencontre, nombre: number, approche = 1): Rencontre => ({ ligne, nombre, d20: ligne.d20, approche });
@@ -209,6 +219,7 @@ export const QUETES: Quete[] = [
     recompense: { or: 60, xp: 80, objets: ['rations'], texte: "60 PO et des œufs (une ration)" },
     niveau: 2,
   },
+  ...QUETES_DDN,
 ];
 
 export const quete = (id: string) => {
@@ -241,15 +252,12 @@ export const accepterQuete = (p: Partie, id: string): string | null => {
   p.quetes[id] = 'acceptee';
   p.etapesQuetes = { ...(p.etapesQuetes ?? {}), [id]: 0 };
   if (id === 'colis-loubet') p.sac.push('colis-ozonuc');
+  p.sac.push(...(q.remet ?? []));
   noter(p, `accepte la quête « ${q.titre} ».`);
   return null;
 };
 
-export const valeurEpreuveQuete = (p: Partie, e: NonNullable<EtapeQuete['epreuve']>) => {
-  const v = valeursCombat(p);
-  const f = calculerFiche(p.perso);
-  return { COU: v.cou, INT: f.caracs.INT, CHA: v.cha, AD: v.ad, FO: f.caracs.FO }[e.carac] + (e.modif ?? 0) + (e.situation ? bonusSituation(p, e.situation).total : 0);
-};
+export const valeurEpreuveQuete = (p: Partie, e: NonNullable<EtapeQuete['epreuve']>) => valeurEpreuve(p, e);
 
 export interface IssueEtape {
   reussi: boolean;
@@ -297,7 +305,7 @@ export const validerEtape = (p: Partie, id: string): IssueEtape => {
 /** Tente l'épreuve de l'étape avec le dé lancé par le joueur. Un échec coûte, mais on peut réessayer. */
 export const tenterEtape = (p: Partie, id: string, de: number): IssueEtape => {
   const e = quete(id).etapes[etapeEnCours(p, id)];
-  if (!e.epreuve) return validerEtape(p, id);
+  if (!e.epreuve || e.dispense?.(p)) return validerEtape(p, id);
   const valeur = valeurEpreuveQuete(p, e.epreuve);
   if (epreuve(valeur, undefined, de).reussi) {
     const r = validerEtape(p, id);
@@ -311,6 +319,22 @@ export const tenterEtape = (p: Partie, id: string, de: number): IssueEtape => {
   const honte = e.epreuve.situation === 'vol' && ville && changerReputation(p, ville, -1, 'pris à voler') ? ' La nouvelle fait le tour du quartier : ta réputation baisse.' : '';
   const pertes = [e.epreuve.pvEchec ? `−${e.epreuve.pvEchec} PV` : '', e.epreuve.orEchec ? `−${e.epreuve.orEchec} PO` : ''].filter(Boolean).join(', ');
   return { reussi: false, texte: `Dé : ${de} contre ${valeur}. ${e.epreuve.echec}${pertes ? ` (${pertes})` : ''}${honte} Tu pourras réessayer plus tard.` };
+};
+
+/** Valide les étapes qui se remplissent d'elles-mêmes (objet trouvé, secret appris…) ; rend les récits. */
+export const progresserQuetes = (p: Partie): string[] => {
+  const textes: string[] = [];
+  for (let encore = true; encore; ) {
+    encore = false;
+    for (const q of QUETES) {
+      if (p.quetes[q.id] !== 'acceptee') continue;
+      const e = q.etapes[etapeEnCours(p, q.id)];
+      if (!e?.auto?.(p)) continue;
+      textes.push(`${q.titre} : ${validerEtape(p, q.id).texte}`);
+      encore = true;
+    }
+  }
+  return textes;
 };
 
 /** Le combat d'une étape, prêt pour l'écran de combat. */

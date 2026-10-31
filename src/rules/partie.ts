@@ -146,6 +146,10 @@ export interface Partie {
   peage?: string;
   /** Or gagné avec le groupe et pas encore partagé (combat, coffres) : à régler avant la nuit. */
   butin?: number;
+  /** Hauts faits obtenus (succès du Donjon de Naheulbeuk) : combien de fois chacun. */
+  hautsFaits?: Record<string, number>;
+  /** Compteurs pour les hauts faits (peaux-vertes vaincues, pièges désamorcés…). */
+  compteurs?: Record<string, number>;
 }
 
 // --- Équipement de départ ----------------------------------------------------
@@ -305,7 +309,9 @@ export const mainGauche = (p: Partie): { at: number; degats: string; arme: Objet
 
 /** Blessures graves encore là ce jour-ci (les guéries sont oubliées). */
 export const blessuresActives = (p: Partie) => {
-  if (p.blessures?.some((b) => b.jusqua !== undefined && b.jusqua <= p.jour)) p.blessures = p.blessures.filter((b) => b.jusqua === undefined || b.jusqua > p.jour);
+  // Les malus de quelques heures (salle d'ennui…) finissent en cours de journée : on compte l'heure aussi.
+  const maintenant = p.jour + p.heure / 24;
+  if (p.blessures?.some((b) => b.jusqua !== undefined && b.jusqua <= maintenant)) p.blessures = p.blessures.filter((b) => b.jusqua === undefined || b.jusqua > maintenant);
   return p.blessures ?? [];
 };
 

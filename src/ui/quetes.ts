@@ -1,6 +1,6 @@
 import { lancer } from '../rules/des';
 import { quetesRefusees, villeDe } from '../rules/reputation';
-import { donjonIci } from '../rules/donjons';
+import { dansHoraire, donjonIci } from '../rules/donjons';
 import { objet } from '../rules/objets';
 import { niveau, type Partie } from '../rules/partie';
 import {
@@ -27,7 +27,7 @@ export interface ActionsQuete {
   message: (html: string) => void;
   /** Lance un combat ; `apres` est appelé en cas de victoire. */
   combat: (r: Rencontre, apres: () => string) => void;
-  donjon: (id: string) => void;
+  donjon: (id: string, par?: string) => void;
 }
 
 /** Ce que le héros peut faire ici pour ses quêtes : en accepter, ou avancer celles en cours. */
@@ -58,6 +58,8 @@ export const panneauQuetes = (p: Partie, ou: string, epreuveEnCours?: string): s
         let bouton = `<button data-etape="${q.id}">${echapper(e.action)}</button>`;
         if (e.combat) bouton = `<button data-etape="${q.id}">⚔ ${echapper(e.action)}</button>`;
         if (e.donjon) bouton = `<button data-entrer-donjon="${e.donjon}">♖ ${echapper(e.action)}</button>`;
+        const manque = e.requiert?.(p);
+        if (manque) bouton = `<button disabled>${echapper(e.action)}</button> <span class="note">${echapper(manque)}</span>`;
         if (e.epreuve)
           bouton =
             epreuveEnCours === q.id
@@ -72,8 +74,19 @@ export const panneauQuetes = (p: Partie, ou: string, epreuveEnCours?: string): s
         </div>`;
       })
       .join('')}
-    ${donjonLibre ? `<p><button class="secondaire" data-entrer-donjon="${d.id}">♖ Entrer dans ${echapper(d.nom)}</button></p>` : ''}
+    ${donjonLibre ? boutonsEntree(p, d) : ''}
   </div>`;
+};
+
+/** Entrer dans un donjon, par chacune de ses portes (la taverne n'ouvre qu'à certaines heures). */
+const boutonsEntree = (p: Partie, d: NonNullable<ReturnType<typeof donjonIci>>) => {
+  if (!d.entrees) return `<p><button class="secondaire" data-entrer-donjon="${d.id}">♖ Entrer dans ${echapper(d.nom)}</button></p>`;
+  return `<p>${d.entrees
+    .map((x) => {
+      const ferme = x.ouverte && !dansHoraire(p.heure, x.ouverte);
+      return `<button class="secondaire" data-entrer-donjon="${d.id}" data-par="${x.salle}" ${ferme ? 'disabled title="Fermé à cette heure-ci"' : ''}>♖ ${echapper(x.libelle)}${ferme ? ' (fermé)' : ''}</button>`;
+    })
+    .join(' ')}</p>`;
 };
 
 /** Le journal des quêtes : en cours (avec l'objectif du moment), puis terminées. */
@@ -115,7 +128,7 @@ export const lierQuetes = (app: HTMLElement, p: Partie, a: ActionsQuete, lancerE
     a.message(echapper(validerEtape(p, id).texte));
   });
   sur('[data-epreuve]', (el) => lancerEpreuve(el.dataset.epreuve!));
-  sur('[data-entrer-donjon]', (el) => a.donjon(el.dataset.entrerDonjon!));
+  sur('[data-entrer-donjon]', (el) => a.donjon(el.dataset.entrerDonjon!, el.dataset.par));
   sur('#lancer-quete', (bouton) => {
     const id = bouton.dataset.quete!;
     const d = lancer(20);

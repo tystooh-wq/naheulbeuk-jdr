@@ -162,7 +162,7 @@ export const LIEUX_MONDE: LieuMonde[] = [
     y: 1195,
     zone: 'campagne',
     description:
-      "La tour du sorcier Zangdar, à une dizaine de kilomètres à l'est de Valtordu, au-delà du bosquet de Tronchenbiais. Douze niveaux de pièges idiots et de monstres syndiqués. Les aventuriers débutants y entrent nombreux ; ils en ressortent moins.",
+      "La tour du sorcier Zangdar, à une dizaine de kilomètres à l'est de Valtordu, au-delà du bosquet de Tronchenbiais. Six niveaux, une cave et des souterrains de pièges idiots et de monstres syndiqués, avec une taverne au premier étage. Les aventuriers débutants y entrent nombreux ; ils en ressortent moins.",
   },
   {
     id: 'loubet',

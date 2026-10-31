@@ -145,7 +145,7 @@ export interface Combat {
   tour: number;
   assaut: number;
   journal: string[];
-  fin?: 'victoire' | 'defaite' | 'fuite';
+  fin?: 'victoire' | 'defaite' | 'fuite' | 'reddition';
   /** Taille du terrain, en cases. */
   largeur: number;
   hauteur: number;

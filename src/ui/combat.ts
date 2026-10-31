@@ -51,7 +51,8 @@ import { animerDes, de, echapper } from './outils';
 // son action et lancer ses propres dés (attaque, dégâts, parade ou esquive, fuite).
 
 export interface BilanCombat {
-  fin: 'victoire' | 'defaite' | 'fuite';
+  /** Reddition : le héros jette son arme devant des créatures pensantes (Donjon de Naheulbeuk : direction les cachots). */
+  fin: 'victoire' | 'defaite' | 'fuite' | 'reddition';
   xp: number;
   or: number;
   perdu: number;
@@ -212,7 +213,7 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
         ${panneauOrdres()}
         <p class="actions-lieu">${potions()
           .map((id) => `<button class="secondaire" data-potion="${id}">Boire : ${echapper(objet(id).nom)}</button>`)
-          .join('')}${fuite}</p>
+          .join('')}${fuite}${r.reddition ? '<button class="secondaire" data-rendre>🏳 Se rendre</button>' : ''}</p>
         <p>${boutonAutrement({ type: 'combat', id: r.ligne.nom, titre: `Combat contre ${r.nombre > 1 ? `${r.nombre} ${r.ligne.nom}` : r.ligne.nom}` })}</p></div>`;
     }
     if (attente.type === 'mainGauche') {
@@ -250,7 +251,7 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
         <p><button id="lancer-fouille">🎲 Fouiller (lancer ${attente.corps.length * (poubelles ? 2 : 1)} D20)</button></p></div>`;
     }
     const b = attente.bilan;
-    const titre = { victoire: 'Victoire !', defaite: 'Tu tombes…', fuite: 'Tu as pris la fuite' }[b.fin];
+    const titre = { victoire: 'Victoire !', defaite: 'Tu tombes…', fuite: 'Tu as pris la fuite', reddition: 'Tu te rends' }[b.fin];
     return `<div class="a-toi bilan"><p><b>${titre}</b></p>
       <ul>${b.xp ? `<li>${b.xp} points d'expérience</li>` : ''}<li>${
         b.perdu > 0 ? `${b.perdu} PV perdus dans la bagarre` : 'Pas une égratignure'
@@ -479,13 +480,13 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
     for (const x of c.combattants.filter((y) => y.compagnon && y.blessures?.length))
       notes.push(`${x.nom} est gravement blessé (${x.blessures!.map((b) => b.nom.toLowerCase()).join(', ')}), mais il serre les dents.`);
     const fin = c.fin!;
-    const xp = fin === 'defaite' ? 0 : xpGagnee(c);
+    const xp = fin === 'defaite' || fin === 'reddition' ? 0 : xpGagnee(c);
     reactions.push(
       ...reagir(
         p,
         fin === 'victoire'
           ? { type: 'victoire', betes: ennemis(c).some((y) => y.famille === 'bete'), difficile: ennemis(c).length >= 3 || evDepart - p.ev >= h().evMax / 2 }
-          : { type: fin },
+          : { type: fin === 'reddition' ? 'defaite' : fin },
       ),
     );
     // Après une victoire, on ramasse son arme de jet et la moitié des projectiles (les autres sont cassés ou perdus).
@@ -528,7 +529,7 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
     conclure(reste.fin, reste.xp, reste.recuperes, reste.notes, fouilles);
   };
 
-  const conclure = (fin: 'victoire' | 'defaite' | 'fuite', xp: number, recup: string, notes: string[], fouilles: Fouille[]) => {
+  const conclure = (fin: BilanCombat['fin'], xp: number, recup: string, notes: string[], fouilles: Fouille[]) => {
     const or = fouilles.reduce((s, f) => s + f.or, 0);
     const objets = fouilles.flatMap((f) => (f.objet ? [f.objet] : []));
     p.sac.push(...objets);
@@ -544,6 +545,8 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
         ? `vainc ${qui} en ${c.assaut} assaut${c.assaut > 1 ? 's' : ''} (+${xp} XP${or ? `, +${or} PO` : ''}${objets.length ? `, ${objets.map((o) => objet(o).nom).join(', ')}` : ''}).`
         : fin === 'fuite'
           ? `s'enfuit en plein combat contre ${qui}.`
+          : fin === 'reddition'
+          ? `se rend à ${qui}.`
           : `tombe sous les coups de ${qui}.`,
     );
     attente = { type: 'fin', bilan };
@@ -863,6 +866,14 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
       if (ok) return finir();
       apres();
       avancer();
+    });
+
+    sur('[data-rendre]', async () => {
+      if (attente?.type !== 'action') return (occupe = false);
+      attente = null;
+      c.fin = 'reddition';
+      c.journal.push(`${h().nom} jette son arme et lève les mains.`);
+      finir();
     });
 
     app.querySelector('#lancer-fouille')?.addEventListener('click', () => void fouillerCorps());

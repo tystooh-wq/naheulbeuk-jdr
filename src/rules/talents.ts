@@ -31,7 +31,9 @@ export type Situation =
   | 'nature'
   | 'cuisine'
   | 'cavernes'
-  | 'connaissance';
+  | 'connaissance'
+  | 'cachette'
+  | 'serrure';
 
 /** Pour chaque situation, les compétences qui aident. Les groupes « un seul » ne se cumulent pas (on garde le meilleur). */
 const BONUS: Record<Situation, { nom: string; bonus: number; groupe?: string }[]> = {
@@ -61,6 +63,13 @@ const BONUS: Record<Situation, { nom: string; bonus: number; groupe?: string }[]
     { nom: 'Connaissances générales', bonus: 2, groupe: 'savoir' },
   ],
   connaissance: [{ nom: 'Connaissances générales', bonus: 2 }],
+  // Passages secrets, coffres planqués : Instinct du trésor +3, Détecter +2, sans cumul.
+  cachette: [
+    { nom: 'Instinct du trésor', bonus: 3, groupe: 'flair' },
+    { nom: 'Détecter', bonus: 2, groupe: 'flair' },
+  ],
+  // Sans Serrurier, « le MJ rend la vie dure » : le jeu applique −3, que la compétence efface.
+  serrure: [{ nom: 'Serrurier', bonus: 3 }],
 };
 
 export interface BonusEpreuve {

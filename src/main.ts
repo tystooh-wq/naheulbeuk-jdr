@@ -43,7 +43,7 @@ const jouer = (partie: Partie) => {
           partie.lieuMonde = cite(partie.ville).lieuMonde;
           monde();
         },
-        entrerDonjon: (id) => donjon(id),
+        entrerDonjon: (id, par) => donjon(id, par),
         finDePartie: () => {
           effacerTout();
           accueil();
@@ -63,7 +63,7 @@ const jouer = (partie: Partie) => {
         partie.lieu = 'porte';
         ville();
       },
-      entrerDonjon: (id) => donjon(id),
+      entrerDonjon: (id, par) => donjon(id, par),
       finDePartie: () => {
         effacerTout();
         accueil();
@@ -71,8 +71,8 @@ const jouer = (partie: Partie) => {
     });
   };
   /** Entre dans un donjon (ou y retourne, si la partie a été sauvegardée dedans). */
-  const donjon = (id?: string) => {
-    if (id && partie.donjon?.id !== id) entrerDonjon(partie, id);
+  const donjon = (id?: string, par?: string) => {
+    if (id && partie.donjon?.id !== id) entrerDonjon(partie, id, par);
     const d = donjonDef(partie.donjon!.id);
     const [, villeOuMonde] = d.ou.split(':');
     sauvegarderPartie(partie);

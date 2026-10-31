@@ -74,6 +74,8 @@ export interface Rencontre {
   allies?: { ligne: LigneRencontre; nombre: number }[];
   /** Les adversaires attaquent par surprise : ils frappent les premiers, déjà au contact. */
   surprise?: boolean;
+  /** Des créatures pensantes : le héros peut se rendre (il finit au cachot plutôt que mort). */
+  reddition?: boolean;
 }
 
 /**
