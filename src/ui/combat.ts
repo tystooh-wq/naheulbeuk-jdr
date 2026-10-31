@@ -30,11 +30,13 @@ import {
   type Combat,
   type Combattant,
   type ModeDefense,
+  prendreArme,
+  ramasserArme,
 } from '../rules/combat';
 import { fouiller, tableButin, type Fouille } from '../rules/butin';
 import { avecDe, lancer } from '../rules/des';
 import { objet } from '../rules/objets';
-import { ajouterBlessure, boirePotion, lancerExpression, niveau, noter, type Partie } from '../rules/partie';
+import { ajouterBlessure, boirePotion, equiper, essaiEquiper, lancerExpression, niveau, noter, type Partie } from '../rules/partie';
 import { consommerProjectile, valeursTir } from '../rules/tir';
 import { degatsSort, ea, eaMax, lancerSort, sort, sortsConnus, valeurSort, type Sort } from '../rules/magie';
 import type { Rencontre } from '../rules/rencontres';
@@ -208,7 +210,13 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
       const melee = `<p class="actions-lieu">${cibles.map((e) => `<button data-cible="${e.id}">🎲 Attaquer ${echapper(e.nom)}</button>`).join('')}<button class="secondaire" data-attendre>⏳ ${
         c.deplace ? 'Finir le tour' : 'Attendre de pied ferme'
       }</button></p>`;
-      return `<div class="a-toi">${consigne}${tirs}${boutonsSorts}${melee}
+      const autres = c.armeAuSol ? [...new Set(p.sac)].filter((id) => objet(id).type === 'arme' && essaiEquiper(p, id, 'arme').refus === null) : [];
+      const armeTombee = c.armeAuSol
+        ? `<p class="actions-lieu"><button data-ramasser>🤲 Ramasser ${p.equipe.arme ? echapper(objet(p.equipe.arme).nom) : 'ton arme'}</button>${autres
+            .map((id) => `<button class="secondaire" data-degainer="${id}">🗡 Sortir ${echapper(objet(id).nom)} du sac</button>`)
+            .join('')}</p><p class="note">Ton arme est par terre. La ramasser ou en sortir une autre prend ton tour.</p>`
+        : '';
+      return `<div class="a-toi">${consigne}${armeTombee}${tirs}${boutonsSorts}${melee}
         ${talents ? `<p class="actions-lieu">${talents}</p>` : ''}
         ${panneauOrdres()}
         <p class="actions-lieu">${potions()
@@ -585,6 +593,13 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
       }
       // Ennemis, compagnons et alliés jouent seuls : ils avancent, puis frappent ou tirent.
       const plan = planifier(c, x);
+      if (plan.recharge) {
+        message(`${x.nom} recharge son arme.`);
+        render();
+        await attendre(600);
+        tourSuivant(c);
+        continue;
+      }
       if (plan.vers) {
         deplacer(c, x.id, plan.vers.x, plan.vers.y);
         render();
@@ -834,6 +849,29 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
       message(c.deplace ? `${h().nom} prend position.` : `${h().nom} attend de pied ferme.`);
       apres();
       await attendre(500);
+      avancer();
+    });
+
+    sur('[data-ramasser]', async () => {
+      if (attente?.type !== 'action' || !c.armeAuSol) return (occupe = false);
+      attente = null;
+      ramasserArme(c);
+      message(`${h().nom} se baisse et ramasse son arme. L'assaut est perdu pour attaquer.`);
+      apres();
+      await attendre(900);
+      avancer();
+    });
+
+    sur('[data-degainer]', async (el) => {
+      if (attente?.type !== 'action' || !c.armeAuSol) return (occupe = false);
+      const id = el.dataset.degainer!;
+      const refus = equiper(p, id, 'arme');
+      if (refus) return (occupe = false);
+      attente = null;
+      prendreArme(c, p);
+      message(`${h().nom} sort ${objet(id).nom} de son sac. L'assaut est perdu pour attaquer ; l'autre arme sera ramassée après le combat.`);
+      apres();
+      await attendre(900);
       avancer();
     });
 

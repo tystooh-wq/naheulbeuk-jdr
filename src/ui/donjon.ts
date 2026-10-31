@@ -8,6 +8,8 @@ import {
   avancer,
   bloquee,
   chercher,
+  cleRecherche,
+  cleSerrure,
   clesManquantes,
   coffreOuvert,
   combatSalle,
@@ -74,6 +76,7 @@ import { sauvegarderPartie } from './sauvegarde';
 import { ecranMort } from './mort';
 import { aTalent, bonusSituation, texteBonus } from '../rules/talents';
 import MASQUES from '../assets/ddn/masques.json';
+import { pauseEssai, quandReessayer } from '../rules/essais';
 import planN0 from '../assets/ddn/n0.jpg';
 import planCave from '../assets/ddn/cave.jpg';
 import planSout from '../assets/ddn/souterrains.jpg';
@@ -305,6 +308,15 @@ export const ecranDonjon = (app: HTMLElement, p: Partie, s: SortiesDonjon) => {
       ${c.ragots ? `<p><button class="secondaire" id="ragots" ${p.or < c.ragots.prix ? 'disabled' : ''}>🤫 Payer pour un ragot (${formatOr(c.ragots.prix)})</button></p>` : ''}
     </div>`;
 
+  /** Après trois ratés d'affilée sur une serrure, il faut souffler une heure. */
+  const pauseSerrure = (cible: string, facon: 'crocheter' | 'enfoncer') =>
+    pauseEssai(p, cleSerrure(p.donjon!, cible === 'coffre' ? { coffre: true } : { porte: cible }, facon));
+  const enPause = (cible: string, facon: 'crocheter' | 'enfoncer') => (pauseSerrure(cible, facon) !== null ? 'disabled' : '');
+  const repos = (cible: string, facon: 'crocheter' | 'enfoncer') => {
+    const t = pauseSerrure(cible, facon);
+    return t !== null ? ` <small>(réessaie ${quandReessayer(p, t)})</small>` : '';
+  };
+
   /** Une serrure : la clé, le crochetage, la force, ou l'énigme. */
   const panneauSerrure = (sr: Serrure, cible: string, titre: string) => {
     const cle = sr.cle !== undefined;
@@ -312,8 +324,8 @@ export const ecranDonjon = (app: HTMLElement, p: Partie, s: SortiesDonjon) => {
     const enigme = sr.enigme !== undefined ? ENIGMES[sr.enigme] : undefined;
     const boutons = [
       cle ? `<button data-cle="${cible}" ${manque.length ? `disabled title="Il te manque : ${echapper(manque.map((x) => objet(x).nom).join(', '))}"` : ''}>🗝 Ouvrir avec la clé</button>` : '',
-      sr.crochetage !== undefined ? `<button class="secondaire" data-crocheter="${cible}">🔧 Crocheter (Adresse, ${valeurCrochetage(p, sr)} ou moins)</button>` : '',
-      sr.force !== undefined ? `<button class="secondaire" data-enfoncer="${cible}">💪 Enfoncer (Force, ${valeurForce(p, sr)} ou moins)</button>` : '',
+      sr.crochetage !== undefined ? `<button class="secondaire" data-crocheter="${cible}" ${enPause(cible, 'crocheter')}>🔧 Crocheter (Adresse, ${valeurCrochetage(p, sr)} ou moins)${repos(cible, 'crocheter')}</button>` : '',
+      sr.force !== undefined ? `<button class="secondaire" data-enfoncer="${cible}" ${enPause(cible, 'enfoncer')}>💪 Enfoncer (Force, ${valeurForce(p, sr)} ou moins)${repos(cible, 'enfoncer')}</button>` : '',
     ].join('');
     return `<div class="porte-donjon">
       <p><b>${titre}</b> ${echapper(sr.texte)}.${sr.piege ? ' <span class="note">(La serrure a l\'air piégée.)</span>' : ''}${cle && manque.length ? ` <span class="note">Il faudrait : ${echapper(manque.map((x) => objet(x).nom).join(' et '))}.</span>` : ''}</p>
@@ -417,7 +429,9 @@ export const ecranDonjon = (app: HTMLElement, p: Partie, s: SortiesDonjon) => {
       !bloque && dj.niveaux
         ? deEnCours?.type === 'chercher'
           ? lancerDe(20, 'Chercher des passages secrets et des cachettes : épreuve d\'Intelligence (ou celle de chaque cachette)')
-          : '<button class="secondaire" id="chercher">🔍 Chercher des passages secrets (10 min)</button>'
+          : pauseEssai(p, cleRecherche(e)) !== null
+            ? `<button class="secondaire" disabled>🔍 Salle déjà fouillée : réessaie ${quandReessayer(p, pauseEssai(p, cleRecherche(e))!)}</button>`
+            : '<button class="secondaire" id="chercher">🔍 Chercher des passages secrets (10 min)</button>'
         : '';
     const fouille = peutFouiller(e, sa, p) ? '<button class="secondaire" id="fouiller">Fouiller la salle</button>' : '';
     const affaires = !bloque && sa.id === BUREAU_GEOLIERS && e.confisque ? '<button id="affaires">🎒 Récupérer tes affaires</button>' : '';

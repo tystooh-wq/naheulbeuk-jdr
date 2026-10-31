@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Personnage } from '../src/rules/creation';
-import { creerCombat, deplacer, ecart, heros, planifier, tirer, toucherParSort } from '../src/rules/combat';
+import { creerCombat, deplacer, ecart, heros, planifier, tirer, toucherParSort, tourSuivant } from '../src/rules/combat';
 import { ea, lancerSort, sort, sortsConnus, soinLeger, valeurSort } from '../src/rules/magie';
 import { objet } from '../src/rules/objets';
 import { acheter, dormir, equiper, nouvellePartie } from '../src/rules/partie';
@@ -61,7 +61,22 @@ describe('armes à distance', () => {
   it('les brigands archers tirent', () => {
     const p = nouvellePartie(perso({}));
     const c = creerCombat(p, { ligne: TABLE_TERRES_SAUVAGES[5], nombre: 1, d20: 6 });
-    expect(c.combattants[1].tireur).toEqual({ ad: 11, degats: '1D+3' });
+    expect(c.combattants[1].tireur).toMatchObject({ ad: 11, degats: '1D+3', recharge: 3 });
+  });
+
+  it("à l'arc, on tire une fois tous les trois assauts (rechargement 3), héros comme ennemis", () => {
+    const p = nouvellePartie(perso({}));
+    const c = creerCombat(p, { ligne: TABLE_TERRES_SAUVAGES[5], nombre: 1, d20: 6, approche: 4 });
+    const archer = c.combattants[1];
+    const tirs: number[] = [];
+    for (let assaut = 0; assaut < 9; assaut++) {
+      if (!planifier(c, archer).recharge) {
+        tirs.push(c.assaut);
+        tirer(c, archer.id, 'heros', 19, archer.tireur!);
+      }
+      for (let i = 0; i < c.ordre.length; i++) tourSuivant(c);
+    }
+    expect(tirs.map((a) => a - tirs[0])).toEqual([0, 3, 6]);
   });
 });
 

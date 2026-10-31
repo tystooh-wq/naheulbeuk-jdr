@@ -13,10 +13,10 @@ import {
   porteEntre,
   salle,
 } from '../src/rules/donjons';
-import { capturer, ENIGMES, evader, hautFait, instruments, recupererAffaires } from '../src/rules/ddn';
+import { capturer, croupir, ENIGMES, evader, evasionPossible, hautFait, instruments, recupererAffaires } from '../src/rules/ddn';
 import { DDN, SALLES } from '../src/rules/ddn-salles';
 import { objet } from '../src/rules/objets';
-import { nouvellePartie } from '../src/rules/partie';
+import { nouvellePartie, passerTemps } from '../src/rules/partie';
 import { accepterQuete, etapesIci, progresserQuetes, tenterEtape } from '../src/rules/quetes';
 
 const perso: Personnage = {
@@ -83,6 +83,37 @@ describe('Donjon de Naheulbeuk', () => {
     expect(accessibles(p.donjon!, d, p)).not.toContain('n0-1');
     chercher(p, 1);
     expect(accessibles(p.donjon!, d, p)).toContain('n0-1');
+  });
+
+  it("on ne fouille les murs d'une salle qu'une fois par jour", () => {
+    const p = partie();
+    chercher(p, 20);
+    expect(accessibles(p.donjon!, DDN, p)).not.toContain('n0-1');
+    chercher(p, 1);
+    expect(accessibles(p.donjon!, DDN, p)).not.toContain('n0-1');
+    passerTemps(p, 24);
+    chercher(p, 1);
+    expect(accessibles(p.donjon!, DDN, p)).toContain('n0-1');
+  });
+
+  it('au cachot, une tentative par façon et par jour', () => {
+    const p = partie();
+    capturer(p);
+    expect(evader(p, 'serrure', 20).reussi).toBe(false);
+    expect(evasionPossible(p, 'serrure')).toBeTruthy();
+    expect(evader(p, 'serrure', 1).reussi).toBe(false);
+    croupir(p);
+    expect(evasionPossible(p, 'serrure')).toBeNull();
+    expect(evader(p, 'serrure', 1).reussi).toBe(true);
+  });
+
+  it('trois ratés sur une serrure, et il faut souffler une heure', () => {
+    const p = partie();
+    aller(p, 'cave-1');
+    for (let i = 0; i < 3; i++) forcerSerrure(p, { porte: 'cave-2' }, 'enfoncer', 20);
+    expect(forcerSerrure(p, { porte: 'cave-2' }, 'enfoncer', 1).reussi).toBe(false);
+    passerTemps(p, 1);
+    expect(forcerSerrure(p, { porte: 'cave-2' }, 'enfoncer', 1).reussi).toBe(true);
   });
 
   it('la « putain de porte » ne s\'ouvre que de l\'autre côté', () => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { attaquer, combattant, creerCombat, tirer } from '../src/rules/combat';
+import { attaquer, combattant, creerCombat, prendreArme, ramasserArme, tirer } from '../src/rules/combat';
 import type { Personnage } from '../src/rules/creation';
 import {
   CRITIQUE_CONTONDANTE,
@@ -103,6 +103,28 @@ describe('en combat', () => {
     expect(h.at).toBe(at - 4);
     expect(h.sansParade).toBe(true);
     expect(c.armesCassees).toBeUndefined();
+    expect(c.armeAuSol).toBeDefined();
+    ramasserArme(c);
+    expect(h.famille).toBe('tranchante');
+    expect(h.at).toBe(at);
+    expect(h.sansParade).toBeFalsy();
+    expect(c.armeAuSol).toBeUndefined();
+  });
+
+  it("après avoir lâché son arme, on peut en sortir une autre du sac", () => {
+    const p = nouvellePartie(perso);
+    const c = creerCombat(p, rencontre());
+    const h = combattant(c, 'heros');
+    h.bourrePif = false;
+    attaquer(c, 'heros', 'e1', 20, { rng: des([11, 20]) });
+    expect(h.famille).toBe('mains-nues');
+    const avant = p.equipe.arme;
+    p.sac.push('dague-base');
+    expect(equiper(p, 'dague-base', 'arme')).toBeNull();
+    prendreArme(c, p);
+    expect(h.famille).not.toBe('mains-nues');
+    expect(h.degats).toBe(valeursCombat(p).degats);
+    if (avant) expect(p.sac).toContain(avant);
   });
 
   it('maladresse au tir, 13 à 15 : l’arc casse selon son point de rupture', () => {

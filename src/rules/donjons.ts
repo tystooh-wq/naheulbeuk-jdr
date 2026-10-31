@@ -8,6 +8,7 @@ import { valeurEpreuve, type CaracQuete } from './epreuves';
 import type { LigneRencontre, Rencontre } from './rencontres';
 import type { Evenement } from './evenements';
 import { DDN } from './ddn-salles';
+import { pauseEssai, quandReessayer, rater, reussir } from './essais';
 
 // Donjons : une suite de salles reliées entre elles, montrées sur une mini-carte façon Darkest Dungeon.
 // On avance de salle en salle (dix minutes à chaque fois) ; chaque salle peut cacher un combat, un piège,
@@ -176,6 +177,8 @@ export interface EtatDonjon {
   niveauEntree?: number;
   /** Or trouvé dans les coffres de ce donjon (haut fait « Chasseurs de trésors »). */
   orTrouve?: number;
+  /** Essais ratés d'affilée (« serrure:… », « chercher:… », « evasion:… ») et heure (jour × 24 + heure) avant laquelle on ne peut pas recommencer. */
+  essais?: Record<string, { rates: number; jusqu?: number }>;
 }
 
 /** Jours avant que les monstres reviennent et que les coffres se remplissent. */
@@ -470,11 +473,19 @@ export const secretsIci = (e: EtatDonjon, d: Donjon) => {
   return { passages, cachette };
 };
 
+/** Une seule fouille des murs par salle et par jour : si on n'a rien trouvé, on y reviendra. */
+export const cleRecherche = (e: EtatDonjon) => `chercher:${e.salle}`;
+export const ESSAIS_SERRURE = 3;
+export const cleSerrure = (e: EtatDonjon, cible: Cible, facon: 'crocheter' | 'enfoncer') =>
+  `serrure:${e.salle}:${'porte' in cible ? cible.porte : 'coffre'}:${facon}`;
+
 /** Le héros cherche un passage secret ou une cachette (son D20 contre la caractéristique de chacun). */
 export const chercher = (p: Partie, de: number): { trouves: string[]; texte: string } => {
   const e = p.donjon!;
   const d = donjon(e.id);
   const s = salle(d, e.salle);
+  const pause = pauseEssai(p, cleRecherche(e));
+  if (pause !== null) return { trouves: [], texte: `Tu as déjà tâté chaque pierre de cette salle. Tu y verras plus clair ${quandReessayer(p, pause)}.` };
   passerTemps(p, 1 / 6);
   const { passages, cachette } = secretsIci(e, d);
   const trouves: string[] = [];
@@ -495,7 +506,9 @@ export const chercher = (p: Partie, de: number): { trouves: string[]; texte: str
   const textes = trouves.map((v) => (v === 'coffre' ? `une cachette : ${s.tresor!.texte.split('.')[0].toLowerCase()}` : porteEntre(d, s.id, v)!.texte));
   return {
     trouves,
-    texte: trouves.length ? `Tu trouves ${textes.join(', et ')} !` : 'Tu tâtes les murs, tu soulèves les tapis, tu tapotes les pierres… Rien. Ou alors c\'est très bien caché.',
+    texte: trouves.length
+      ? `Tu trouves ${textes.join(', et ')} !`
+      : `Tu tâtes les murs, tu soulèves les tapis, tu tapotes les pierres… Rien. Ou alors c'est très bien caché. (Tu pourras refouiller cette salle ${quandReessayer(p, rater(p, cleRecherche(e), 1, 24)!)}.)`,
   };
 };
 
@@ -542,23 +555,30 @@ export const forcerSerrure = (p: Partie, cible: Cible, facon: 'crocheter' | 'enf
   const e = p.donjon!;
   const s = serrureDe(donjon(e.id), e, cible)!;
   const valeur = facon === 'crocheter' ? valeurCrochetage(p, s) : valeurForce(p, s);
+  const cle = cleSerrure(e, cible, facon);
+  const pause = pauseEssai(p, cle);
+  if (pause !== null)
+    return { reussi: false, valeur, degats: 0, des: [], texte: `${facon === 'crocheter' ? 'Tes doigts tremblent encore' : 'Ton épaule est en compote'}. Réessaie ${quandReessayer(p, pause)}.` };
   passerTemps(p, 1 / 6);
   if (epreuve(valeur, undefined, de).reussi) {
+    reussir(p, cle);
     deverrouiller(e, cible);
     return { reussi: true, valeur, degats: 0, des: [], texte: facon === 'crocheter' ? 'Clic. La serrure cède.' : 'Dans un grand fracas, ça cède !' };
   }
+  const pauseApres = rater(p, cle, ESSAIS_SERRURE, 1);
+  const repos = pauseApres !== null ? ` C'est le ${ESSAIS_SERRURE}e raté : il faut souffler, réessaie ${quandReessayer(p, pauseApres)}.` : '';
   if (facon === 'enfoncer') {
     p.ev = Math.max(0, p.ev - 1);
-    return { reussi: false, valeur, degats: 1, des: [], texte: "Ça ne bouge pas d'un pouce. Ton épaule, elle, a bougé. Et tout l'étage a entendu." };
+    return { reussi: false, valeur, degats: 1, des: [], texte: `Ça ne bouge pas d'un pouce. Ton épaule, elle, a bougé. Et tout l'étage a entendu.${repos}` };
   }
   if (s.piege) {
     const jet = lancerExpression(s.piege, rng);
     const degats = de === 20 ? jet.total * 3 : jet.total;
     p.ev -= degats;
     noter(p, `se fait électrocuter par une serrure piégée (−${degats} PV).`);
-    return { reussi: false, valeur, degats, des: jet.des, texte: de === 20 ? 'Raté, et en beauté : le piège te part en pleine figure, dégâts triplés !' : 'Raté : la serrure était piégée !' };
+    return { reussi: false, valeur, degats, des: jet.des, texte: (de === 20 ? 'Raté, et en beauté : le piège te part en pleine figure, dégâts triplés !' : 'Raté : la serrure était piégée !') + repos };
   }
-  return { reussi: false, valeur, degats: 0, des: [], texte: 'Raté : le mécanisme résiste. Tu peux réessayer.' };
+  return { reussi: false, valeur, degats: 0, des: [], texte: `Raté : le mécanisme résiste.${repos || ' Tu peux réessayer.'}` };
 };
 
 /** Ouvre une serrure à énigme si la réponse est la bonne. */

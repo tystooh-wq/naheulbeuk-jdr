@@ -7,6 +7,7 @@ import type { Situation } from './talents';
 import type { BlessureGrave } from './critiques';
 import type { LigneRencontre, Rencontre } from './rencontres';
 import type { Ennemis } from './donjons';
+import { pauseEssai, quandReessayer, rater } from './essais';
 
 // Le Donjon de Naheulbeuk (manuel du MJ, rencontres, énigmes et achievements officiels) : ce qui ne tient pas
 // dans les salles elles-mêmes. Les monstres avec leurs caractéristiques du document « Monstres et rencontres »,
@@ -304,7 +305,17 @@ export type Evasion = 'barreaux' | 'serrure' | 'gerard';
 
 export const gerardRode = (p: Partie) => entre(p.heure, 20, 26) && !aMarque(p, 'ddn:gerard-vaincu');
 
+/** Une tentative d'évasion par façon et par jour : la cuillère se tord, les bras tremblent, Gérard boude. */
+export const cleEvasion = (facon: Evasion) => `evasion:${facon}`;
+
 export const evasionPossible = (p: Partie, facon: Evasion): string | null => {
+  const pause = pauseEssai(p, cleEvasion(facon));
+  if (pause !== null)
+    return {
+      serrure: `Ta cuillère est tordue : il faudra attendre la gamelle du lendemain pour en avoir une autre (${quandReessayer(p, pause)}).`,
+      barreaux: `Tes bras ne répondent plus : tu pourras réessayer ${quandReessayer(p, pause)}.`,
+      gerard: 'Gérard boude. Il faudra retenter ta chance demain soir.',
+    }[facon];
   if (facon === 'barreaux') return valeur(p, 'FO') < 16 ? 'Il faut au moins 16 en Force pour espérer tordre ces barreaux.' : null;
   if (facon === 'gerard') return gerardRode(p) ? null : "Gérard ne passe que le soir, quand il a bu (de 20 h à 2 h).";
   return null;
@@ -317,8 +328,12 @@ export const valeurEvasion = (p: Partie, facon: Evasion) =>
 export const evader = (p: Partie, facon: Evasion, de: number): { reussi: boolean; texte: string } => {
   const e = p.donjon!;
   const v = valeurEvasion(p, facon);
+  const refus = evasionPossible(p, facon);
+  if (refus) return { reussi: false, texte: refus };
   passerTemps(p, facon === 'gerard' ? 1 : 0.5);
   if (!epreuve(v, undefined, de).reussi) {
+    // Gérard : jusqu'au lendemain 20 h ; sinon, une journée.
+    rater(p, cleEvasion(facon), 1, facon === 'gerard' ? (p.heure >= 20 ? 44 - p.heure : 20 - p.heure) : 24);
     if (facon === 'barreaux') p.ev = Math.max(1, p.ev - 1);
     return {
       reussi: false,

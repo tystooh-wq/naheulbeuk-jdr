@@ -67,7 +67,7 @@ export interface Combattant {
   /** A déjà paré ou esquivé pendant cet assaut. */
   defendu: boolean;
   /** Armé d'un arc ou d'une arbalète : il tire tant que personne n'est à son contact. */
-  tireur?: { ad: number; degats: string };
+  tireur?: { ad: number; degats: string; recharge?: number; attente?: number };
   /** Compétences du héros qui jouent en combat (voir talents.ts). */
   talents?: {
     vicieux?: boolean;
@@ -159,6 +159,8 @@ export interface Combat {
   projectiles: string[];
   /** L'arme de tir du héros est tombée ou cassée : plus de tir dans ce combat. */
   tirPerdu?: boolean;
+  /** L'arme du héros est tombée par terre (maladresse) : ses valeurs d'avant, et son AT juste après la chute. */
+  armeAuSol?: { at: number; degats: string; famille: Combattant['famille']; rupture?: string; sansParade?: boolean; atApres: number };
   /** Armes du héros cassées pendant le combat (elles disparaissent de son équipement). */
   armesCassees?: ('arme' | 'armeGauche' | 'distance')[];
   /** Compagnons frappés par le héros (maladresse) : ils s'en souviendront. */
@@ -238,14 +240,15 @@ const tireurDe = (notes: string, degats: string, ad: number) => {
   if (!/\barc\b|arbalète/i.test(notes)) return undefined;
   const d = /Arc\s*:\s*(\d*D[+-]?\d*)/i.exec(notes)?.[1];
   const a = Number(/AD\s*:?\s*(\d+)/.exec(notes)?.[1] ?? ad);
-  return { ad: a, degats: d ?? degats.replace('*', '') };
+  // Rechargement (règles V4) : arc 3 assauts, arbalète 6.
+  return { ad: a, degats: d ?? degats.replace('*', ''), recharge: /arbalète/i.test(notes) ? 6 : 3 };
 };
 
 /** Un compagnon du héros, avec sa fiche et son équipement. */
 export const creerCompagnon = (p: Partie, e: EtatCompagnon): Combattant => {
   const x = creerHeros(vueCompagnon(p, e), `c-${e.id}`, e.evMax);
   const t = tirCompagnon(p, e);
-  return { ...x, compagnon: e.id, tireur: t ? { ad: t.ad, degats: t.degats } : undefined };
+  return { ...x, compagnon: e.id, tireur: t ? { ad: t.ad, degats: t.degats, recharge: t.recharge } : undefined };
 };
 
 const depuisLignes = (groupes: { ligne: LigneRencontre; nombre: number }[], camp: Camp, prefixe: string): Combattant[] => {
@@ -383,9 +386,13 @@ export interface Plan {
   vers?: { x: number; y: number };
   cible?: string;
   tir?: boolean;
+  /** Le tireur recharge son arme : il passe son tour. */
+  recharge?: boolean;
 }
 
 export const planifier = (c: Combat, x: Combattant): Plan => {
+  // Un tireur qui recharge, sans personne au contact, ne bouge pas.
+  if (x.tireur?.attente && !contacts(c, x).length) return { recharge: true };
   let opp = adversaires(c, x);
   if (!opp.length) return {};
   // Un compagnon qui a accepté un ordre s'y tient : une cible désignée, ceux qui menacent le héros, ou rester à distance.
@@ -509,16 +516,45 @@ const desarmer = (c: Combat, x: Combattant, cassee: boolean, effets: string[]) =
     return;
   }
   if (cassee && x.id === 'heros') (c.armesCassees ??= []).push('arme');
+  if (!cassee && x.id === 'heros') c.armeAuSol = { at: x.at, degats: x.degats, famille: x.famille, rupture: x.rupture, sansParade: x.sansParade, atApres: 0 };
   const pif = x.camp === 'heros' && !x.allie && x.bourrePif;
   x.famille = 'mains-nues';
   x.degats = pif ? '1D' : '1D-2';
   if (!pif) x.at -= 4;
   x.sansParade = true;
+  if (c.armeAuSol && x.id === 'heros') c.armeAuSol.atApres = x.at;
   effets.push(
     cassee
       ? `L'arme de ${x.nom} se brise : il continue à mains nues.`
-      : `${x.nom} lâche son arme et continue à mains nues${x.id === 'heros' ? ' (tu la ramasseras après le combat)' : ''}.`,
+      : `${x.nom} lâche son arme${x.id === 'heros' ? ' : tu peux la ramasser, ou en sortir une autre de ton sac (ça prend ton tour)' : ' et continue à mains nues'}.`,
   );
+};
+
+/** Le héros ramasse l'arme qu'il a lâchée : il retrouve ses valeurs (et garde ses autres bonus ou malus du moment). */
+export const ramasserArme = (c: Combat) => {
+  const s = c.armeAuSol;
+  if (!s) return;
+  const x = combattant(c, 'heros');
+  x.at = s.at + (x.at - s.atApres);
+  x.degats = s.degats;
+  x.famille = s.famille;
+  x.rupture = s.rupture;
+  x.sansParade = s.sansParade;
+  c.armeAuSol = undefined;
+};
+
+/** Le héros dégaine une autre arme (déjà équipée dans la partie) : ses valeurs sont recalculées. */
+export const prendreArme = (c: Combat, p: Partie) => {
+  const x = combattant(c, 'heros');
+  const n = creerHeros(p);
+  const base = c.armeAuSol ? x.at - c.armeAuSol.atApres : 0;
+  x.at = n.at + base;
+  x.degats = n.degats;
+  x.famille = n.famille;
+  x.rupture = n.rupture;
+  x.sansParade = n.sansParade;
+  x.mainGauche = n.mainGauche;
+  c.armeAuSol = undefined;
 };
 
 /** Plus de tir pour ce combat : l'arc ou l'arme de jet est tombé, ou cassé. */
@@ -826,6 +862,7 @@ export const tourSuivant = (c: Combat) => {
       }
     }
     c.recharge = Math.max(0, c.recharge - 1);
+    for (const x of c.combattants) if (x.tireur?.attente) x.tireur.attente -= 1;
   }
 };
 
@@ -844,6 +881,8 @@ export const tirer = (
   const a = combattant(c, idTireur);
   const cible = combattant(c, idCible);
   const action: Action = { attaquant: a.id, cible: cible.id, de, valeur: tir.ad, issue: jet(de, tir.ad), effets: [], tir: true };
+  // Les tireurs du jeu (ennemis, compagnons) rechargent ; celui du héros est suivi dans c.recharge.
+  if (a.tireur && a.id !== 'heros') a.tireur.attente = a.tireur.recharge ?? 3;
   if (action.issue === 'rate') return action;
   if (action.issue === 'maladresse') {
     maladresse(c, action, a, options.rng, { tir });

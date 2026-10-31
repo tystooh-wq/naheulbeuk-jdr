@@ -152,7 +152,7 @@ export const valeursCompagnon = (p: Partie, e: EtatCompagnon) => valeursCombat(v
 export const tirCompagnon = (p: Partie, e: EtatCompagnon) => {
   const id = compagnon(e.id).equipe.distance;
   if (!id) return undefined;
-  return { ad: valeursCompagnon(p, e).ad, degats: objet(id).degats ?? '1D', arme: objet(id).nom };
+  return { ad: valeursCompagnon(p, e).ad, degats: objet(id).degats ?? '1D', arme: objet(id).nom, recharge: objet(id).tir?.recharge ?? 3 };
 };
 
 export const groupe = (p: Partie) => p.compagnons ?? [];
