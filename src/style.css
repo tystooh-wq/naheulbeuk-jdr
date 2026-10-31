@@ -1608,8 +1608,9 @@ button.combattant:hover {
 .etages { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; }
 .etages button { font-size: 12px; padding: 3px 8px; }
 .plan-donjon { position: relative; border: 2px solid var(--bordure); border-radius: 8px; overflow: hidden; background: #1d150e; }
-.plan-donjon img { display: block; width: 100%; height: auto; filter: sepia(0.35) brightness(0.8); }
+.plan-donjon img { display: block; width: 100%; height: auto; filter: sepia(0.35) brightness(0.85); }
 .plan-donjon svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.plan-donjon svg.brouillard { opacity: 0.98; }
 .plan-donjon line { stroke: #f2c230; stroke-width: 3; stroke-dasharray: 6 4; opacity: 0.8; vector-effect: non-scaling-stroke; }
 .repere-salle {
   position: absolute;

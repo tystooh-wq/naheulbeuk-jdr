@@ -35,6 +35,7 @@ import {
   type Contenu,
   type Donjon,
   type EtatDonjon,
+  type Salle,
   type Serrure,
 } from '../rules/donjons';
 import {
@@ -155,6 +156,29 @@ const miniCarte = (d: Donjon, e: EtatDonjon, p: Partie) => {
 };
 
 /** Un étage sur son plan officiel : les salles vues, les couloirs connus, le héros, les salles où l'on peut aller. */
+/** Largeur / hauteur des plans (pour que les éclaircies du brouillard restent rondes). */
+const RAPPORT = 1.47;
+
+/** Le brouillard : le plan reste dans l'ombre, sauf autour des salles vues et des couloirs parcourus. */
+const brouillard = (niveau: string, vues: Salle[], devinees: Salle[], couloirs: Salle[][]) => {
+  const W = RAPPORT * 100;
+  const x = (s: Salle) => (s.px! * W) / 100;
+  return `<svg class="brouillard" viewBox="0 0 ${W} 100" preserveAspectRatio="none" aria-hidden="true">
+    <defs>
+      <filter id="flou-${niveau}"><feGaussianBlur stdDeviation="2.2" /></filter>
+      <mask id="vu-${niveau}">
+        <rect width="${W}" height="100" fill="white" />
+        <g filter="url(#flou-${niveau})">
+          ${couloirs.map(([a, b]) => `<line x1="${x(a)}" y1="${a.py}" x2="${x(b)}" y2="${b.py}" stroke="black" stroke-width="8" stroke-linecap="round" />`).join('')}
+          ${vues.map((s) => `<circle cx="${x(s)}" cy="${s.py}" r="12" fill="black" />`).join('')}
+          ${devinees.map((s) => `<circle cx="${x(s)}" cy="${s.py}" r="5" fill="#666" />`).join('')}
+        </g>
+      </mask>
+    </defs>
+    <rect width="${W}" height="100" fill="#1d150e" mask="url(#vu-${niveau})" />
+  </svg>`;
+};
+
 const planEtage = (d: Donjon, e: EtatDonjon, p: Partie, niveau: string) => {
   const ici = (id: string) => salle(d, id).niveau === niveau;
   const vues = e.vues.filter(ici);
@@ -171,6 +195,7 @@ const planEtage = (d: Donjon, e: EtatDonjon, p: Partie, niveau: string) => {
   const pos = (id: string) => salle(d, id);
   return `<div class="plan-donjon">
     <img src="${PLANS[niveau]}" alt="Plan : ${echapper(d.niveaux!.find((n) => n.id === niveau)!.nom)}" />
+    ${brouillard(niveau, vues.map(pos), [...devinees].map(pos), [...couloirs].filter((c) => c.split('|').every((x) => e.vues.includes(x))).map((c) => c.split('|').map(pos)))}
     <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
       ${[...couloirs]
         .map((c) => {
