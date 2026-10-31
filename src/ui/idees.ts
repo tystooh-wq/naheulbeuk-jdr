@@ -198,7 +198,7 @@ const enregistrer = async (idee: Omit<Idee, 'id'>): Promise<'partagee' | 'locale
     }
   }
   const locales = lireLocales();
-  locales.push({ ...idee, id: `local-${Date.now()}`, locale: true });
+  locales.push({ ...idee, id: `local-${Date.now()}-${Math.floor(Math.random() * 1e6)}`, locale: true });
   return ecrireLocales(locales) ? 'locale' : 'echec';
 };
 
@@ -209,6 +209,37 @@ const modifier = async (idee: Idee, champs: Partial<Idee>) => {
     return;
   }
   await db?.collection(COLLECTION).doc(idee.id).update({ ...champs });
+};
+
+// --- Partager à la main : les idées d'un navigateur sans accès à la base passent par un code à coller ---
+
+const PREFIXE_CODE = 'NAHEULBEUK-IDEES:';
+
+const codeIdees = () =>
+  PREFIXE_CODE + JSON.stringify(lireLocales().map(({ id: _id, locale: _locale, ...reste }) => reste));
+
+/** Ajoute les idées d'un code reçu (à la base partagée si possible), sans doublons. */
+const importerIdees = async (texte: string): Promise<string> => {
+  const brut = texte.trim();
+  const debut = brut.indexOf(PREFIXE_CODE);
+  if (debut < 0) return 'Ce n\'est pas un code d\'idées (il commence par NAHEULBEUK-IDEES:).';
+  let recues: Omit<Idee, 'id'>[];
+  try {
+    recues = JSON.parse(brut.slice(debut + PREFIXE_CODE.length));
+    if (!Array.isArray(recues)) throw new Error();
+  } catch {
+    return 'Code incomplet : il a dû être coupé en le copiant.';
+  }
+  const deja = new Set(toutesIdees().map((i) => `${i.date}|${i.texte}`));
+  let n = 0;
+  for (const r of recues) {
+    if (typeof r?.texte !== 'string' || typeof r?.date !== 'string' || !r.contexte || deja.has(`${r.date}|${r.texte}`)) continue;
+    const { locale: _l, traitePar: _t, ...reste } = r as Idee;
+    const res = await enregistrer(JSON.parse(JSON.stringify({ ...reste, texte: r.texte.slice(0, 2000), statut: 'proposee' })));
+    if (res !== 'echec') n++;
+  }
+  prevenir();
+  return n ? `Importé : ${n} idée${n > 1 ? 's' : ''}.` : 'Rien de nouveau dans ce code.';
 };
 
 // --- Bouton « J'aurais fait autrement » -----------------------------------------------
@@ -267,7 +298,7 @@ const saisie = (c: Contexte) => {
       res === 'partagee'
         ? 'Merci ! Ton idée est partagée avec le MJ.'
         : res === 'locale'
-          ? "Merci ! Ton idée est gardée dans ce navigateur (la page ne te permet pas encore de la partager)."
+          ? "Merci ! Ton idée est gardée dans ce navigateur : pour que le MJ la voie, ouvre « 💡 Idées » et copie tes idées pour lui."
           : "Impossible d'enregistrer l'idée dans ce navigateur.";
     setTimeout(fermer, 1600);
   });
@@ -505,6 +536,18 @@ const liste = () => {
       db ? 'Elles sont partagées entre les joueurs de cette page.' : 'Pas de partage disponible ici : seules les idées de ce navigateur apparaissent.'
     } ${peutValider ? 'Tu peux les valider : précise l\'épreuve et les résultats, et elles deviennent des choix jouables.' : ''}</p>
     <p class="actions-lieu"><button id="proposer">✍ Proposer une rencontre ou un événement</button><button id="proposer-quete">📜 Proposer une quête</button></p>
+    ${
+      lireLocales().length
+        ? `<div class="recit"><p>${lireLocales().length} idée${lireLocales().length > 1 ? 's sont gardées' : ' est gardée'} seulement dans ce navigateur : le MJ ne les voit pas. Copie le code ci-dessous et envoie-le-lui (message, mail…) : il le collera dans « Importer des idées ».</p>
+          <p class="actions-lieu"><button class="secondaire" id="exporter-idees">📤 Copier mes idées pour le MJ</button></p>
+          <textarea id="code-idees" rows="3" readonly hidden></textarea><p id="retour-export" class="note" aria-live="polite"></p></div>`
+        : ''
+    }
+    <details class="importer"><summary>📥 Importer des idées reçues</summary>
+      <p class="note">Colle ici le code envoyé par un joueur.</p>
+      <textarea id="coller-idees" rows="3" placeholder="NAHEULBEUK-IDEES:[…]"></textarea>
+      <p class="actions-lieu"><button class="secondaire" id="importer-idees">Importer</button></p><p id="retour-import" class="note" aria-live="polite"></p>
+    </details>
     <label class="champ-prerequis">Ta signature, pour tes idées et tes décisions <input id="ma-signature" maxlength="40" value="${echapper(signature())}" placeholder="Ton prénom ou ton pseudo" /></label>
     ${
       idees.length
@@ -573,6 +616,25 @@ const liste = () => {
   );
   const maSignature = fenetre.querySelector<HTMLInputElement>('#ma-signature');
   maSignature?.addEventListener('change', () => retenirSignature(maSignature.value.trim()));
+  fenetre.querySelector('#exporter-idees')?.addEventListener('click', async () => {
+    const code = fenetre.querySelector<HTMLTextAreaElement>('#code-idees')!;
+    code.value = codeIdees();
+    code.hidden = false;
+    code.select();
+    let copie = false;
+    try {
+      await navigator.clipboard.writeText(code.value);
+      copie = true;
+    } catch {
+      // Presse-papiers refusé : le code reste sélectionné dans le champ, à copier à la main.
+    }
+    fenetre.querySelector('#retour-export')!.textContent = copie ? 'Copié ! Colle-le dans un message pour le MJ.' : 'Sélectionne le code et copie-le (Ctrl+C), puis envoie-le au MJ.';
+  });
+  fenetre.querySelector('#importer-idees')?.addEventListener('click', async () => {
+    const r = await importerIdees(fenetre.querySelector<HTMLTextAreaElement>('#coller-idees')!.value);
+    fenetre.querySelector('#retour-import')!.textContent = r;
+    if (r.startsWith('Importé')) setTimeout(liste, 1200);
+  });
   fenetre.querySelector('#proposer')?.addEventListener('click', saisieProposition);
   fenetre.querySelector('#proposer-quete')?.addEventListener('click', saisieQuete);
   fenetre.querySelectorAll<HTMLElement>('[data-retenir]').forEach((b) =>
