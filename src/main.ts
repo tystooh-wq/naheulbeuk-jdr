@@ -140,3 +140,23 @@ installerIdees();
 installerDesCliquables();
 installerEncyclopedie();
 accueil();
+
+/** Un bug ne doit pas bloquer la partie : on l'affiche (pour pouvoir le signaler) et on propose de reprendre. */
+const signalerErreur = (e: unknown) => {
+  if (document.querySelector('#erreur-jeu')) return;
+  const err = e instanceof Error ? e : new Error(String(e));
+  const pile = (err.stack ?? '').split('\n').slice(0, 4).join('\n');
+  const boite = document.createElement('div');
+  boite.id = 'erreur-jeu';
+  boite.className = 'erreur-jeu';
+  boite.innerHTML = `<p><b>Oups, le MJ s'est pris les pieds dans le tapis.</b> Fais une capture de ce cadre pour le signaler, puis reprends ta partie (elle est sauvegardée).</p>
+    <pre>${echapper(err.message)}\n${echapper(pile)}</pre>
+    <button id="erreur-reprendre">Reprendre la partie</button>`;
+  document.body.append(boite);
+  boite.querySelector('#erreur-reprendre')!.addEventListener('click', () => {
+    boite.remove();
+    accueil();
+  });
+};
+window.addEventListener('error', (ev) => signalerErreur(ev.error ?? ev.message));
+window.addEventListener('unhandledrejection', (ev) => signalerErreur(ev.reason));
