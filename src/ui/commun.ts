@@ -226,7 +226,7 @@ export const panneauSac = (p: Partie, message?: string) => {
             .map(
               (b) =>
                 `<li><b>${echapper(b.nom)}</b> <span class="note">${echapper(Object.entries(b.mods).map(([k, v]) => `${k} ${v}`).join(', '))}${b.mv !== undefined ? `, déplacement ${Math.round(b.mv * 100)} %` : ''} · ${
-                  b.jusqua === undefined ? 'permanent' : `guérit le ${dateCourte(b.jusqua)}`
+                  b.jusqua === undefined ? 'permanent' : `guérit le ${dateCourte(b.jusqua)}${b.jusqua % 1 ? ` vers ${formatHeure(Math.round((b.jusqua % 1) * 24))}` : ""}`
                 }</span></li>`,
             )
             .join('')}</ul><p class="note">Les malus d'AT, PRD, AD, COU et CHA sont déjà comptés ci-dessus.</p>`

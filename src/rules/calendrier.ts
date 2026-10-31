@@ -101,7 +101,9 @@ export interface DateFangh {
 }
 
 /** La date d'un jour de l'aventure (`Partie.jour`, 1 = premier jour). */
-export const date = (jour: number): DateFangh => {
+export const date = (jourBrut: number): DateFangh => {
+  // Un jour peut arriver avec une fraction (une blessure qui guérit en cours de journée).
+  const jour = Math.floor(Number.isFinite(jourBrut) ? jourBrut : 1);
   const n = DEBUT + Math.max(0, jour - 1);
   const r = n % 365;
   let m = 0;

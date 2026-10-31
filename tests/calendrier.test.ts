@@ -20,3 +20,10 @@ describe('calendrier de la Terre de Fangh', () => {
     expect(date(1 + 365).annee).toBe(1);
   });
 });
+
+describe('jours avec une fraction', () => {
+  it("une blessure qui guérit en cours de journée n'empêche pas d'afficher la date", () => {
+    expect(dateCourte(7.5)).toBe(dateCourte(7));
+    expect(dateLongue(7.25)).toBe(dateLongue(7));
+  });
+});
