@@ -30,6 +30,7 @@ import {
   type Combat,
   type Combattant,
   type ModeDefense,
+  creerHeros,
   prendreArme,
   ramasserArme,
 } from '../rules/combat';
@@ -160,6 +161,8 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
     }</details>`;
   };
 
+  const armesDuSac = () => [...new Set(p.sac)].filter((id) => objet(id).type === 'arme' && !objet(id).tir && essaiEquiper(p, id, 'arme').refus === null);
+
   const panneauJoueur = () => {
     if (!attente) return '';
     const x = h();
@@ -210,12 +213,15 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
       const melee = `<p class="actions-lieu">${cibles.map((e) => `<button data-cible="${e.id}">🎲 Attaquer ${echapper(e.nom)}</button>`).join('')}<button class="secondaire" data-attendre>⏳ ${
         c.deplace ? 'Finir le tour' : 'Attendre de pied ferme'
       }</button></p>`;
-      const autres = c.armeAuSol ? [...new Set(p.sac)].filter((id) => objet(id).type === 'arme' && essaiEquiper(p, id, 'arme').refus === null) : [];
-      const armeTombee = c.armeAuSol
-        ? `<p class="actions-lieu"><button data-ramasser>🤲 Ramasser ${p.equipe.arme ? echapper(objet(p.equipe.arme).nom) : 'ton arme'}</button>${autres
-            .map((id) => `<button class="secondaire" data-degainer="${id}">🗡 Sortir ${echapper(objet(id).nom)} du sac</button>`)
-            .join('')}</p><p class="note">Ton arme est par terre. La ramasser ou en sortir une autre prend ton tour.</p>`
-        : '';
+      // Les mains vides (arme lâchée, ou entré sans arme) : on peut ramasser la sienne ou en sortir une du sac.
+      const mainsVides = x.famille === 'mains-nues';
+      const autres = mainsVides ? armesDuSac() : [];
+      const armeTombee =
+        c.armeAuSol || autres.length
+          ? `<p class="actions-lieu">${c.armeAuSol ? `<button data-ramasser>🤲 Ramasser ${p.equipe.arme ? echapper(objet(p.equipe.arme).nom) : 'ton arme'}</button>` : ''}${autres
+              .map((id) => `<button class="secondaire" data-degainer="${id}">🗡 Sortir ${echapper(objet(id).nom)} du sac</button>`)
+              .join('')}</p><p class="note">${c.armeAuSol ? 'Ton arme est par terre. La ramasser ou en sortir une autre prend ton tour.' : 'Tu te bats à mains nues. Sortir une arme du sac prend ton tour.'}</p>`
+          : '';
       return `<div class="a-toi">${consigne}${armeTombee}${tirs}${boutonsSorts}${melee}
         ${talents ? `<p class="actions-lieu">${talents}</p>` : ''}
         ${panneauOrdres()}
@@ -558,6 +564,8 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
           : `tombe sous les coups de ${qui}.`,
     );
     attente = { type: 'fin', bilan };
+    // Le combat est fini : les boutons du bilan (partage du butin…) doivent répondre.
+    occupe = false;
     render();
   };
 
@@ -863,13 +871,15 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
     });
 
     sur('[data-degainer]', async (el) => {
-      if (attente?.type !== 'action' || !c.armeAuSol) return (occupe = false);
+      if (attente?.type !== 'action' || h().famille !== 'mains-nues') return (occupe = false);
       const id = el.dataset.degainer!;
+      const tombee = !!c.armeAuSol;
+      const atAvant = creerHeros(p).at;
       const refus = equiper(p, id, 'arme');
       if (refus) return (occupe = false);
       attente = null;
-      prendreArme(c, p);
-      message(`${h().nom} sort ${objet(id).nom} de son sac. L'assaut est perdu pour attaquer ; l'autre arme sera ramassée après le combat.`);
+      prendreArme(c, p, atAvant);
+      message(`${h().nom} sort ${objet(id).nom} de son sac. L'assaut est perdu pour attaquer${tombee ? " ; l'autre arme sera ramassée après le combat" : ''}.`);
       apres();
       await attendre(900);
       avancer();
@@ -952,5 +962,7 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
 
   c.journal.push(`Ordre d'attaque (Courage, puis Adresse) : ${c.ordre.map((id) => combattant(c, id).nom).join(', ')}.`);
   render();
+  // Pour les tests en développement : accès au combat en cours.
+  if (import.meta.env.DEV) Object.assign(window, { __combat: { c, render } });
   setTimeout(avancer, 600);
 };

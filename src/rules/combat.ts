@@ -543,11 +543,14 @@ export const ramasserArme = (c: Combat) => {
   c.armeAuSol = undefined;
 };
 
-/** Le héros dégaine une autre arme (déjà équipée dans la partie) : ses valeurs sont recalculées. */
-export const prendreArme = (c: Combat, p: Partie) => {
+/**
+ * Le héros dégaine une autre arme (déjà équipée dans la partie) : ses valeurs sont recalculées.
+ * `atAvant` : son AT de fiche juste avant de changer d'arme, pour garder les bonus et malus du moment.
+ */
+export const prendreArme = (c: Combat, p: Partie, atAvant?: number) => {
   const x = combattant(c, 'heros');
   const n = creerHeros(p);
-  const base = c.armeAuSol ? x.at - c.armeAuSol.atApres : 0;
+  const base = c.armeAuSol ? x.at - c.armeAuSol.atApres : atAvant !== undefined ? x.at - atAvant : 0;
   x.at = n.at + base;
   x.degats = n.degats;
   x.famille = n.famille;
