@@ -193,7 +193,7 @@ const connecter = async () => {
  * Quand elle est renseignée, les idées qu'on ne peut pas écrire dans la base partagée partent dans la feuille,
  * et plus rien n'est gardé dans le navigateur.
  */
-export const ENVOI_IDEES = '';
+export const ENVOI_IDEES = 'https://script.google.com/macros/s/AKfycbyHbMV4a76wrMkmu9XkZEB49iXZxb_MvLr3Ea2zO3pK7iLODPgWM-1_mAxULid4-FpzLA/exec';
 
 const enregistrer = async (idee: Omit<Idee, 'id'>): Promise<'partagee' | 'envoyee' | 'locale' | 'echec'> => {
   if (db) {
@@ -210,7 +210,7 @@ const enregistrer = async (idee: Omit<Idee, 'id'>): Promise<'partagee' | 'envoye
       await fetch(ENVOI_IDEES, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(idee) });
       return 'envoyee';
     } catch {
-      return 'echec';
+      // Envoi bloqué (page qui interdit les connexions sortantes, hors ligne…) : on la garde sur l'appareil.
     }
   }
   const locales = lireLocales();
