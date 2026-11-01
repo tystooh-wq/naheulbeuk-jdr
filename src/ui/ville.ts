@@ -144,7 +144,7 @@ export const ecranVille = (app: HTMLElement, p: Partie, sorties: SortiesVille, a
         const nom = compagnon(e.id).perso.nom;
         // En petit cercle autour du repère du lieu, pour ne pas le cacher.
         const angle = Math.PI / 4 - n * (Math.PI / 3);
-        return `<span class="pion-compagnon" style="left:${o!.lieu.x}%;top:${o!.lieu.y}%;--dx:${Math.round(Math.cos(angle) * 24)}px;--dy:${Math.round(Math.sin(angle) * 24)}px" title="${echapper(`${nom} ${o!.texte} (${o!.lieu.nom})`)}">${echapper(nom[0])}</span>`;
+        return `<span class="pion-ville" style="left:${o!.lieu.x}%;top:${o!.lieu.y}%;--dx:${Math.round(Math.cos(angle) * 24)}px;--dy:${Math.round(Math.sin(angle) * 24)}px" title="${echapper(`${nom} ${o!.texte} (${o!.lieu.nom})`)}">${echapper(nom[0])}</span>`;
       })
       .join('');
   };
@@ -173,7 +173,7 @@ export const ecranVille = (app: HTMLElement, p: Partie, sorties: SortiesVille, a
       <span><i class="marque-quete marque-nouvelle">!</i>Quête proposée</span>
       <span><i class="marque-quete marque-etape">➤</i>Étape de quête</span>
       <span><i class="heros-mini"></i>${echapper(p.perso.nom)}</span>
-      ${groupe(p).length ? '<span><i class="pion-compagnon mini">A</i>Compagnons (survole pour voir ce qu\'ils font)</span>' : ''}
+      ${groupe(p).length ? '<span><i class="pion-ville mini">A</i>Compagnons (survole pour voir ce qu\'ils font)</span>' : ''}
       ${jaugeReputation(p, c.id, c.nom)}</div>`;
   };
 

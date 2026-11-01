@@ -2201,7 +2201,7 @@ ul.pertes { margin: 6px 0 0; padding-left: 1.1em; list-style: none; }
 .payer-part { margin-left: 8px; vertical-align: middle; }
 
 /* Les compagnons vivent leur vie en ville : un petit pion près du lieu où ils sont. */
-.pion-compagnon {
+.pion-ville {
   position: absolute;
   transform: translate(calc(-50% + var(--dx, 0px)), calc(-50% + var(--dy, 0px)));
   width: 20px;
@@ -2218,7 +2218,7 @@ ul.pertes { margin: 6px 0 0; padding-left: 1.1em; list-style: none; }
   z-index: 3;
   cursor: help;
 }
-.pion-compagnon.mini {
+.pion-ville.mini {
   position: static;
   display: inline-block;
   transform: none;
