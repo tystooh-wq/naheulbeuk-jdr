@@ -2235,3 +2235,26 @@ ul.pertes { margin: 6px 0 0; padding-left: 1.1em; list-style: none; }
   padding-left: 1.2em;
   color: #2f6b4f;
 }
+
+/* Petit événement de route : une bulle qui s'efface, la marche continue. */
+.bulle-route {
+  position: absolute;
+  left: 50%;
+  bottom: 12px;
+  transform: translateX(-50%);
+  max-width: min(90%, 520px);
+  padding: 8px 12px;
+  background: rgba(251, 244, 226, 0.96);
+  border: 1px solid var(--bordure);
+  border-radius: 4px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+  font-style: italic;
+  z-index: 6;
+  pointer-events: none;
+  animation: bulle-route 6s ease forwards;
+}
+@keyframes bulle-route {
+  0% { opacity: 0; }
+  8%, 85% { opacity: 1; }
+  100% { opacity: 0; }
+}

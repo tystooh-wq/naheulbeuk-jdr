@@ -558,8 +558,13 @@ export const ecranMonde = (app: HTMLElement, p: Partie, s: Sorties) => {
       }
       if (p.voyage.fait >= p.voyage.prochainControle - 1e-6) {
         p.voyage.prochainControle += INTERVALLE_CONTROLE;
-        const c = controler(terrainApres(it, p.voyage.fait), false, undefined, p.voyage.horsPiste, p, zoneEn(position()));
-        if (c.type !== 'rien') {
+        const c = controler(terrainApres(it, p.voyage.fait), false, undefined, p.voyage.horsPiste, p, zoneEn(position()), pt);
+        if (c.type === 'petit') {
+          // Un petit rien : une ligne au journal et une bulle sur la carte, la marche continue.
+          noter(p, c.texte);
+          sauver();
+          bulleRoute(c.texte);
+        } else if (c.type !== 'rien') {
           enMarche = false;
           centre = pt;
           fenetre = c.type === 'rencontre' ? { type: 'rencontre', r: tirerRencontre(undefined, zoneEn(position()), niveau(p)), nuit: false } : { type: 'evenement', ev: c.evenement };
@@ -572,11 +577,23 @@ export const ecranMonde = (app: HTMLElement, p: Partie, s: Sorties) => {
     requestAnimationFrame(pas);
   };
 
+  const bulleRoute = (texte: string) => {
+    const carte = app.querySelector('#carte');
+    if (!carte) return;
+    carte.querySelector('.bulle-route')?.remove();
+    const b = document.createElement('div');
+    b.className = 'bulle-route';
+    b.setAttribute('role', 'status');
+    b.textContent = texte;
+    carte.append(b);
+    setTimeout(() => b.remove(), 6000);
+  };
+
   /** Bivouac de nuit : le MJ vérifie d'abord si quelque chose rôde autour du camp. */
   const installerBivouac = () => {
     // Sentir des pieds : bottes retirées, les prédateurs se tiennent à distance.
     if (aTalent(p, 'Sentir des pieds')) return dormirDehors();
-    const c = controler(terrainActuel(), true, undefined, !!p.voyage?.horsPiste, p, zoneEn(position()));
+    const c = controler(terrainActuel(), true, undefined, !!p.voyage?.horsPiste, p, zoneEn(position()), position());
     if (c.type === 'rencontre') {
       fenetre = { type: 'rencontre', r: { ...tirerRencontre(undefined, zoneEn(position()), niveau(p)), approche: 1 }, nuit: true };
       return render();

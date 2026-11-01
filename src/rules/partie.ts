@@ -118,6 +118,10 @@ export interface Partie {
   /** Position sur la carte du monde (ou dernière, quand on est en ville). */
   lieuMonde: string;
   voyage?: Voyage;
+  /** Après une rencontre, pas de nouvelle avant cette heure absolue (puis la tension remonte). */
+  repitJusqua?: number;
+  /** Jour où chaque événement de voyage a eu lieu : pas de répétition dans le mois. */
+  evenementsVus?: Record<string, number>;
   /** Points d'expérience gagnés (absent dans les vieilles sauvegardes). */
   xp?: number;
   /** Points de mauvaise conduite : racket, vol… Le monde finit par s'en souvenir. */

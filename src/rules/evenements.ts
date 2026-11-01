@@ -2,7 +2,8 @@ import { aTalent, bonusSituation, savoir } from './talents';
 import { dansGroupe, reagir, recruter } from './compagnons';
 import { calculerFiche } from './creation';
 import { lancer, type Rng } from './des';
-import type { Terrain } from './monde';
+import { LIEUX_MONDE, PX_PAR_KM, type LieuMonde, type Point, type Terrain } from './monde';
+import { maintenant } from './essais';
 import { epreuve, lancerExpression, soigner, valeursCombat, type Partie } from './partie';
 import { ligneEnnemi, TABLE_TERRES_SAUVAGES, TABLES, type LigneRencontre, type Rencontre, type Zone } from './rencontres';
 
@@ -503,31 +504,142 @@ export const EVENEMENTS: Evenement[] = [
   },
 ];
 
-export const tirerEvenement = (terrain: Terrain, rng?: Rng, p?: Partie, zone?: Zone): Evenement => {
+/** Un vrai événement ne revient pas avant un mois : le but est de varier les interactions (choix de Sedy). */
+export const JOURS_SANS_REPETITION = 30;
+
+const dejaVu = (p: Partie | undefined, id: string) => {
+  const vu = p?.evenementsVus?.[id];
+  return vu !== undefined && p!.jour - vu < JOURS_SANS_REPETITION;
+};
+
+export const marquerVu = (p: Partie, id: string) => {
+  p.evenementsVus = { ...(p.evenementsVus ?? {}), [id]: p.jour };
+};
+
+/** Un événement qui convient à l'endroit et que le héros n'a pas vu ce mois-ci ; null s'il n'y en a plus. */
+export const tirerEvenement = (terrain: Terrain, rng?: Rng, p?: Partie, zone?: Zone): Evenement | null => {
   const possibles = EVENEMENTS.filter(
     (e) => !e.suiteSeule && (!e.terrains || e.terrains.includes(terrain)) && (!e.zones || (!!zone && e.zones.includes(zone))) && (e.condition ? !!p && e.condition(p) : true),
   );
+  // Les suites d'histoire ne comptent pas comme des répétitions : elles n'arrivent qu'une fois de toute façon.
   const suites = possibles.filter((e) => e.prioritaire);
   if (suites.length && lancer(2, rng) === 1) return suites[lancer(suites.length, rng) - 1];
-  const ordinaires = possibles.filter((e) => !e.prioritaire);
-  return ordinaires[lancer(ordinaires.length, rng) - 1];
+  const ordinaires = possibles.filter((e) => !e.prioritaire && !dejaVu(p, e.id));
+  return ordinaires.length ? ordinaires[lancer(ordinaires.length, rng) - 1] : null;
 };
 
-export type Controle = { type: 'rien' } | { type: 'rencontre' } | { type: 'evenement'; evenement: Evenement };
+// --- Petits événements : une ligne au journal, la marche continue -------------------------
+
+export interface PetitEvenement {
+  id: string;
+  terrains?: Terrain[];
+  zones?: Zone[];
+  /** Le texte du journal ; l'effet éventuel (quelques pièces, 1 PV…) s'applique en même temps. */
+  effet: (p: Partie, rng?: Rng) => string;
+}
+
+const texte = (t: string) => () => t;
+
+export const PETITS_EVENEMENTS: PetitEvenement[] = [
+  { id: 'panneau', effet: texte("Un panneau indicateur, criblé de flèches. Quelqu'un a gratté les noms des villes et écrit « PAR LÀ » dans les deux sens.") },
+  { id: 'marchand-salue', terrains: ['sentier'], effet: texte('Un marchand de navets te salue du haut de sa charrette. Il ne vend que des navets. Il insiste un peu, puis renonce.') },
+  { id: 'corbeaux', effet: texte('Une volée de corbeaux te suit sur un bon kilomètre. Ils ont l\'air de parier sur quelque chose.') },
+  { id: 'pluie', terrains: ['sentier', 'plaine'], effet: texte('Une averse soudaine. Tu es trempé jusqu\'aux os, puis le soleil revient comme si de rien n\'était.') },
+  { id: 'piece', effet: (p) => { p.or += 1; return 'Une pièce d\'or brille dans une ornière. Personne en vue : elle est à toi (+1 PO).'; } },
+  { id: 'pelerins', terrains: ['sentier'], effet: texte('Des pèlerins de Youclidh te dépassent en chantant faux. Très faux. Le chant reste dans ta tête pendant une heure.') },
+  { id: 'borne', terrains: ['sentier'], effet: texte('Une vieille borne de l\'Empire, couverte de mousse. Le chiffre est illisible. Ça avance quand même, apparemment.') },
+  { id: 'vache', terrains: ['sentier', 'plaine'], zones: ['campagne', 'terres-sauvages'], effet: texte('Une vache plantée au milieu du chemin te regarde passer. Tu as la nette impression d\'être jugé.') },
+  { id: 'menthe', terrains: ['sentier', 'plaine'], effet: (p) => { const r = soigner(p, 1); return `Tu mâchonnes une feuille de menthe sauvage cueillie au bord du chemin${r ? ' (+1 PV)' : ''}. Haleine fraîche garantie.`; } },
+  { id: 'patrouille-loin', terrains: ['sentier'], effet: texte('Au loin, une patrouille passe sans te voir. Ou en faisant semblant de ne pas te voir, ce qui revient au même.') },
+  { id: 'feu-eteint', effet: texte('Les restes d\'un feu de camp, encore tièdes. Des os de poulet, une chaussette. Quelqu\'un était là ce matin.') },
+  { id: 'gnome-presse', terrains: ['sentier'], effet: texte('Un gnome des forêts du nord te double en courant, un paquet sous le bras. « Pas le temps ! Pas le temps ! »') },
+  { id: 'chanson-taverne', effet: texte('Tu fredonnes une chanson à boire. Tu ne te souviens que du refrain, alors tu le chantes onze fois.') },
+  { id: 'pont-planches', terrains: ['sentier'], effet: texte('Un petit pont de planches grince affreusement sous tes pas. Il tient. Pour cette fois.') },
+  { id: 'enfants', terrains: ['sentier'], zones: ['campagne'], effet: texte('Des enfants de fermiers te jettent des cailloux, puis s\'enfuient en hurlant « Un aventurier ! ».') },
+  { id: 'brume', effet: texte('Une brume épaisse tombe d\'un coup. Tu avances à tâtons pendant un moment, puis elle se lève, l\'air de rien.') },
+  { id: 'ecureuil-noisette', zones: ['foret'], effet: texte('Un écureuil te bombarde de noisettes du haut d\'un chêne. Rancune personnelle, sans doute.') },
+  { id: 'champignon-geant', zones: ['foret'], effet: texte('Un champignon grand comme un tabouret, au pied d\'un arbre. Tu n\'y touches pas. Personne n\'y touche, et c\'est sûrement pour une raison.') },
+  { id: 'hibou', zones: ['foret'], effet: texte('Un hibou en plein jour te fixe sans ciller. C\'est soit un mauvais présage, soit un hibou insomniaque.') },
+  { id: 'mirage', terrains: ['dunes'], effet: texte('Un mirage : une taverne au bord d\'un lac, avec des serveuses. Elle recule à mesure que tu avances.') },
+  { id: 'scorpion', terrains: ['dunes'], effet: texte('Un scorpion traverse ton chemin, s\'arrête, te regarde, et décide que tu n\'en vaux pas la peine.') },
+  { id: 'squelette-chameau', terrains: ['dunes'], effet: texte('Le squelette blanchi d\'un chameau, à moitié enfoui. Un panneau à côté : « Il n\'avait pas assez d\'eau. »') },
+  { id: 'ampoule', effet: texte('Une ampoule au talon. Tu marches en canard pendant une heure, puis tu oublies.') },
+  { id: 'colporteur-ragots', terrains: ['sentier'], effet: texte('Un colporteur te raconte qu\'un dragon a mangé un percepteur près de Glargh. Personne ne semble triste.') },
+  { id: 'bourse-vide', effet: texte('Une bourse dans l\'herbe ! Vide. Avec un petit mot : « Trop tard. »') },
+  { id: 'arc-en-ciel', terrains: ['sentier', 'plaine'], effet: texte('Un arc-en-ciel au-dessus de la plaine. Il paraît qu\'un trésor attend au pied. Il paraît aussi que c\'est un piège à gnomes.') },
+];
+
+export const tirerPetitEvenement = (terrain: Terrain, rng?: Rng, p?: Partie, zone?: Zone): PetitEvenement | null => {
+  const ok = PETITS_EVENEMENTS.filter((e) => (!e.terrains || e.terrains.includes(terrain)) && (!e.zones || (!!zone && e.zones.includes(zone))) && !dejaVu(p, e.id));
+  return ok.length ? ok[lancer(ok.length, rng) - 1] : null;
+};
+
+// --- Le contrôle du MJ ---------------------------------------------------------------
+
+export type Controle = { type: 'rien' } | { type: 'rencontre' } | { type: 'evenement'; evenement: Evenement } | { type: 'petit'; texte: string };
 
 /**
- * Le supplément « Déplacements et transport » propose une rencontre par demi-journée en Terre de Fangh.
- * Le MJ vérifie toutes les 2 h 30 de marche (deux fois par demi-journée) : 1 sur un D6, rencontre hostile ;
- * 2, un événement ; sinon rien. La nuit, seule la rencontre hostile est possible.
- * Hors piste, les chances doublent : 1-2 rencontre, 3-4 événement.
+ * Le supplément « Déplacements et transport » propose une rencontre par demi-journée en Terre de Fangh :
+ * le MJ vérifie toutes les 2 h 30 de marche. Version affinée (choix de Sedy) :
+ * - après une rencontre ou un événement, 8 à 12 h de répit, puis la tension remonte en 12 h ;
+ * - le danger dépend de l'endroit : sûr près des villes et des villages, risqué en terre sauvage et en forêt,
+ *   deux fois plus hors des routes ;
+ * - les petits événements (un panneau, un marchand qui passe) vont au journal sans arrêter la marche ;
+ * - un même événement ne revient pas dans le mois.
  */
 export const INTERVALLE_CONTROLE = 2.5;
+export const REPIT = { min: 8, max: 12, remontee: 12 };
 
-export const controler = (terrain: Terrain, nuit: boolean, rng?: Rng, horsPiste = false, p?: Partie, zone?: Zone): Controle => {
-  const d = lancer(6, rng);
-  // Hors des routes, loin des patrouilles et des villages : rencontres et embûches deux fois plus probables.
-  // En campagne paisible, une rencontre sur deux n'a finalement pas lieu.
-  if (d === 1 || (horsPiste && d === 2)) return zone && TABLES[zone].paisible && lancer(2, rng) === 2 ? { type: 'rien' } : { type: 'rencontre' };
-  if (!nuit && (horsPiste ? d <= 4 : d === 2)) return { type: 'evenement', evenement: tirerEvenement(terrain, rng, p, zone) };
+/** De 0 (on vient d'être attaqué) à 1 (tout peut arriver). */
+export const tension = (p?: Partie) => {
+  if (!p?.repitJusqua) return 1;
+  return Math.max(0, Math.min(1, (maintenant(p) - p.repitJusqua) / REPIT.remontee));
+};
+
+const accorderRepit = (p: Partie | undefined, rng?: Rng) => {
+  if (p) p.repitJusqua = maintenant(p) + REPIT.min + lancer(REPIT.max - REPIT.min + 1, rng) - 1;
+};
+
+const DANGER_ZONE: Record<Zone, number> = { campagne: 0.5, 'terres-sauvages': 1, foret: 1.5 };
+
+/** Danger de l'endroit (1 = la table officielle, une chance sur six par contrôle). */
+export const danger = (zone: Zone = 'terres-sauvages', horsPiste = false, point?: Point) => {
+  let d = DANGER_ZONE[zone];
+  if (point) {
+    const km = (l: LieuMonde) => Math.hypot(l.x - point[0], l.y - point[1]) / PX_PAR_KM;
+    // Les patrouilles et les paysans armés tiennent les abords des villes et des villages.
+    if (LIEUX_MONDE.some((l) => (l.type === 'ville' && km(l) < 12) || (l.type === 'village' && km(l) < 5))) d *= horsPiste ? 0.5 : 0.25;
+  }
+  return horsPiste ? d * 2 : d;
+};
+
+export const niveauDanger = (d: number) => (d < 0.4 ? 'sûr' : d < 0.9 ? 'calme' : d < 1.6 ? 'peu sûr' : 'dangereux');
+
+export const controler = (terrain: Terrain, nuit: boolean, rng?: Rng, horsPiste = false, p?: Partie, zone?: Zone, point?: Point): Controle => {
+  const t = tension(p);
+  const r = lancer(1000, rng) / 1000;
+  const pRencontre = Math.min(0.6, (danger(zone, horsPiste, point) / 6) * t);
+  if (r <= pRencontre) {
+    accorderRepit(p, rng);
+    return { type: 'rencontre' };
+  }
+  if (nuit) return { type: 'rien' };
+  const pEvenement = ((horsPiste ? 2 : 1) / 6) * t;
+  if (r <= pRencontre + pEvenement) {
+    const ev = tirerEvenement(terrain, rng, p, zone);
+    if (ev) {
+      if (p) marquerVu(p, ev.id);
+      accorderRepit(p, rng);
+      return { type: 'evenement', evenement: ev };
+    }
+  }
+  // Une fois sur trois, un petit quelque chose qui ne mérite pas qu'on s'arrête.
+  if (r > 1 - 1 / 3) {
+    const pe = tirerPetitEvenement(terrain, rng, p, zone);
+    if (pe && p) {
+      marquerVu(p, pe.id);
+      return { type: 'petit', texte: pe.effet(p, rng) };
+    }
+  }
   return { type: 'rien' };
 };
