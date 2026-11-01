@@ -636,3 +636,109 @@ export const itineraireEtapes = (etapes: string[], allure: 'normale' | 'forcee' 
   });
   return { etapes, troncons, km: troncons.reduce((s, t) => s + t.km, 0), heures: troncons.reduce((s, t) => s + t.heures, 0) };
 };
+
+// --- Changer de cap en chemin ----------------------------------------------------------------
+
+/** Un bout de chemin hors du réseau des pistes (le retour vers un lieu, une traversée directe…). */
+export interface Morceau {
+  terrain: Terrain;
+  points: Point[];
+}
+
+/** Ce qu'il faut d'un voyage pour retrouver son itinéraire (voir `Voyage` dans partie.ts). */
+export interface Trajet {
+  etapes: string[];
+  allure: 'normale' | 'forcee';
+  horsPiste?: boolean;
+  /** Chemin à faire avant la première étape (après un changement d'itinéraire en route). */
+  prefixe?: Morceau[];
+}
+
+const versTroncon = (m: Morceau, allure: 'normale' | 'forcee'): Troncon => {
+  const km = longueurPx(m.points) / PX_PAR_KM;
+  return { terrain: m.terrain, points: m.points, km, heures: (km / KM_PAR_JOUR[m.terrain][allure]) * HEURES_DE_ROUTE_PAR_JOUR };
+};
+
+const assembler = (etapes: string[], troncons: Troncon[], horsPiste?: boolean): Itineraire => ({
+  etapes,
+  horsPiste,
+  troncons,
+  km: troncons.reduce((s, t) => s + t.km, 0),
+  heures: troncons.reduce((s, t) => s + t.heures, 0),
+});
+
+/** L'itinéraire d'un voyage en cours, chemin de traverse compris. */
+export const itineraireVoyage = (v: Trajet): Itineraire => {
+  const base = v.etapes.length > 1 ? itineraireEtapes(v.etapes, v.allure, v.horsPiste) : assembler(v.etapes, [], v.horsPiste);
+  if (!v.prefixe?.length) return base;
+  return assembler(v.etapes, [...v.prefixe.map((m) => versTroncon(m, v.allure)), ...base.troncons], v.horsPiste);
+};
+
+/** Le chemin parcouru entre la `h0`-ième et la `h1`-ième heure de marche (h0 < h1). */
+export const decouper = (it: Itineraire, h0: number, h1: number): Morceau[] => {
+  const morceaux: Morceau[] = [];
+  let debut = 0;
+  for (const t of it.troncons) {
+    const a = Math.max(h0, debut);
+    const b = Math.min(h1, debut + t.heures);
+    if (b - a > 1e-9) {
+      const total = longueurPx(t.points);
+      const pxA = ((a - debut) / t.heures) * total;
+      const pxB = ((b - debut) / t.heures) * total;
+      const sur = (px: number): Point => positionApres({ etapes: [], troncons: [{ ...t, heures: total }], km: 0, heures: total }, px);
+      const points: Point[] = [sur(pxA)];
+      let cumul = 0;
+      for (let i = 1; i < t.points.length; i++) {
+        cumul += Math.hypot(t.points[i][0] - t.points[i - 1][0], t.points[i][1] - t.points[i - 1][1]);
+        if (cumul > pxA && cumul < pxB) points.push(t.points[i]);
+      }
+      points.push(sur(pxB));
+      morceaux.push({ terrain: t.terrain, points });
+    }
+    debut += t.heures;
+  }
+  return morceaux;
+};
+
+const inverser = (ms: Morceau[]): Morceau[] => [...ms].reverse().map((m) => ({ terrain: m.terrain, points: [...m.points].reverse() }));
+
+/**
+ * En pleine route, on veut aller ailleurs (ou rentrer). Par la route : on rejoint le lieu du trajet
+ * (en avant ou en arrière) d'où le nouveau chemin est le plus court. Hors piste : tout droit depuis ici.
+ * Renvoie le nouveau trajet, à reprendre à zéro heure de marche, ou null si aucun chemin n'y mène.
+ */
+export const changerCap = (v: Trajet & { fait: number }, vers: string, allure: 'normale' | 'forcee', horsPiste: boolean): Trajet | null => {
+  const it = itineraireVoyage(v);
+  const ici = positionApres(it, v.fait);
+  if (horsPiste) {
+    const b = lieuMonde(vers);
+    // Même découpage que `itineraireDirect`, mais depuis la position actuelle.
+    const morceaux = 24;
+    const ms: Morceau[] = [];
+    for (let i = 0; i < morceaux; i++) {
+      const p0: Point = [ici[0] + ((b.x - ici[0]) * i) / morceaux, ici[1] + ((b.y - ici[1]) * i) / morceaux];
+      const p1: Point = [ici[0] + ((b.x - ici[0]) * (i + 1)) / morceaux, ici[1] + ((b.y - ici[1]) * (i + 1)) / morceaux];
+      const terrain: Terrain = dansLesDunes([(p0[0] + p1[0]) / 2, (p0[1] + p1[1]) / 2]) ? 'dunes' : 'plaine';
+      const dernier = ms[ms.length - 1];
+      if (dernier?.terrain === terrain) dernier.points.push(p1);
+      else ms.push({ terrain, points: [p0, p1] });
+    }
+    return { etapes: [vers], allure, horsPiste: true, prefixe: ms };
+  }
+  // Les lieux du trajet en cours, avec l'heure de marche à laquelle on y passe.
+  const debutBase = (v.prefixe ?? []).reduce((s, m) => s + versTroncon(m, v.allure).heures, 0);
+  const base = v.etapes.length > 1 ? itineraireEtapes(v.etapes, v.allure, v.horsPiste) : assembler(v.etapes, []);
+  const reperes: { lieu: string; h: number }[] = [{ lieu: v.etapes[0], h: debutBase }];
+  if (base.horsPiste) reperes.push({ lieu: v.etapes[v.etapes.length - 1], h: debutBase + base.heures });
+  else base.troncons.forEach((t, i) => reperes.push({ lieu: v.etapes[i + 1], h: reperes[i].h + t.heures }));
+  let meilleur: { lieu: string; h: number; suite: Itineraire | null; total: number } | undefined;
+  for (const r of reperes) {
+    const suite = r.lieu === vers ? null : itineraire(r.lieu, vers, allure);
+    if (r.lieu !== vers && !suite) continue;
+    const total = Math.abs(r.h - v.fait) + (suite?.heures ?? 0);
+    if (!meilleur || total < meilleur.total) meilleur = { ...r, suite, total };
+  }
+  if (!meilleur) return null;
+  const chemin = meilleur.h >= v.fait ? decouper(it, v.fait, meilleur.h) : inverser(decouper(it, meilleur.h, v.fait));
+  return { etapes: meilleur.suite?.etapes ?? [vers], allure, horsPiste: false, prefixe: chemin };
+};

@@ -1,3 +1,4 @@
+import type { Morceau } from './monde';
 import { calculerFiche, cleCompetence, type Fiche, type Personnage } from './creation';
 import type { BlessureGrave } from './critiques';
 import { dateCourte } from './calendrier';
@@ -98,6 +99,8 @@ export interface Voyage {
   horsPiste?: boolean;
   /** Heure de marche à laquelle le MJ vérifiera s'il se passe quelque chose. */
   prochainControle: number;
+  /** Chemin à faire avant la première étape, après un changement d'itinéraire en route (voir `changerCap`). */
+  prefixe?: Morceau[];
 }
 
 export interface Partie {

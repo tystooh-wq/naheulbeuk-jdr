@@ -82,3 +82,32 @@ describe('hors des routes', () => {
     expect(c.type).toBe('petit');
   });
 });
+
+describe('changer de cap en chemin', () => {
+  it('demi-tour : le chemin du retour est celui déjà parcouru', async () => {
+    const { changerCap, itineraireVoyage } = await import('../src/rules/monde');
+    const it = itineraire('valtordu', 'tulamor')!;
+    const v = { etapes: it.etapes, allure: 'normale' as const, fait: it.heures * 0.6 };
+    const retour = changerCap(v, 'valtordu', 'normale', false)!;
+    const r = itineraireVoyage(retour);
+    expect(r.heures).toBeCloseTo(v.fait, 1);
+    expect(positionApres(r, 0)[0]).toBeCloseTo(positionApres(it, v.fait)[0], 3);
+    expect(positionApres(r, r.heures)).toEqual(positionApres(it, 0));
+  });
+
+  it('vers une autre destination, on repart du lieu le plus commode', async () => {
+    const { changerCap, itineraireVoyage } = await import('../src/rules/monde');
+    const it = itineraire('valtordu', 'tulamor')!;
+    const v = { etapes: it.etapes, allure: 'normale' as const, fait: 1 };
+    const t = changerCap(v, 'loubet', 'normale', false)!;
+    expect(t.etapes[t.etapes.length - 1]).toBe('loubet');
+    const r = itineraireVoyage(t);
+    expect(positionApres(r, 0)[0]).toBeCloseTo(positionApres(it, 1)[0], 3);
+    // Hors piste : tout droit depuis la position actuelle.
+    const d = itineraireVoyage(changerCap(v, 'loubet', 'normale', true)!);
+    expect(d.horsPiste).toBe(true);
+    const loubet = LIEUX_MONDE.find((l) => l.id === 'loubet')!;
+    expect(positionApres(d, d.heures)[0]).toBeCloseTo(loubet.x, 3);
+  });
+});
+

@@ -10,6 +10,9 @@ import {
   itineraire,
   itineraireDirect,
   itineraireEtapes,
+  itineraireVoyage,
+  changerCap,
+  type Trajet,
   lieuMonde,
   positionApres,
   terrainApres,
@@ -20,7 +23,7 @@ import {
   type TypeLieuMonde,
 } from '../rules/monde';
 import { avecDe, lancer, type Rng } from '../rules/des';
-import { controler, INTERVALLE_CONTROLE, type Evenement, type Resultat } from '../rules/evenements';
+import { controler, danger, INTERVALLE_CONTROLE, niveauDanger, tension, type Evenement, type Resultat } from '../rules/evenements';
 import { aTalent, bonusSituation, empechement, savoir, texteBonus, utiliserTalent, TALENTS_ACTIFS } from '../rules/talents';
 import { bivouaquer, dormir, evMax, niveau, formatHeure, noter, passerTemps, soigner, valeursCombat, type Partie } from '../rules/partie';
 import { bonusTactique, resoudre, singulier, TABLES, TACTIQUES, tactiquesPossibles, valeurTactique, tirerNombre, tirerRencontre, type Issue, type Rencontre, type Tactique, type Zone } from '../rules/rencontres';
@@ -106,7 +109,7 @@ export const ecranMonde = (app: HTMLElement, p: Partie, s: Sorties) => {
   let centre: Point = [lieuMonde(p.lieuMonde).x, lieuMonde(p.lieuMonde).y];
 
   const sauver = () => (enregistre = sauvegarderPartie(p));
-  const voyage = (): Itineraire | null => (p.voyage ? itineraireEtapes(p.voyage.etapes, p.voyage.allure, p.voyage.horsPiste) : null);
+  const voyage = (): Itineraire | null => (p.voyage ? itineraireVoyage(p.voyage) : null);
   const position = (): Point => {
     const it = voyage();
     if (it && p.voyage) return positionApres(it, p.voyage.fait);
@@ -153,12 +156,30 @@ export const ecranMonde = (app: HTMLElement, p: Partie, s: Sorties) => {
         <button class="secondaire petit" id="zoom-moins" aria-label="Dézoomer" ${zoom === 0 ? 'disabled' : ''}>−</button>
         <button class="secondaire petit" id="zoom-heros" aria-label="Centrer sur le héros">⌖</button>
       </div>
+      ${jaugeTension()}
+      ${enMarche ? '<button class="halte" id="halte">✋ Faire halte</button>' : ''}
     </div>
     <div class="legende">${LEGENDE.map(([t, nom]) => `<span><i class="poi-mini poi-${t}">${ICONES[t]}</i>${nom}</span>`).join('')}
       <span><i class="trait-hors-piste"></i>Hors piste</span>
       <span><i class="marque-quete marque-etape">➤</i>Quête</span>
       <span><i class="heros-mini"></i>${echapper(p.perso.nom)}</span>
       ${CITES.map((c) => jaugeReputation(p, c.id, c.nom, true)).join('')}</div>`;
+  };
+
+  /** La menace qui monte avec le temps passé sans rencontre (voir `tension`), et le danger de l'endroit. */
+  const jaugeTension = () => {
+    const t = Math.round(tension(p) * 100);
+    const d = niveauDanger(danger(zoneEn(position()), !!p.voyage?.horsPiste, position()));
+    return `<div class="jauge-tension" id="jauge-tension" title="Se remplit avec le temps passé sans rencontre : vide juste après une rencontre, pleine au bout d'une journée environ.">
+      <span class="etiquette">Menace <b id="danger-lieu">· coin ${d}</b></span>
+      <span class="barre"><i id="tension" style="width:${t}%"></i></span>
+    </div>`;
+  };
+  const majTension = () => {
+    const i = app.querySelector<HTMLElement>('#tension');
+    if (i) i.style.width = `${Math.round(tension(p) * 100)}%`;
+    const d = app.querySelector<HTMLElement>('#danger-lieu');
+    if (d) d.textContent = `· coin ${niveauDanger(danger(zoneEn(position()), !!p.voyage?.horsPiste, position()))}`;
   };
 
   /** Place le calque pour que `centre` soit au milieu de la fenêtre, sans sortir de la carte. */
@@ -234,8 +255,13 @@ export const ecranMonde = (app: HTMLElement, p: Partie, s: Sorties) => {
 
   const fenetreItineraire = (vers: string, allure: 'normale' | 'forcee', horsPiste: boolean) => {
     const l = lieuMonde(vers);
-    const route = itineraire(p.lieuMonde, vers, allure);
-    const direct = itineraireDirect(p.lieuMonde, vers, allure);
+    // En route, on part d'où l'on est (voir `changerCap`) ; sinon du lieu où l'on se trouve.
+    const enChemin = (hp: boolean) => {
+      const t = p.voyage && changerCap(p.voyage, vers, allure, hp);
+      return t ? itineraireVoyage(t) : null;
+    };
+    const route = p.voyage ? enChemin(false) : itineraire(p.lieuMonde, vers, allure);
+    const direct = p.voyage ? enChemin(true)! : itineraireDirect(p.lieuMonde, vers, allure);
     const it = horsPiste || !route ? direct : route;
     const parTerrain = new Map<string, number>();
     for (const t of it.troncons) parTerrain.set(NOM_TERRAIN[t.terrain], (parTerrain.get(NOM_TERRAIN[t.terrain]) ?? 0) + t.km);
@@ -245,6 +271,7 @@ export const ecranMonde = (app: HTMLElement, p: Partie, s: Sorties) => {
       <div class="detail-choix">
         <p><b>${Math.round(it.km)} km</b> (${[...parTerrain].map(([t, km]) => `${Math.round(km)} km de ${t}`).join(', ')}), soit environ <b>${dureeTexte(it.heures)} de marche</b>.</p>
         <p>${it.horsPiste ? 'Tout droit à travers la lande, sans suivre de chemin.' : `En passant par : ${it.etapes.map((e) => echapper(lieuMonde(e).nom)).join(' → ')}.`}</p>
+        ${p.voyage ? '<p class="note">Tu changes de cap en pleine route : le trajet part de l\'endroit où tu te trouves.</p>' : ''}
         ${
           nuitEnRoute
             ? `<p class="alerte">La nuit tombe à ${CREPUSCULE} h : il faudra bivouaquer en chemin. ${p.sac.includes('couverture') ? '' : "Tu n'as pas de couverture. "}${p.sac.includes('rations') ? '' : "Tu n'as pas de rations."}</p>`
@@ -262,7 +289,7 @@ export const ecranMonde = (app: HTMLElement, p: Partie, s: Sorties) => {
         <p class="note">Vitesses du supplément « Déplacements et transport » : 30 km par jour sur piste, 26 dans les dunes.</p>
       </div>
       <p class="actions-lieu"><button id="partir">Partir</button><button class="secondaire" id="fermer-lieu-bas">Rester ici</button></p>`;
-    return cadreFenetre([l.x, l.y], l.nom, `Aller à ${echapper(l.nom)}`, `Depuis ${echapper(lieuMonde(p.lieuMonde).nom)}`, corps, true, {
+    return cadreFenetre([l.x, l.y], l.nom, `Aller à ${echapper(l.nom)}`, p.voyage ? 'Depuis ta position' : `Depuis ${echapper(lieuMonde(p.lieuMonde).nom)}`, corps, true, {
       type: 'lieu',
       id: `trajet:${p.lieuMonde}:${vers}`,
       titre: `Trajet vers ${l.nom}`,
@@ -381,7 +408,7 @@ export const ecranMonde = (app: HTMLElement, p: Partie, s: Sorties) => {
 
   const fenetreNuit = (f: Extract<Fenetre, { type: 'nuit' }>) => {
     const corps = f.resultat
-      ? `<div class="recit">${f.resultat}</div><p><button id="suite">${p.voyage ? 'Reprendre la route' : 'Continuer'}</button></p>`
+      ? `<div class="recit">${f.resultat}</div>${p.voyage ? choixEnRoute() : '<p><button id="suite">Continuer</button></p>'}`
       : `<p>Le soleil se couche sur les Terres Sauvages. Marcher de nuit, c'est le meilleur moyen de finir dans un ravin ou dans l'estomac de quelque chose.</p>
         <p>${p.sac.includes('couverture') ? 'Tu as une couverture : récupération normale.' : 'Sans couverture, la nuit sera froide : récupération basse.'}
         ${p.sac.includes('rations') ? 'Tu manges une ration.' : "Pas de ration : tu dormiras le ventre vide (récupération divisée par deux)."}</p>
@@ -396,10 +423,18 @@ export const ecranMonde = (app: HTMLElement, p: Partie, s: Sorties) => {
     });
   };
 
+  /** En chemin (halte, réveil au bivouac) : continuer, rentrer, ou choisir une autre destination. */
+  const choixEnRoute = () => {
+    const depart = lieuMonde(p.lieuMonde);
+    return `<p class="actions-lieu"><button id="suite">Reprendre la route</button>
+        <button class="secondaire" id="demi-tour">Faire demi-tour (vers ${echapper(depart.nom)})</button>
+        <button class="secondaire" id="changer-cap">Changer d'itinéraire</button></p>`;
+  };
+
   const fenetreReprise = () => {
     const it = voyage()!;
     const corps = `<p>Tu étais en route vers <b>${echapper(lieuMonde(it.etapes[it.etapes.length - 1]).nom)}</b>. Il reste environ ${dureeTexte(it.heures - p.voyage!.fait)} de marche.</p>
-      <p><button id="suite">Reprendre la route</button></p>`;
+      ${choixEnRoute()}`;
     return cadreFenetre(position(), 'En chemin', 'En voyage', `${formatHeure(p.heure)}`, corps, false);
   };
 
@@ -487,9 +522,23 @@ export const ecranMonde = (app: HTMLElement, p: Partie, s: Sorties) => {
   };
 
   const partir = (vers: string, allure: 'normale' | 'forcee', horsPiste: boolean) => {
+    if (p.voyage) return changerDeCap(vers, allure, horsPiste);
     const it = (!horsPiste && itineraire(p.lieuMonde, vers, allure)) || itineraireDirect(p.lieuMonde, vers, allure);
     p.voyage = { etapes: it.etapes, fait: 0, allure, horsPiste: !!it.horsPiste, prochainControle: Math.min(INTERVALLE_CONTROLE, it.heures / 2) };
     noter(p, `part pour ${lieuMonde(vers).nom} (${Math.round(it.km)} km${it.horsPiste ? ', hors des routes' : ''}).`);
+    sauver();
+    marcher();
+  };
+
+  /** En pleine route : nouveau trajet depuis la position actuelle. Le MJ garde le compte de son prochain contrôle. */
+  const changerDeCap = (vers: string, allure: 'normale' | 'forcee', horsPiste: boolean) => {
+    const v = p.voyage!;
+    // Aucune piste ne mène là depuis ce trajet : on coupe à travers la lande.
+    const t: Trajet | null = changerCap(v, vers, allure, horsPiste) ?? changerCap(v, vers, allure, true);
+    if (!t) return;
+    const reste = Math.max(0.25, v.prochainControle - v.fait);
+    p.voyage = { ...t, fait: 0, allure, horsPiste: !!t.horsPiste, prochainControle: reste };
+    noter(p, vers === p.lieuMonde ? `fait demi-tour vers ${lieuMonde(vers).nom}.` : `change d'itinéraire : direction ${lieuMonde(vers).nom}.`);
     sauver();
     marcher();
   };
@@ -546,6 +595,7 @@ export const ecranMonde = (app: HTMLElement, p: Partie, s: Sorties) => {
         cadrer();
       }
       majHorloge(app, p);
+      majTension();
       if (verifierMort()) return;
 
       if (p.voyage.fait >= it.heures - 1e-6) return arriver();
@@ -654,9 +704,9 @@ export const ecranMonde = (app: HTMLElement, p: Partie, s: Sorties) => {
     });
     glisser();
     sur('.poi-monde', (el) => {
-      if (enMarche || p.voyage || deplace) return;
+      if (enMarche || deplace) return;
       const id = el.dataset.lieu!;
-      fenetre = id === p.lieuMonde ? { type: 'lieu' } : { type: 'itineraire', vers: id, allure: 'normale', horsPiste: false };
+      fenetre = id === p.lieuMonde && !p.voyage ? { type: 'lieu' } : { type: 'itineraire', vers: id, allure: 'normale', horsPiste: false };
       render();
     });
 
@@ -682,6 +732,20 @@ export const ecranMonde = (app: HTMLElement, p: Partie, s: Sorties) => {
         }
       }),
     );
+    sur('#halte', () => {
+      enMarche = false;
+      fenetre = { type: 'reprise' };
+      sauver();
+      render();
+    });
+    sur('#demi-tour', () => p.voyage && changerDeCap(p.lieuMonde, p.voyage.allure, !!p.voyage.horsPiste && !p.voyage.prefixe));
+    sur('#changer-cap', () => {
+      fenetre = null;
+      message = undefined;
+      render();
+      const n = app.querySelector('.scene + .note, #scene ~ .note');
+      if (n) n.innerHTML = "<b>Changer d'itinéraire :</b> clique sur ta nouvelle destination. Le trajet partira de l'endroit où tu te trouves.";
+    });
     sur('#partir', () => fenetre?.type === 'itineraire' && partir(fenetre.vers, fenetre.allure, fenetre.horsPiste));
     sur('#entrer-ville', (el) => s.entrerVille(el.dataset.ville!));
 
