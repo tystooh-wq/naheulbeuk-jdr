@@ -3,6 +3,8 @@ import {
   APPRECIATION_MAX,
   compagnon,
   COMPAGNONS,
+  dePassage,
+  type DefCompagnon,
   dansGroupe,
   destinCompagnon,
   discuter,
@@ -98,7 +100,15 @@ let dernierPartage = '';
  * Le partage du butin, à faire le soir : chacun sa part, payée une par une ou toutes ensemble.
  * Une part pas payée à la nuit est une part gardée, et les plus cupides le prennent mal.
  */
-export const panneauPartage = (p: Partie) => {
+/** Le petit bouton « payer sa part », à côté du nom du compagnon. */
+const boutonPayer = (p: Partie, e: EtatCompagnon) => {
+  const part = partDue(p, e);
+  if (!part) return '';
+  const r = rancune(p, e);
+  return ` <button class="secondaire petit payer-part" data-payer-part="${e.id}" ${p.or < part ? 'disabled' : ''} title="${r ? `Sans paiement ce soir : appréciation −${r}` : 'Il ne dira rien si tu gardes sa part'}">💰 Payer sa part (${part} PO)</button>`;
+};
+
+export const panneauPartage = (p: Partie, compact = false) => {
   const g = groupe(p).filter((e) => partDue(p, e) > 0);
   const fait = dernierPartage ? `<div class="recit">${dernierPartage}</div>` : '';
   if (!g.length) return fait;
@@ -113,7 +123,7 @@ export const panneauPartage = (p: Partie) => {
     })
     .join('');
   return `${fait}<div class="recit partage"><b>Partage du butin</b> <span class="note">(${p.butin} PO gagnés ensemble, une part égale chacun, la tienne comprise)</span>
-    <ul class="parts">${lignes}</ul>
+    ${compact ? '<p class="note">Tu peux aussi payer chacun avec le petit bouton à côté de son nom.</p>' : `<ul class="parts">${lignes}</ul>`}
     <p class="actions-lieu"><button data-partager>Payer tout le monde</button><button class="secondaire" data-garder>Tout garder</button></p>
     <p class="note">On partage le soir, au campement ou à l'auberge. Une part pas payée avant de dormir est une part gardée.</p></div>`;
 };
@@ -123,14 +133,14 @@ export const panneauGroupe = (p: Partie, message?: string) => {
   const g = groupe(p);
   return `<div class="panneau">
     <h2>Groupe</h2>
-    ${panneauPartage(p)}
+    ${panneauPartage(p, true)}
     ${message ? `<div class="recit">${message}</div>` : ''}
     ${
       g.length
         ? g
             .map(
               (e) => `<section class="compagnon">
-            <h3>${echapper(compagnon(e.id).perso.nom)} <span class="note">${echapper(compagnon(e.id).titre)} · ❤ ${e.ev}/${e.evMax}</span></h3>
+            <h3>${echapper(compagnon(e.id).perso.nom)} <span class="note">${echapper(compagnon(e.id).titre)} · ❤ ${e.ev}/${e.evMax} · ✦ ${destinCompagnon(e)} point${destinCompagnon(e) > 1 ? 's' : ''} de destin</span>${boutonPayer(p, e)}</h3>
             ${relationHtml(p, e)}
             <details><summary>Sa fiche</summary>${ficheHtml(p, e.id, e)}</details>
             <p><button class="secondaire petit" data-renvoyer="${e.id}">Se séparer de ${echapper(compagnon(e.id).perso.nom.split(' ')[0])}</button></p></section>`,
@@ -142,14 +152,25 @@ export const panneauGroupe = (p: Partie, message?: string) => {
 };
 
 /** Les mercenaires à embaucher dans ce lieu. */
-export const panneauEmbauche = (p: Partie, ou: string) =>
-  COMPAGNONS.filter((d) => d.embauche === ou && !dansGroupe(p, d.id))
-    .map(
-      (d) => `<details class="compagnon"><summary>🍺 Un client au comptoir : <b>${echapper(d.perso.nom)}</b> <span class="note">(${echapper(d.titre)})</span></summary>
+export const panneauEmbauche = (p: Partie, ou: string, taverne = false) => {
+  const fiche = (d: DefCompagnon, resume: string) => `<details class="compagnon"><summary>${resume}</summary>
+        ${d.cv ? `<p class="recit">${echapper(d.cv)}</p>` : ''}
         ${ficheHtml(p, d.id)}
-        <p><button data-embaucher="${d.id}" ${p.or < (d.prix ?? 0) ? 'disabled' : ''}>Engager ${echapper(d.perso.nom.split(' ')[0])} (${d.prix} PO)</button></p></details>`,
-    )
-    .join('');
+        <p><button data-embaucher="${d.id}" ${p.or < (d.prix ?? 0) ? 'disabled' : ''}>Engager ${echapper(d.perso.nom.split(' ')[0])} (${d.prix} PO)</button></p></details>`;
+  const ici = COMPAGNONS.filter((d) => d.embauche === ou && !dansGroupe(p, d.id));
+  const pancarte = ici.filter((d) => d.cv);
+  const comptoir = ici.filter((d) => !d.cv);
+  const passage = taverne ? dePassage(p, ou) : null;
+  return [
+    ...comptoir.map((d) => fiche(d, `🍺 Un client au comptoir : <b>${echapper(d.perso.nom)}</b> <span class="note">(${echapper(d.titre)})</span>`)),
+    passage ? fiche(passage, `🎒 Un aventurier de passage, aujourd'hui seulement : <b>${echapper(passage.perso.nom)}</b> <span class="note">(${echapper(passage.titre)})</span>`) : '',
+    pancarte.length
+      ? `<div class="pancarte"><p><b>📜 Pancarte de recrutement</b> <span class="note">Les jeunes aventuriers qui cherchent un groupe y épinglent leur CV.</span></p>${pancarte
+          .map((d) => fiche(d, `<b>${echapper(d.perso.nom)}</b> <span class="note">(${echapper(d.titre)}, ${d.prix} PO)</span>`))
+          .join('')}</div>`
+      : '',
+  ].join('');
+};
 
 export const lierGroupe = (app: HTMLElement, p: Partie, message: (html: string) => void) => {
   const etat = (id: string) => groupe(p).find((e) => e.id === id)!;

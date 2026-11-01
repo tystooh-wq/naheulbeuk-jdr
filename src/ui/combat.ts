@@ -19,6 +19,7 @@ import {
   panique,
   peutSeDefendre,
   degres,
+  opportunites,
   planifier,
   tenterFuite,
   tirer,
@@ -254,9 +255,11 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
           ? dosOfferts()
               .map((e) => `<button class="secondaire" data-lachement="${e.id}">🗡 Frapper lâchement ${echapper(e.nom)} dans le dos (dégâts doublés, pas de parade, une fois)${survol(malusDe('AT'))}</button>`)
               .join('')
-          : lachementPossible() && auContact(c).length
-            ? '<span class="note">Frapper lâchement : place-toi dans le dos d\'un ennemi (derrière sa flèche).</span>'
-            : '',
+          : lachementPossible() && (auContact(c).length || !c.deplace)
+            ? '<span class="note">Frapper lâchement : passe derrière un ennemi (du côté opposé à sa flèche, diagonales arrière comprises). Il ne se retourne qu\'à son tour : contourne-le avec tes cases de déplacement, puis frappe.</span>'
+            : aTalent(p, 'Frapper lâchement') && !lachementFait && !dague()
+              ? '<span class="note">Frapper lâchement : il faut une dague, un poignard ou une autre lame courte en main.</span>'
+              : '',
       ].join('');
       const cibles = auContact(c);
       const loin = adversaires(c, x);
@@ -344,7 +347,7 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
           <button data-defense="esquive" ${esquive === null ? 'disabled title="Trop d\'armure pour esquiver"' : ''}>🎲 Esquiver (AD ${esquive ?? '—'})${esquive === null ? '' : survol(malusDe('AD', [['Armure (esquive)', esquive - x.ad]]))}</button>
           <button class="secondaire" data-defense="encaisser">🛡 Encaisser</button>
         </p>
-        <p class="note">${pourquoi ? `${pourquoi.charAt(0).toUpperCase() + pourquoi.slice(1)}. ` : ''}Esquiver t'éloigne : tu rates ta prochaine attaque, sauf esquive critique. Encaisser : tu prends le coup (moins ton armure), mais tu restes au contact pour frapper.</p></div>`;
+        <p class="note">${pourquoi ? `${pourquoi.charAt(0).toUpperCase() + pourquoi.slice(1)}. ` : ''}Esquiver te fait reculer de deux cases (hors de portée : il faudra revenir au contact), sauf esquive critique. Encaisser : tu prends le coup (moins ton armure), mais tu restes au contact pour frapper.</p></div>`;
     }
     if (attente.type === 'fouille') {
       const poubelles = !!h().talents?.poubelles;
@@ -401,8 +404,9 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
   const terrain = () => {
     const tourHeros = attente?.type === 'action' && !c.deplace;
     const accessibles = tourHeros ? casesAccessibles(c, h()) : new Map<string, number>();
-    const cases: string[] = [];
-    for (let y = 0; y < c.hauteur; y++)
+    const rangees: string[] = [];
+    for (let y = 0; y < c.hauteur; y++) {
+      const cases: string[] = [];
       for (let x = 0; x < c.largeur; x++) {
         const z = occupant(c, x, y);
         const morts = c.combattants.filter((m) => m.etat === 'mort' && m.x === x && m.y === y);
@@ -425,7 +429,10 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
             : `<div class="case">${contenu}</div>`,
         );
       }
-    return `<div class="terrain" style="--largeur:${c.largeur}" role="grid" aria-label="Terrain du combat">${cases.join('')}</div>`;
+      // Hexagones : les rangées impaires sont décalées d'une demi-case.
+      rangees.push(`<div class="rangee ${y & 1 ? 'impaire' : ''}" role="row">${cases.join('')}</div>`);
+    }
+    return `<div class="terrain hex" style="--largeur:${c.largeur};--hauteur:${c.hauteur}" role="grid" aria-label="Terrain du combat">${rangees.join('')}</div>`;
   };
 
   const render = () => {
@@ -978,10 +985,33 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
       avancer();
     });
 
-    sur('[data-case]', (el) => {
+    sur('[data-case]', async (el) => {
       if (attente?.type !== 'action' || c.deplace) return (occupe = false);
       const [x, y] = el.dataset.case!.split(',').map(Number);
-      deplacer(c, 'heros', x, y);
+      const profiteurs = opportunites(c, 'heros', x, y);
+      if (!deplacer(c, 'heros', x, y)) return (occupe = false);
+      // Quitter le contact d'un ennemi : il en profite pour frapper (une fois par assaut).
+      if (profiteurs.length) {
+        render();
+        for (const e of profiteurs) {
+          if (c.fin || h().etat !== 'actif') break;
+          e.opportunite = c.assaut;
+          await attendre(400);
+          const a = attaquer(c, e.id, 'heros', lancer(20));
+          a.effets.unshift(`Attaque d'opportunité : tu as quitté le contact de ${e.nom}.`);
+          await montrer(a);
+          verifier(c);
+          synchroniser();
+        }
+        if (c.fin || h().etat !== 'actif') {
+          if (!c.fin) {
+            attente = null;
+            apres();
+            return avancer();
+          }
+          return finir();
+        }
+      }
       occupe = false;
       render();
     });

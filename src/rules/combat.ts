@@ -68,6 +68,8 @@ export interface Combattant {
   defendu: boolean;
   /** Règles V2 : sa défense de l'assaut, qui sert contre toutes les attaques suivantes du même assaut. */
   defenseAssaut?: Defense;
+  /** Assaut où il a déjà eu son attaque d'opportunité. */
+  opportunite?: number;
   /** Armé d'un arc ou d'une arbalète : il tire tant que personne n'est à son contact. */
   tireur?: { ad: number; degats: string; recharge?: number; attente?: number };
   /** Compétences du héros qui jouent en combat (voir talents.ts). */
@@ -202,11 +204,12 @@ export interface Combat {
   ordres?: Record<string, { ordre: Ordre; cible?: string }>;
 }
 
-export const AU_CONTACT = 3;
+/** Sur les hexagones, jusqu'à six adversaires peuvent entourer quelqu'un. */
+export const AU_CONTACT = 6;
 /** Cases parcourues à chaque tour. */
 export const PAS = 2;
-export const LARGEUR = 10;
-export const HAUTEUR = 5;
+export const LARGEUR = 14;
+export const HAUTEUR = 7;
 
 const aCompetence = (p: Partie, nom: string) => {
   const c = calculerFiche(p.perso).competences;
@@ -330,7 +333,9 @@ export const initiative = (cs: Combattant[], noises = false): string[] =>
  * d'assauts de marche que l'approche de la rencontre (au contact s'ils attaquent par surprise).
  */
 const placer = (c: Combat, approche: number) => {
-  const lignes = [2, 1, 3, 0, 4];
+  // Du milieu vers les bords.
+  const milieu = Math.floor(c.hauteur / 2);
+  const lignes = Array.from({ length: c.hauteur }, (_, i) => milieu + (i % 2 ? -1 : 1) * Math.ceil(i / 2));
   const ranger = (cs: Combattant[], colonne: number, sens: 1 | -1) =>
     cs.forEach((x, i) => {
       x.x = Math.max(0, Math.min(c.largeur - 1, colonne + sens * Math.floor(i / c.hauteur)));
@@ -345,15 +350,21 @@ const placer = (c: Combat, approche: number) => {
 
 /** Se tourner vers une case (ou un combattant). */
 export const tourner = (x: Combattant, vers: { x: number; y: number }) => {
-  const dx = Math.sign(vers.x - x.x);
-  const dy = Math.sign(vers.y - x.y);
-  if (dx || dy) x.face = { x: dx, y: dy };
+  const a = pixel(x);
+  const b = pixel(vers);
+  if (a.x === b.x && a.y === b.y) return;
+  // Une des six directions des hexagones (tous les 60°).
+  const angle = Math.round(Math.atan2(b.y - a.y, b.x - a.x) / (Math.PI / 3)) * (Math.PI / 3);
+  x.face = { x: Math.round(Math.cos(angle) * 1000) / 1000 || 0, y: Math.round(Math.sin(angle) * 1000) / 1000 || 0 };
 };
 
 /** `a` est-il dans le dos de `cible` (derrière lui, ou en diagonale arrière) ? */
 export const dansLeDos = (a: Combattant, cible: Combattant) => {
   const f = cible.face ?? { x: cible.camp === 'heros' ? 1 : -1, y: 0 };
-  return Math.sign(a.x - cible.x) * f.x + Math.sign(a.y - cible.y) * f.y < 0;
+  const A = pixel(a);
+  const C = pixel(cible);
+  // Les trois cases arrière (derrière et les deux diagonales arrière).
+  return (A.x - C.x) * f.x + (A.y - C.y) * f.y < -0.01;
 };
 
 export const creerCombat = (p: Partie, r: Rencontre): Combat => {
@@ -389,7 +400,29 @@ export const adversaires = (c: Combat, x: Combattant) => c.combattants.filter((y
 // --- Le terrain ------------------------------------------------------------------------------------
 
 /** Distance en cases (les diagonales comptent pour une). */
-export const ecart = (a: { x: number; y: number }, b: { x: number; y: number }) => Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
+// Le terrain est en hexagones (pointe en haut) : les rangées impaires sont décalées d'une demi-case vers la droite.
+// Chaque case a six voisines. Les positions restent en (colonne, rangée).
+type Pos = { x: number; y: number };
+const axial = (p: Pos) => ({ q: p.x - (p.y - (p.y & 1)) / 2, r: p.y });
+
+/** Distance en cases (nombre de pas d'hexagone en hexagone). */
+export const ecart = (a: Pos, b: Pos) => {
+  const A = axial(a);
+  const B = axial(b);
+  const dq = A.q - B.q;
+  const dr = A.r - B.r;
+  return Math.max(Math.abs(dq), Math.abs(dr), Math.abs(dq + dr));
+};
+
+/** Les six cases voisines. */
+export const voisinesCase = (x: number, y: number): [number, number][] =>
+  (y & 1
+    ? [[1, 0], [-1, 0], [0, -1], [1, -1], [0, 1], [1, 1]]
+    : [[1, 0], [-1, 0], [-1, -1], [0, -1], [-1, 1], [0, 1]]
+  ).map(([dx, dy]) => [x + dx, y + dy]);
+
+/** Position à l'écran (en largeurs de case), pour les directions. */
+export const pixel = (p: Pos) => ({ x: p.x + 0.5 * (p.y & 1), y: (p.y * Math.sqrt(3)) / 2 });
 export const voisins = (a: Combattant, b: Combattant) => ecart(a, b) === 1;
 /** Les adversaires au contact de ce combattant. */
 export const contacts = (c: Combat, x: Combattant) => adversaires(c, x).filter((y) => voisins(x, y));
@@ -404,19 +437,25 @@ export const casesAccessibles = (c: Combat, x: Combattant, pas = x.mv ?? PAS): M
   for (let d = 1; d <= pas; d++) {
     const suivant: number[][] = [];
     for (const [cx, cy] of front)
-      for (let dx = -1; dx <= 1; dx++)
-        for (let dy = -1; dy <= 1; dy++) {
-          const nx = cx + dx;
-          const ny = cy + dy;
-          const k = `${nx},${ny}`;
-          if (nx < 0 || ny < 0 || nx >= c.largeur || ny >= c.hauteur || vues.has(k) || occupant(c, nx, ny)) continue;
-          vues.set(k, d);
-          suivant.push([nx, ny]);
-        }
+      for (const [nx, ny] of voisinesCase(cx, cy)) {
+        const k = `${nx},${ny}`;
+        if (nx < 0 || ny < 0 || nx >= c.largeur || ny >= c.hauteur || vues.has(k) || occupant(c, nx, ny)) continue;
+        vues.set(k, d);
+        suivant.push([nx, ny]);
+      }
     front = suivant;
   }
   vues.delete(`${x.x},${x.y}`);
   return vues;
+};
+
+/**
+ * Attaques d'opportunité (règle maison, absente des règles V4) : qui quitte le contact d'un ennemi lui offre
+ * un coup gratuit, une fois par assaut et par ennemi. On peut s'en défendre normalement.
+ */
+export const opportunites = (c: Combat, id: string, x: number, y: number): Combattant[] => {
+  const z = combattant(c, id);
+  return contacts(c, z).filter((e) => !e.inconscient && !e.rate && !e.tireur && e.opportunite !== c.assaut && ecart({ x, y }, e) > 1);
 };
 
 export const deplacer = (c: Combat, id: string, x: number, y: number): boolean => {
@@ -485,6 +524,23 @@ export const acteur = (c: Combat) => combattant(c, c.ordre[c.tour]);
 
 const jet = (de: number, valeur: number): IssueJet =>
   de === 1 ? 'critique' : de === 20 ? 'maladresse' : de <= valeur ? 'reussi' : 'rate';
+
+/** Esquiver fait reculer de deux cases, loin de l'attaquant ; acculé, on rate plutôt sa prochaine attaque. */
+export const RECUL_ESQUIVE = 2;
+const reculer = (c: Combat, x: Combattant, depuis: Combattant, effets: string[]) => {
+  const avant = ecart(x, depuis);
+  const cases = [...casesAccessibles(c, x, RECUL_ESQUIVE).keys()].map((k) => k.split(',').map(Number) as [number, number]);
+  const loin = (p: [number, number]) => ecart({ x: p[0], y: p[1] }, depuis);
+  const menaces = (p: [number, number]) => adversaires(c, x).filter((y) => ecart({ x: p[0], y: p[1] }, y) <= 1).length;
+  const meilleure = cases.filter((p) => loin(p) > avant).sort((a, b) => loin(b) - loin(a) || menaces(a) - menaces(b))[0];
+  if (!meilleure) {
+    x.rate = Math.max(x.rate, 1);
+    effets.push(`${x.nom} esquive mais, acculé, il perd l'équilibre : il ratera sa prochaine attaque.`);
+    return;
+  }
+  [x.x, x.y] = meilleure;
+  effets.push(`${x.nom} esquive en reculant de ${loin(meilleure) - avant > 1 ? 'deux cases' : 'une case'}.`);
+};
 
 /** Valeur de défense, ou null si ce mode est impossible contre cet attaquant. */
 export const valeurDefense = (cible: Combattant, mode: ModeDefense, attaquant?: Combattant): number | null => {
@@ -855,8 +911,8 @@ export const attaquer = (
         const t = cible.talents;
         const d6 = t?.esquiveNaturelle && !t.superEsquive ? lancer(6, rng) : 0;
         if (t?.superEsquive) action.effets.push(`Super esquive : ${cible.nom} reste en position d'attaquer.`);
-        else if (d6 >= 4) action.effets.push(`Esquive naturelle (D6 : ${d6}) : ${cible.nom} pourra attaquer quand même.`);
-        else cible.rate = Math.max(cible.rate, 1);
+        else if (d6 >= 4) action.effets.push(`Esquive naturelle (D6 : ${d6}) : ${cible.nom} reste au contact et pourra attaquer.`);
+        else reculer(c, cible, a, action.effets);
       }
       if (issue === 'critique' && mode === 'parade') paradeCritique(c, action, cible, a, rng);
       if (issue === 'critique' && mode === 'esquive') action.effets.push(`Esquive critique : ${cible.nom} reste au contact et pourra attaquer.`);

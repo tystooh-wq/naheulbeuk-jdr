@@ -114,11 +114,12 @@ export const ecranVille = (app: HTMLElement, p: Partie, sorties: SortiesVille, a
   let epreuveQuete: string | undefined;
   /** Le droit d'entrée (Chnafon, Jambfer) : la porte réclame son dû avant tout. */
   const taxe = () => {
-    if (!peageDu(p, c)) return undefined;
+    // Déjà en ville (ailleurs qu'à la porte) : on est passé, le garde ne court pas après nous.
+    if (!peageDu(p, c) || p.lieu !== 'porte') return undefined;
     if (peageEnCours?.ville !== c.id) peageEnCours = { ville: c.id, g: fixerPeage(c) };
     return peageEnCours;
   };
-  if (taxe()) p.lieu = 'porte';
+  if (peageDu(p, c)) p.lieu = 'porte';
   /** La fenêtre du lieu est ouverte au-dessus du plan : seulement si on clique sur un lieu, ou si quelque chose s'y passe. */
   let popup = !!taxe() || !!accueilMessage;
   /** Le héros marche : on ignore les clics le temps du trajet. */
@@ -284,7 +285,7 @@ export const ecranVille = (app: HTMLElement, p: Partie, sorties: SortiesVille, a
         break;
     }
     if (l.action) parts.push(`<p><button class="secondaire" id="action-lieu">${echapper(l.action.bouton)}</button></p>`);
-    return quetes + parts.join('') + panneauEmbauche(p, ou(l)) + (l.boutique ? panneauBoutique(l) : '');
+    return quetes + parts.join('') + panneauEmbauche(p, ou(l), l.type === 'bar' || l.type === 'auberge') + (l.boutique ? panneauBoutique(l) : '');
   };
 
   // En attendant les illustrations, le cadre montre le plan agrandi autour du lieu.

@@ -3,6 +3,8 @@ import { avecDe } from '../src/rules/des';
 import {
   attaquer,
   degres,
+  ecart,
+  opportunites,
   auContact,
   contacts,
   planifier,
@@ -60,18 +62,18 @@ describe('mise en place', () => {
     expect(auContact(s).length).toBeGreaterThan(0);
   });
 
-  it("pas plus de trois ennemis sur le même combattant : le quatrième contourne s'il peut", () => {
+  it("un héros acculé dans un coin : ceux qui n'ont plus de place ne peuvent pas le frapper", () => {
     const c = creerCombat(nouvellePartie(perso), { ...rencontre(9, 4), surprise: true });
     const h = heros(c);
     h.x = 0;
     h.y = 0;
-    // Trois orques collés au héros dans son coin : il n'y a plus de place pour le quatrième.
+    // Dans le coin, une case hexagonale n'a que deux voisines : il n'y a plus de place pour les autres.
     const [a, b, d, e] = c.combattants.filter((x) => x.camp === 'ennemi');
     Object.assign(a, { x: 1, y: 0 });
     Object.assign(b, { x: 0, y: 1 });
-    Object.assign(d, { x: 1, y: 1 });
+    Object.assign(d, { x: 6, y: 5 });
     Object.assign(e, { x: 4, y: 3 });
-    expect(contacts(c, h)).toHaveLength(3);
+    expect(contacts(c, h)).toHaveLength(2);
     expect(planifier(c, a).cible).toBe('heros');
     expect(planifier(c, e).cible).not.toBe('heros');
   });
@@ -119,11 +121,25 @@ describe('un assaut', () => {
     expect(heros(c).defendu).toBe(false);
   });
 
-  it("esquiver fait rater l'attaque suivante", () => {
+  it('esquiver fait reculer de deux cases, loin de l’attaquant', () => {
     const c = creerCombat(nouvellePartie(perso), rencontre(1, 1));
+    const e = combattant(c, 'e1');
+    Object.assign(heros(c), { x: 5, y: 3 });
+    Object.assign(e, { x: 6, y: 3 });
     const a = attaquer(c, 'e1', 'heros', 3, { defense: { mode: 'esquive', de: 2 } });
     expect(a.defense).toMatchObject({ mode: 'esquive', issue: 'reussi' });
-    expect(heros(c).rate).toBe(1);
+    expect(ecart(heros(c), e)).toBe(3);
+    expect(heros(c).rate).toBe(0);
+  });
+
+  it("quitter le contact offre une attaque d'opportunité", () => {
+    const c = creerCombat(nouvellePartie(perso), rencontre(9, 1));
+    const e = combattant(c, 'e1');
+    Object.assign(heros(c), { x: 5, y: 3 });
+    Object.assign(e, { x: 6, y: 3 });
+    expect(opportunites(c, 'heros', 4, 3).map((x) => x.id)).toEqual(['e1']);
+    // Rester à son contact (case voisine de l'orque) : pas d'attaque gratuite.
+    expect(opportunites(c, 'heros', 6, 2)).toEqual([]);
   });
 
   it('parade critique : D20 sur la table, 3 à 5 : l’attaquant est repoussé et rate son prochain assaut', () => {

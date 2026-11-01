@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Personnage } from '../src/rules/creation';
-import { ajouterButin, partDue, payerPart, rancune, appreciation, discuter, garderButin, obeit, valeurObeissance, partagerButin, payerTournee, reagir, recruter, seuilDepart } from '../src/rules/compagnons';
+import { COMPAGNONS, dePassage, ficheCompagnon, ajouterButin, partDue, payerPart, rancune, appreciation, discuter, garderButin, obeit, valeurObeissance, partagerButin, payerTournee, reagir, recruter, seuilDepart } from '../src/rules/compagnons';
 import { bilanCompagnons, creerCombat, deplacer, heros, planifier, verifier } from '../src/rules/combat';
 import { cite } from '../src/rules/cites';
 import { donjon, entrerDonjon, fouiller, quitterDonjon, regler, repeuplement, REPEUPLEMENT } from '../src/rules/donjons';
@@ -141,7 +141,7 @@ describe('appréciation des compagnons', () => {
     x1.x = 6;
     x1.y = 2;
     x1.ev = 30;
-    x2.x = 6;
+    x2.x = 5;
     x2.y = 3;
     x2.ev = 2;
     expect(planifier(c, b).cible).toBe(x2.id);
@@ -257,5 +257,28 @@ describe('mort des compagnons et du héros', () => {
     verifier(c);
     expect(c.fin).toBe('defaite');
     expect(c.vengeance).toBe(true);
+  });
+});
+
+describe('nouvelles recrues', () => {
+  it('aventuriers de passage et CV de la pancarte : fiches valides', () => {
+    for (const d of COMPAGNONS) {
+      const f = ficheCompagnon(d.id);
+      expect(f.ev, d.id).toBeGreaterThan(0);
+    }
+    expect(COMPAGNONS.filter((d) => d.cv).every((d) => d.embauche === 'ville:valtordu:donjon-facile')).toBe(true);
+  });
+
+  it('environ une chance sur dix par jour de croiser quelqu’un au comptoir', () => {
+    const p = avec();
+    let vus = 0;
+    for (let j = 1; j <= 2000; j++) {
+      p.jour = j;
+      if (dePassage(p, 'ville:chnafon:rat')) vus++;
+    }
+    expect(vus).toBeGreaterThan(130);
+    expect(vus).toBeLessThan(270);
+    p.jour = 5;
+    expect(dePassage(p, 'ville:chnafon:rat')).toBe(dePassage(p, 'ville:chnafon:rat'));
   });
 });

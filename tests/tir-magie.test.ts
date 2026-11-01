@@ -74,14 +74,17 @@ describe('armes à distance', () => {
     Object.assign(e, { x: 5, y: 2 });
     Object.assign(h, { x: 6, y: 2 });
     expect(dansLeDos(h, e)).toBe(true);
-    Object.assign(h, { x: 6, y: 1 });
-    expect(dansLeDos(h, e)).toBe(true);
+    // Hexagones : la rangée impaire est décalée d'une demi-case vers la droite.
     Object.assign(h, { x: 5, y: 1 });
+    expect(dansLeDos(h, e)).toBe(true);
+    Object.assign(h, { x: 4, y: 1 });
     expect(dansLeDos(h, e)).toBe(false);
     tourner(e, h);
-    expect(e.face).toEqual({ x: 0, y: -1 });
-    Object.assign(h, { x: 5, y: 3 });
+    expect(e.face).toEqual({ x: -0.5, y: -0.866 });
+    Object.assign(h, { x: 6, y: 2 });
     expect(dansLeDos(h, e)).toBe(true);
+    Object.assign(h, { x: 4, y: 2 });
+    expect(dansLeDos(h, e)).toBe(false);
   });
 
   it('le héros archer enchaîne recharger, viser, tirer ; à l\'arbalète, quatre fois recharger', () => {

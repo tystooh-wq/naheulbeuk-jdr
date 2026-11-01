@@ -2151,3 +2151,51 @@ ul.pertes { margin: 6px 0 0; padding-left: 1.1em; list-style: none; }
 .survol-malus { display: none; position: absolute; left: 50%; bottom: calc(100% + 6px); transform: translateX(-50%); z-index: 20; min-width: 180px; max-width: 280px; padding: 6px 10px; border-radius: 6px; background: #fffaf0; border: 1px solid #a01d1d; box-shadow: 0 3px 10px rgba(0,0,0,.25); color: #a01d1d; font-size: .82rem; font-weight: 600; text-align: left; white-space: normal; pointer-events: none; }
 .survol-malus span { display: block; }
 .a-toi button:hover .survol-malus, .a-toi button:focus-visible .survol-malus { display: block; }
+
+/* Terrain en hexagones (pointe en haut, rangées impaires décalées d'une demi-case) */
+.terrain.hex {
+  --c: min(44px, calc((100vw - 90px) / (var(--largeur) + 0.5)));
+  display: block;
+  width: max-content;
+  max-width: 100%;
+  padding: 8px 8px calc(8px + var(--c) * 0.29);
+}
+.terrain.hex .rangee { display: flex; margin-bottom: calc(var(--c) * -0.29); }
+.terrain.hex .rangee.impaire { padding-left: calc(var(--c) / 2); }
+.terrain.hex .case {
+  width: var(--c);
+  height: calc(var(--c) * 1.1547);
+  aspect-ratio: auto;
+  flex: none;
+  border: 0;
+  border-radius: 0;
+  background: none;
+}
+.terrain.hex .case::before {
+  content: '';
+  position: absolute;
+  inset: 1px;
+  clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%);
+  background: rgba(107, 84, 52, 0.22);
+}
+.terrain.hex .case::after {
+  content: '';
+  position: absolute;
+  inset: 2.5px;
+  clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%);
+  background: rgba(251, 244, 226, 0.35);
+}
+.terrain.hex button.case.accessible { border: 0; background: none; outline: none; }
+.terrain.hex button.case.accessible::before { background: var(--encre); opacity: .55; }
+.terrain.hex button.case.accessible::after { background: rgba(255, 248, 228, 0.92); }
+.terrain.hex button.case.accessible:hover::after,
+.terrain.hex button.case.accessible:focus-visible::after { background: #ffe9b8; }
+.terrain.hex button.case.accessible:hover::before,
+.terrain.hex button.case.accessible:focus-visible::before { background: var(--rouge); opacity: 1; }
+.terrain.hex .case > * { position: relative; z-index: 1; }
+.terrain.hex .case > .face { position: absolute; z-index: 2; inset: 12%; }
+.terrain.hex .pion { width: 80%; height: auto; aspect-ratio: 1; font-size: calc(var(--c) * 0.3); }
+.terrain.hex .corps { font-size: calc(var(--c) * 0.4); }
+
+.pancarte { margin: 10px 0; padding: 8px 12px; border: 2px dashed var(--bordure); border-radius: 6px; background: rgba(214, 190, 140, 0.18); }
+.payer-part { margin-left: 8px; vertical-align: middle; }

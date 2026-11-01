@@ -44,6 +44,10 @@ export interface DefCompagnon {
   prix?: number;
   /** Lieu où on peut l'embaucher (notation des quêtes : « ville:valtordu:trois-boudins »). */
   embauche?: string;
+  /** Aventurier de passage : on peut le croiser dans une taverne ou une auberge (10 % par jour et par lieu). */
+  passage?: boolean;
+  /** Son CV, sur la pancarte de recrutement du Donjon Facile. */
+  cv?: string;
   /** Trois traits de caractère. */
   personnalite: string;
   motivations: string[];
@@ -135,6 +139,156 @@ export const COMPAGNONS: DefCompagnon[] = [
     ],
   },
 ];
+
+// Aventuriers de passage (tavernes et auberges) et jeunes recrues (pancarte du Donjon Facile) : personnages maison.
+const PANCARTE = 'ville:valtordu:donjon-facile';
+COMPAGNONS.push(
+  {
+    id: 'mirelda',
+    titre: 'voleuse aux doigts agiles',
+    description: "Mirelda Fontebrune, trente ans, sourire charmant et poches profondes. Elle cherche un groupe « pour la sécurité », c'est-à-dire pour avoir quelqu'un à mettre devant.",
+    recrutement: 'De passage dans les tavernes. Elle suit qui la paie.',
+    perso: perso('Mirelda Fontebrune', 'Femme', 'humain', 'voleur', { COU: 10, INT: 11, CHA: 11, AD: 13, FO: 9 }, ['Frapper lâchement', 'Tire-laine', 'Méfiance']),
+    equipe: { arme: 'dague-base', armure: 'veste-cuir' },
+    sac: ['couverture', 'rations'],
+    prix: 30,
+    passage: true,
+    personnalite: 'Charmeuse, prudente, pas très honnête',
+    motivations: ['Un gros coup, puis une maison au bord de la mer', 'Ne jamais être celle qui passe en premier'],
+    valeurs: ['cupide', 'prudence'],
+    fidelite: 1,
+    idees: [
+      "Une serrure, c'est juste une porte qui fait des manières.",
+      "Je ne vole pas. Je redistribue. Vers moi.",
+      "Si ça tourne mal, je serai juste derrière toi. Loin derrière.",
+    ],
+  },
+  {
+    id: 'torgal',
+    titre: 'barbare des steppes',
+    description: "Torgal le Sanguin, deux mètres de muscles et une épée trop grande pour une taverne. Il cherche « des choses à frapper », et il n'est pas difficile sur le choix.",
+    recrutement: 'De passage dans les tavernes, entre deux bagarres.',
+    perso: perso('Torgal le Sanguin', 'Homme', 'barbare', 'guerrier', { COU: 13, INT: 8, CHA: 9, AD: 11, FO: 14 }, ['Intimider', 'Escalader']),
+    equipe: { arme: 'epee-2-mains-correcte', armure: 'plastron-cuir' },
+    sac: ['couverture', 'rations', 'rations'],
+    prix: 50,
+    passage: true,
+    personnalite: 'Bruyant, téméraire, affamé',
+    motivations: ['Devenir une légende chantée dans les tavernes', 'Manger un dragon (cuit)'],
+    valeurs: ['gloire', 'gourmand'],
+    fidelite: 1,
+    idees: ["Pourquoi réfléchir quand on peut taper ?", "Un jour, on chantera mon nom. Torgal. Avec un G.", "La bière d'ici a un goût de pied. J'en reprends une."],
+  },
+  {
+    id: 'ysolde',
+    titre: 'paladine en quête de justice',
+    description: "Ysolde de Brumefosse, armure astiquée et regard sévère. Elle a juré de combattre le mal, et elle trouve qu'il y en a beaucoup, surtout autour de toi.",
+    recrutement: 'De passage dans les auberges, en route vers une croisade quelconque.',
+    perso: perso('Ysolde de Brumefosse', 'Femme', 'humain', 'paladin', { COU: 12, INT: 11, CHA: 12, AD: 10, FO: 12 }, ['Premiers soins', 'Érudition', 'Chef de groupe']),
+    equipe: { arme: 'marteau-masse-1-main-bonne-qualite', armure: 'plastron-cuir-renforce', bouclier: 'bouclier-de-base' },
+    sac: ['couverture', 'rations'],
+    prix: 45,
+    passage: true,
+    personnalite: 'Droite, sévère, généreuse',
+    motivations: ['Protéger les faibles', 'Prouver sa valeur à son ordre'],
+    valeurs: ['honneur', 'bonte'],
+    fidelite: 2,
+    idees: ["Le mal ne prend jamais de jour de congé. Moi non plus.", "Tu as encore racketté quelqu'un ? Non ? Bien.", "Une prière avant le combat, ça ne coûte rien."],
+  },
+  {
+    id: 'pipo',
+    titre: 'semi-homme archer',
+    description: "Pipo Grosorteil, Semi-homme, archer, gourmet. Il tire juste et mange six fois par jour, ce qui pose des problèmes de rations.",
+    recrutement: 'De passage dans les tavernes, toujours près des cuisines.',
+    perso: perso('Pipo Grosorteil', 'Homme', 'semi-homme', 'ranger', { COU: 12, INT: 11, CHA: 11, AD: 12, FO: 8 }, ['Tirer correctement', 'Connaissances culinaires']),
+    equipe: { arme: 'dague-base', armure: 'veste-cuir', distance: 'arc-court-de-qualite-correcte' },
+    sac: ['fleche-de-base', 'fleche-de-base', 'fleche-de-base', 'fleche-de-base', 'couverture', 'rations'],
+    prix: 25,
+    passage: true,
+    personnalite: 'Jovial, gourmand, prudent',
+    motivations: ['Goûter tous les plats de la Terre de Fangh', 'Revenir chez lui avec des histoires'],
+    valeurs: ['gourmand', 'prudence'],
+    fidelite: 2,
+    idees: ["Le deuxième petit-déjeuner, c'est le repas le plus important de la journée.", "Je vise mieux le ventre plein.", "Les gobelins, ça sent le fromage tourné. Pas le bon."],
+  },
+  {
+    id: 'kraguk',
+    titre: 'orque mercenaire',
+    description: "Kraguk, orque, mercenaire, ne comprend pas les phrases de plus de cinq mots. Il se bat bien et compte l'or encore mieux, sur ses doigts.",
+    recrutement: 'De passage dans les tavernes louches.',
+    perso: perso('Kraguk', 'Homme', 'orque', 'guerrier', { COU: 12, INT: 7, CHA: 8, AD: 10, FO: 13 }, ['Intimider', 'Chercher des noises']),
+    equipe: { arme: 'hache-correcte', armure: 'set-armure-de-cuir-orque-troupier' },
+    sac: ['couverture', 'rations'],
+    prix: 35,
+    passage: true,
+    personnalite: 'Brutal, cupide, étonnamment loyal quand on paie',
+    motivations: ["L'or", 'Taper des elfes'],
+    valeurs: ['cupide', 'gloire'],
+    fidelite: 0,
+    idees: ['Kraguk taper. Toi payer. Bien.', 'Elfe ? Où elfe ?', 'Or partager. Moi compter.'],
+  },
+  {
+    id: 'jehan',
+    titre: 'jeune guerrier plein d’espoir',
+    description: "Jehan Pommier, dix-sept ans, une épée rouillée héritée d'un oncle et une confiance inébranlable. Il a lu tous les livres d'aventure de Valtordu (il y en a trois).",
+    recrutement: 'Son CV est épinglé sur la pancarte du Donjon Facile.',
+    cv: "« Jeune, motivé, a déjà tué un rat (gros). Cherche groupe sérieux pour aventure pas trop dangereuse. Disponible tout de suite. »",
+    perso: perso('Jehan Pommier', 'Homme', 'humain', 'guerrier', { COU: 12, INT: 9, CHA: 10, AD: 11, FO: 12 }, ['Chercher des noises', 'Truc de mauviette', 'Naïveté touchante']),
+    equipe: { arme: 'epee-perrave', armure: 'vetements-rembourres' },
+    sac: ['couverture', 'rations'],
+    prix: 10,
+    embauche: PANCARTE,
+    personnalite: 'Enthousiaste, naïf, courageux',
+    motivations: ['Devenir un vrai héros', 'Impressionner la fille du meunier'],
+    valeurs: ['gloire', 'honneur'],
+    fidelite: 2,
+    idees: ["Dans les livres, le héros gagne toujours à la fin. On est à la fin, là ?", "J'ai appris à manier l'épée avec un balai. C'est pareil, en plus lourd.", "Tu crois qu'on aura une chanson ?"],
+  },
+  {
+    id: 'berthe',
+    titre: 'apprentie magicienne',
+    description: "Berthe Courtepaille, renvoyée de l'école de magie pour « excès d'enthousiasme pyrotechnique ». Elle connaît trois sorts et en rate deux.",
+    recrutement: 'Son CV est épinglé sur la pancarte du Donjon Facile.',
+    cv: "« Magicienne (presque diplômée). Allume les feux de camp, éclaire les couloirs. Pas responsable des sourcils brûlés. Tarif étudiant. »",
+    perso: perso('Berthe Courtepaille', 'Femme', 'humain', 'mage', { COU: 9, INT: 13, CHA: 10, AD: 10, FO: 9 }, ['Fariboles', 'Premiers soins', 'Pénible']),
+    equipe: { arme: 'baton', armure: 'vetements-rembourres' },
+    sac: ['couverture', 'rations'],
+    prix: 15,
+    embauche: PANCARTE,
+    personnalite: 'Bavarde, distraite, curieuse',
+    motivations: ['Prouver à ses professeurs qu’ils avaient tort', 'Trouver un grimoire perdu'],
+    valeurs: ['prudence', 'bonte'],
+    fidelite: 2,
+    idees: ["Techniquement, ce n'était pas une explosion. C'était une expansion rapide.", "Si je dis « baissez-vous », ne posez pas de questions.", "Un jour, j'apprendrai la boule de feu. La vraie, celle qui part dans le bon sens."],
+  },
+  {
+    id: 'nestor',
+    titre: 'gnôme bricoleur',
+    description: "Nestor Bidule, gnôme, ingénieur autoproclamé, arbalète bricolée maison. Elle tire, la plupart du temps dans la bonne direction.",
+    recrutement: 'Son CV est épinglé sur la pancarte du Donjon Facile.',
+    cv: "« Ingénieur gnôme. Répare tout, invente le reste. Arbalète fournie. Cherche groupe avec budget pour pièces détachées. »",
+    perso: perso('Nestor Bidule', 'Homme', 'gnome', 'ingenieur', { COU: 9, INT: 12, CHA: 9, AD: 13, FO: 7 }, ['Tirer correctement', 'Détecter']),
+    equipe: { arme: 'dague-base', armure: 'vetements-rembourres', distance: 'arbalete-de-gobelin' },
+    sac: ['carreau-de-base', 'carreau-de-base', 'carreau-de-base', 'couverture'],
+    prix: 12,
+    embauche: PANCARTE,
+    personnalite: 'Ingénieux, râleur, radin',
+    motivations: ['Construire la machine ultime', 'Financer ses inventions'],
+    valeurs: ['cupide', 'prudence'],
+    fidelite: 1,
+    idees: ["Ce n'est pas cassé, c'est en cours d'amélioration.", "Tu me laisses tes pièces ? Pour la science.", "Si ça fume, c'est normal. Si ça siffle, cours."],
+  },
+);
+
+/** Aujourd'hui, dans cette taverne ou cette auberge, un aventurier de passage boit-il au comptoir (10 % par jour) ? */
+export const dePassage = (p: Partie, ou: string): DefCompagnon | null => {
+  let h = 2166136261;
+  for (const ch of `${Math.floor(p.jour)}:${ou}`) h = Math.imul(h ^ ch.charCodeAt(0), 16777619);
+  const tirage = ((h >>> 0) % 1000) / 1000;
+  if (tirage >= 0.1) return null;
+  const libres = COMPAGNONS.filter((d) => d.passage && !dansGroupe(p, d.id));
+  return libres.length ? libres[(h >>> 10) % libres.length] : null;
+};
 
 export const compagnon = (id: string): DefCompagnon => {
   const c = COMPAGNONS.find((x) => x.id === id);
