@@ -1,3 +1,4 @@
+import { lancer, type Rng } from './des';
 import { calculerFiche, type Fiche, type Personnage } from './creation';
 import { objet } from './objets';
 import { arrondirOr } from './monnaie';
@@ -165,9 +166,31 @@ export const recruter = (p: Partie, id: string): string | null => {
   if (c.prix && p.or < c.prix) return `Il faut ${c.prix} PO.`;
   if (c.prix) p.or -= c.prix;
   const ev = ficheCompagnon(id).ev;
-  p.compagnons = [...groupe(p), { id, ev, evMax: ev }];
+  p.compagnons = [...groupe(p), { id, ev, evMax: ev, destin: lancer(4) - 1 }];
   noter(p, `${c.perso.nom} (${c.titre}) rejoint le groupe.`);
   return null;
+};
+
+/** Ses points de destin (règles V4 : 1D4−1) ; un compagnon arrivé avant cette règle les tire maintenant. */
+export const destinCompagnon = (e: EtatCompagnon, rng?: Rng) => (e.destin ??= lancer(4, rng) - 1);
+
+/**
+ * Un compagnon tombé à 0 PV : un point de destin le ramène (1 PV), sinon il meurt pour de bon et quitte le groupe.
+ * Renvoie le récit.
+ */
+export const tomber = (p: Partie, id: string, rng?: Rng): string => {
+  const e = groupe(p).find((x) => x.id === id);
+  if (!e) return '';
+  const nom = compagnon(id).perso.nom;
+  if (destinCompagnon(e, rng) > 0) {
+    e.destin! -= 1;
+    e.ev = 1;
+    noter(p, `${nom} frôle la mort ; un point de destin le ramène.`);
+    return `${nom} est tombé, mais le destin n'en a pas fini avec lui : il se relève avec 1 PV (il lui reste ${e.destin} point${e.destin! > 1 ? 's' : ''} de destin).`;
+  }
+  p.compagnons = groupe(p).filter((x) => x.id !== id);
+  noter(p, `${nom} meurt au combat.`);
+  return `${nom} est mort. Plus de point de destin pour lui : il ne se relèvera pas.`;
 };
 
 export const renvoyer = (p: Partie, id: string) => {

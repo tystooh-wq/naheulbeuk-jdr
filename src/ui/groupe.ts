@@ -4,6 +4,7 @@ import {
   compagnon,
   COMPAGNONS,
   dansGroupe,
+  destinCompagnon,
   discuter,
   ficheCompagnon,
   garderButin,
@@ -47,6 +48,7 @@ const ficheHtml = (p: Partie, id: string, e?: EtatCompagnon) => {
       <div><b>${echapper(v.degats)}</b><span>Dégâts</span></div>
       <div><b>${v.pr}</b><span>Protection</span></div>
       ${t ? `<div><b>${t.ad}</b><span>Tir (AD)</span></div>` : ''}
+      ${e ? `<div><b>${destinCompagnon(e)}</b><span>Destin</span></div>` : ''}
     </div>
     <p class="note">COU ${f.caracs.COU} · INT ${f.caracs.INT} · CHA ${f.caracs.CHA} · AD ${f.caracs.AD} · FO ${f.caracs.FO}</p>
     <p class="note"><b>Équipement :</b> ${echapper(equipement.join(', '))}${d.sac.length ? ` · <b>Sac :</b> ${echapper([...new Set(d.sac)].map((x) => `${objet(x).nom}${d.sac.filter((y) => y === x).length > 1 ? ` ×${d.sac.filter((y) => y === x).length}` : ''}`).join(', '))}` : ''}</p>

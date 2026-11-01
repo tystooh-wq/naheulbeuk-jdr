@@ -113,7 +113,7 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
     const pct = Math.max(0, Math.round((x.ev / x.evMax) * 100));
     const cible = attente?.type === 'action' && x.camp === 'ennemi' && x.etat === 'actif' && voisinDuHeros(x);
     const statut = [
-      x.etat === 'mort' ? (x.camp === 'ennemi' ? 'à terre' : 'assommé') : x.etat === 'fui' ? 'en fuite' : '',
+      x.etat === 'mort' ? 'à terre' : x.etat === 'fui' ? 'en fuite' : '',
       x.rate > 0 && x.etat === 'actif' ? 'déséquilibré' : '',
       x.defendu && x.etat === 'actif' ? 'a déjà paré' : '',
       x.etat === 'actif' && x.tireur && !contacts(c, x).length ? 'à distance, arc bandé' : '',
@@ -458,8 +458,9 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
 
   const finir = () => {
     synchroniser();
-    bilanCompagnons(c, p);
     let notes: string[] = [];
+    if (c.vengeance) notes.push('Tes compagnons ont gagné le combat, mais trop tard pour toi.');
+    reactions.push(...bilanCompagnons(c, p));
     // Ce que les compagnons pensent du combat : les coups reçus du héros, puis l'issue.
     for (const f of c.frappesAllies ?? []) reactions.push(...reagir(p, { type: 'frappe', id: f.id, grave: f.grave }));
     // Berserker : les PV de rage s'en vont avec la fin du combat.
@@ -495,14 +496,16 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
       notes.push(`${x.nom} est gravement blessé (${x.blessures!.map((b) => b.nom.toLowerCase()).join(', ')}), mais il serre les dents.`);
     const fin = c.fin!;
     const xp = fin === 'defaite' || fin === 'reddition' ? 0 : xpGagnee(c);
-    reactions.push(
-      ...reagir(
-        p,
-        fin === 'victoire'
-          ? { type: 'victoire', betes: ennemis(c).some((y) => y.famille === 'bete'), difficile: ennemis(c).length >= 3 || evDepart - p.ev >= h().evMax / 2 }
-          : { type: fin === 'reddition' ? 'defaite' : fin },
-      ),
-    );
+    // Le héros tombé mais vengé : ses compagnons n'ont pas perdu, ils n'ont rien à lui reprocher.
+    if (!c.vengeance)
+      reactions.push(
+        ...reagir(
+          p,
+          fin === 'victoire'
+            ? { type: 'victoire', betes: ennemis(c).some((y) => y.famille === 'bete'), difficile: ennemis(c).length >= 3 || evDepart - p.ev >= h().evMax / 2 }
+            : { type: fin === 'reddition' ? 'defaite' : fin },
+        ),
+      );
     // Après une victoire, on ramasse son arme de jet et la moitié des projectiles (les autres sont cassés ou perdus).
     let recuperes = '';
     if (fin === 'victoire') {

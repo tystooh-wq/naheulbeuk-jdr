@@ -74,6 +74,8 @@ export interface EtatCompagnon {
   /** Jour de la dernière discussion et de la dernière tournée offerte. */
   discussion?: number;
   tournee?: number;
+  /** Points de destin (1D4−1, tirés à son arrivée dans le groupe) : chacun lui évite la mort une fois. */
+  destin?: number;
 }
 
 /** Les compagnons se reposent en même temps que le héros (jamais au-delà de leur maximum, et au moins 1 PV). */

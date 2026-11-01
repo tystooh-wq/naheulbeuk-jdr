@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Personnage } from '../src/rules/creation';
 import { ajouterButin, appreciation, discuter, garderButin, obeit, valeurObeissance, partagerButin, payerTournee, reagir, recruter, seuilDepart } from '../src/rules/compagnons';
-import { creerCombat, deplacer, planifier } from '../src/rules/combat';
+import { bilanCompagnons, creerCombat, deplacer, heros, planifier, verifier } from '../src/rules/combat';
 import { cite } from '../src/rules/cites';
 import { donjon, entrerDonjon, fouiller, quitterDonjon, regler, repeuplement, REPEUPLEMENT } from '../src/rules/donjons';
 import { dormir, nouvellePartie, type Partie } from '../src/rules/partie';
@@ -194,5 +194,41 @@ describe("droits d'entrée", () => {
     expect(discuterPeage(p, g, 20).prix).toBe(8);
     p.or = 2;
     expect(payerPeage(p, c, g)).toMatch(/manque/);
+  });
+});
+
+describe('mort des compagnons et du héros', () => {
+  it('un compagnon tombé use un point de destin, puis meurt pour de bon', () => {
+    const p = avec('gaston');
+    const e = p.compagnons![0];
+    e.destin = 1;
+    const c = creerCombat(p, { ligne: TABLE_TERRES_SAUVAGES[8], nombre: 1, d20: 9 });
+    const x = c.combattants.find((y) => y.compagnon === 'gaston')!;
+    x.ev = -3;
+    expect(bilanCompagnons(c, p)[0]).toMatch(/destin/);
+    expect(e.ev).toBe(1);
+    expect(e.destin).toBe(0);
+    const c2 = creerCombat(p, { ligne: TABLE_TERRES_SAUVAGES[8], nombre: 1, d20: 9 });
+    c2.combattants.find((y) => y.compagnon === 'gaston')!.ev = 0;
+    expect(bilanCompagnons(c2, p)[0]).toMatch(/mort/);
+    expect(p.compagnons).toEqual([]);
+  });
+
+  it('un compagnon recruté reçoit 1D4−1 points de destin', () => {
+    const p = avec('gaston');
+    expect(p.compagnons![0].destin).toBeGreaterThanOrEqual(0);
+    expect(p.compagnons![0].destin).toBeLessThanOrEqual(3);
+  });
+
+  it('le héros tombé, ses compagnons continuent ; le combat finit quand un camp est à terre', () => {
+    const p = avec('gaston');
+    const c = creerCombat(p, { ligne: TABLE_TERRES_SAUVAGES[8], nombre: 1, d20: 9 });
+    heros(c).ev = 0;
+    verifier(c);
+    expect(c.fin).toBeUndefined();
+    for (const x of c.combattants) if (x.camp === 'ennemi') x.ev = 0;
+    verifier(c);
+    expect(c.fin).toBe('defaite');
+    expect(c.vengeance).toBe(true);
   });
 });

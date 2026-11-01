@@ -2,7 +2,7 @@ import { calculerFiche, cleCompetence } from './creation';
 import { lancer, type Rng } from './des';
 import { lancerExpression, mainGauche, valeursCombat, type EtatCompagnon, type Partie } from './partie';
 import { singulier, type LigneRencontre, type Rencontre } from './rencontres';
-import { tirCompagnon, vueCompagnon, type Ordre } from './compagnons';
+import { tirCompagnon, tomber, vueCompagnon, type Ordre } from './compagnons';
 import { fouiller, type Fouille } from './butin';
 import { objet } from './objets';
 import {
@@ -159,6 +159,8 @@ export interface Combat {
   projectiles: string[];
   /** L'arme de tir du héros est tombée ou cassée : plus de tir dans ce combat. */
   tirPerdu?: boolean;
+  /** Le héros est tombé, mais ses compagnons ont gagné le combat. */
+  vengeance?: boolean;
   /** L'arme du héros est tombée par terre (maladresse) : ses valeurs d'avant, et son AT juste après la chute. */
   armeAuSol?: { at: number; degats: string; famille: Combattant['famille']; rupture?: string; sansParade?: boolean; atApres: number };
   /** Armes du héros cassées pendant le combat (elles disparaissent de son équipement). */
@@ -840,11 +842,19 @@ export const verifier = (c: Combat) => {
     if (x.ev <= 0 && (x.etat === 'actif' || x.etat === 'reserve')) {
       x.ev = 0;
       x.etat = 'mort';
-      if (x.id !== 'heros') c.journal.push(x.camp === 'ennemi' ? `${x.nom} s'effondre.` : `${x.nom} tombe, assommé.`);
+      if (x.id !== 'heros') c.journal.push(`${x.nom} s'effondre.`);
+      else if (c.combattants.some((y) => y.camp === 'heros' && enLice(y))) c.journal.push(`${x.nom} s'effondre ! Le reste du groupe continue le combat.`);
     }
   }
-  if (heros(c).etat === 'mort') c.fin = 'defaite';
-  else if (!ennemis(c).some(enLice)) c.fin = 'victoire';
+  const amis = c.combattants.some((y) => y.camp === 'heros' && enLice(y));
+  const restants = ennemis(c).some(enLice);
+  // Le héros tombé, ses compagnons se battent jusqu'au bout ; mais lui ne se relève pas pour autant.
+  if (heros(c).etat === 'mort') {
+    if (!amis || !restants) {
+      c.fin = 'defaite';
+      if (amis) c.vengeance = true;
+    }
+  } else if (!restants) c.fin = 'victoire';
 };
 
 /** Passe au combattant suivant ; un nouvel assaut remet les défenses à zéro. */
@@ -938,11 +948,16 @@ export const panique = (c: Combat, x: Combattant, rng?: Rng): boolean => {
 
 /** Le héros tente de fuir en plein combat : épreuve d'Adresse (Appel des renforts : sans épreuve). */
 /** Après la bataille, les compagnons assommés se relèvent avec 1 PV ; leurs PV restants sont gardés. */
-export const bilanCompagnons = (c: Combat, p: Partie) => {
-  for (const e of p.compagnons ?? []) {
+/** Après le combat : les PV des compagnons ; ceux qui sont tombés usent un point de destin ou meurent. Renvoie les récits. */
+export const bilanCompagnons = (c: Combat, p: Partie, rng?: Rng): string[] => {
+  const recits: string[] = [];
+  for (const e of [...(p.compagnons ?? [])]) {
     const x = c.combattants.find((y) => y.compagnon === e.id);
-    if (x) e.ev = Math.max(1, x.ev);
+    if (!x) continue;
+    if (x.ev > 0) e.ev = x.ev;
+    else recits.push(tomber(p, e.id, rng));
   }
+  return recits;
 };
 
 export const tenterFuite = (c: Combat, de: number): boolean => {
