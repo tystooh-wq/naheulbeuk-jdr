@@ -27,6 +27,8 @@ import {
   VALEURS,
 } from '../rules/compagnons';
 import { dateCourte } from '../rules/calendrier';
+import { cite } from '../rules/cites';
+import { occupation } from '../rules/vie-en-ville';
 import { objet } from '../rules/objets';
 import type { EtatCompagnon, Partie } from '../rules/partie';
 import { echapper } from './outils';
@@ -129,6 +131,13 @@ export const panneauPartage = (p: Partie, compact = false) => {
 };
 
 /** L'onglet « Groupe » : la fiche complète de chaque compagnon. */
+/** En ville, chacun vaque à ses occupations. */
+const enVille = (p: Partie, e: EtatCompagnon) => {
+  if (!p.vieVille) return '';
+  const o = occupation(p, e, cite(p.vieVille.ville));
+  return o ? `<p class="note">📍 En ville : ${echapper(o.texte)}, à ${echapper(o.lieu.nom)}.</p>` : '';
+};
+
 export const panneauGroupe = (p: Partie, message?: string) => {
   const g = groupe(p);
   return `<div class="panneau">
@@ -141,6 +150,7 @@ export const panneauGroupe = (p: Partie, message?: string) => {
             .map(
               (e) => `<section class="compagnon">
             <h3>${echapper(compagnon(e.id).perso.nom)} <span class="note">${echapper(compagnon(e.id).titre)} · ❤ ${e.ev}/${e.evMax} · ✦ ${destinCompagnon(e)} point${destinCompagnon(e) > 1 ? 's' : ''} de destin</span>${boutonPayer(p, e)}</h3>
+            ${enVille(p, e)}
             ${relationHtml(p, e)}
             <details><summary>Sa fiche</summary>${ficheHtml(p, e.id, e)}</details>
             <p><button class="secondaire petit" data-renvoyer="${e.id}">Se séparer de ${echapper(compagnon(e.id).perso.nom.split(' ')[0])}</button></p></section>`,

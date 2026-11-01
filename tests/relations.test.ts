@@ -7,6 +7,7 @@ import { donjon, entrerDonjon, fouiller, quitterDonjon, regler, repeuplement, RE
 import { dormir, nouvellePartie, type Partie } from '../src/rules/partie';
 import { discuterPeage, fixerPeage, payerPeage, peageDu, totalPeage } from '../src/rules/peage';
 import { TABLE_TERRES_SAUVAGES } from '../src/rules/rencontres';
+import { occupationA, SOIN_PAR_HEURE, vivreEnVille } from '../src/rules/vie-en-ville';
 
 const perso: Personnage = {
   version: 1,
@@ -280,5 +281,39 @@ describe('nouvelles recrues', () => {
     expect(vus).toBeLessThan(270);
     p.jour = 5;
     expect(dePassage(p, 'ville:chnafon:rat')).toBe(dePassage(p, 'ville:chnafon:rat'));
+  });
+
+  it("une fois recruté, l'aventurier de passage ne laisse personne à sa place ce jour-là", () => {
+    const p = avec();
+    let jour = 0;
+    while (!dePassage(p, 'ville:waldorg:bar')) p.jour = ++jour;
+    recruter(p, dePassage(p, 'ville:waldorg:bar')!.id);
+    expect(dePassage(p, 'ville:waldorg:bar')).toBeNull();
+  });
+});
+
+describe('La vie des compagnons en ville', () => {
+  const valtordu = cite('valtordu');
+  it('Gaston aide ses parents à la boucherie le jour, va à la taverne le soir, dort la nuit', () => {
+    const p = avec('gaston');
+    const e = p.compagnons![0];
+    expect(occupationA(e, valtordu, 3, 10)?.lieu.id).toBe('boucherie-jobard');
+    expect(occupationA(e, valtordu, 3, 10)?.activite).toBe('famille');
+    expect(occupationA(e, valtordu, 3, 20)?.activite).toBe('taverne');
+    expect(occupationA(e, valtordu, 3, 2)?.activite).toBe('dort');
+    // Ailleurs qu'à Valtordu, pas de parents : il fait les boutiques.
+    expect(occupationA(e, cite('waldorg'), 3, 10)?.activite).toBe('boutique');
+  });
+
+  it('un blessé va se faire soigner et récupère des PV avec le temps', () => {
+    const p = avec('gaston');
+    const e = p.compagnons![0];
+    e.ev = 5;
+    p.heure = 9;
+    expect(occupationA(e, valtordu, p.jour, 9)?.activite).toBe('soins');
+    vivreEnVille(p, valtordu);
+    p.heure = 12;
+    vivreEnVille(p, valtordu);
+    expect(e.ev).toBe(Math.min(e.evMax, 5 + 3 * SOIN_PAR_HEURE));
   });
 });

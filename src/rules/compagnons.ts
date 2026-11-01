@@ -286,8 +286,10 @@ export const dePassage = (p: Partie, ou: string): DefCompagnon | null => {
   for (const ch of `${Math.floor(p.jour)}:${ou}`) h = Math.imul(h ^ ch.charCodeAt(0), 16777619);
   const tirage = ((h >>> 0) % 1000) / 1000;
   if (tirage >= 0.1) return null;
-  const libres = COMPAGNONS.filter((d) => d.passage && !dansGroupe(p, d.id));
-  return libres.length ? libres[(h >>> 10) % libres.length] : null;
+  // Le tirage désigne une personne précise : une fois recrutée, le comptoir reste vide jusqu'au lendemain.
+  const tous = COMPAGNONS.filter((d) => d.passage);
+  const d = tous[(h >>> 10) % tous.length];
+  return d && !dansGroupe(p, d.id) ? d : null;
 };
 
 export const compagnon = (id: string): DefCompagnon => {
@@ -374,7 +376,7 @@ export const humeur = (e: EtatCompagnon): string => {
   return 'Ami fidèle';
 };
 
-const prenom = (id: string) => compagnon(id).perso.nom.split(' ')[0];
+export const prenom = (id: string) => compagnon(id).perso.nom.split(' ')[0];
 const a = (e: EtatCompagnon, v: Valeur) => compagnon(e.id).valeurs.includes(v);
 
 /**

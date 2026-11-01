@@ -39,6 +39,8 @@ import { marchander, type Marchandage } from '../rules/marchandage';
 import { arrondirOr, formatOr } from '../rules/monnaie';
 import { boutonAutrement, lierIdeesLieu, panneauIdeesLieu } from './idees';
 import { sauvegarderPartie } from './sauvegarde';
+import { occupation, vivreEnVille } from '../rules/vie-en-ville';
+import { compagnon, groupe, prenom } from '../rules/compagnons';
 import { lierGroupe, panneauEmbauche, panneauPartage, partageDuSoir } from './groupe';
 import { discuterPeage, fixerPeage, payerPeage, peageDu, personnes, reconnuJusqua, totalPeage, type Peage } from '../rules/peage';
 import { facteurPrix, rangReputation, reputation } from '../rules/reputation';
@@ -131,6 +133,28 @@ export const ecranVille = (app: HTMLElement, p: Partie, sorties: SortiesVille, a
 
   // --- Plan --------------------------------------------------------------------
 
+  /** Où sont les compagnons en ce moment (chacun vit sa vie en ville). */
+  const occupations = () => groupe(p).map((e) => ({ e, o: occupation(p, e, c) })).filter((x) => x.o);
+  const marqueursCompagnons = () => {
+    const parLieu = new Map<string, number>();
+    return occupations()
+      .map(({ e, o }) => {
+        const n = parLieu.get(o!.lieu.id) ?? 0;
+        parLieu.set(o!.lieu.id, n + 1);
+        const nom = compagnon(e.id).perso.nom;
+        // En petit cercle autour du repère du lieu, pour ne pas le cacher.
+        const angle = Math.PI / 4 - n * (Math.PI / 3);
+        return `<span class="pion-compagnon" style="left:${o!.lieu.x}%;top:${o!.lieu.y}%;--dx:${Math.round(Math.cos(angle) * 24)}px;--dy:${Math.round(Math.sin(angle) * 24)}px" title="${echapper(`${nom} ${o!.texte} (${o!.lieu.nom})`)}">${echapper(nom[0])}</span>`;
+      })
+      .join('');
+  };
+  const compagnonsIci = (l: Lieu) => {
+    const ici = occupations().filter(({ o }) => o!.lieu.id === l.id);
+    return ici.length
+      ? `<ul class="compagnons-ici">${ici.map(({ e, o }) => `<li><b>${echapper(prenom(e.id))}</b> est ici : ${echapper(o!.texte)}.</li>`).join('')}</ul>`
+      : '';
+  };
+
   const plan = () => {
     const ici = lieu(p.lieu);
     return `<div class="plan ${c.rapport < 1 ? 'portrait' : ''}" id="plan">
@@ -141,6 +165,7 @@ export const ecranVille = (app: HTMLElement, p: Partie, sorties: SortiesVille, a
           <span>${ICONES[l.type]}</span><em>${echapper(l.nom)}</em>${q ? `<b class="marque-quete marque-${q}">${q === 'nouvelle' ? '!' : '➤'}</b>` : ''}
         </button>`;
       }).join('')}
+      ${marqueursCompagnons()}
       <svg class="trace" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><polyline id="trace" points="" /></svg>
       <div class="heros" id="heros" style="left:${ici.x}%;top:${ici.y}%" aria-hidden="true"></div>
     </div>
@@ -148,6 +173,7 @@ export const ecranVille = (app: HTMLElement, p: Partie, sorties: SortiesVille, a
       <span><i class="marque-quete marque-nouvelle">!</i>Quête proposée</span>
       <span><i class="marque-quete marque-etape">➤</i>Étape de quête</span>
       <span><i class="heros-mini"></i>${echapper(p.perso.nom)}</span>
+      ${groupe(p).length ? '<span><i class="pion-compagnon mini">A</i>Compagnons (survole pour voir ce qu\'ils font)</span>' : ''}
       ${jaugeReputation(p, c.id, c.nom)}</div>`;
   };
 
@@ -305,6 +331,7 @@ export const ecranVille = (app: HTMLElement, p: Partie, sorties: SortiesVille, a
           <div><h2 id="titre-lieu">${echapper(l.nom)}</h2><div class="note">${echapper(l.quartier)}</div></div>
         </div>
         <p>${echapper(l.description)}</p>
+        ${compagnonsIci(l)}
         ${visite.message ? `<div class="recit">${visite.message}</div>` : ''}
         ${actionsLieu(l)}
         ${panneauIdeesLieu(p, `${c.id}:${l.id}`)}
@@ -346,8 +373,10 @@ export const ecranVille = (app: HTMLElement, p: Partie, sorties: SortiesVille, a
 
   // --- Affichage et événements ---------------------------------------------------------
 
+  let vieLignes: string[] = [];
   const render = () => {
     if (!p.arrive) return ecranArrivee();
+    vieLignes = [...vieLignes, ...vivreEnVille(p, c)].slice(-4);
     const ouvert = vue === 'lieu' && popup;
     const panneau = vue === 'sac' ? panneauSac(p, visite.message) : vue === 'groupe' ? panneauGroupe(p, visite.message) : vue === 'journal' ? panneauJournal(p) : vue === 'quetes' ? panneauJournalQuetes(p) : '';
     app.innerHTML = `<div class="page page-ville">
@@ -356,6 +385,7 @@ export const ecranVille = (app: HTMLElement, p: Partie, sorties: SortiesVille, a
         ${plan()}
         ${ouvert ? popupLieu() : ''}
       </div>
+      ${vieLignes.length ? `<ul class="reactions">${vieLignes.map((x) => `<li>${echapper(x)}</li>`).join('')}</ul>` : ''}
       ${vue === 'lieu' && !popup ? `<p class="note">Clique sur un lieu pour t'y rendre. Tu es à <b>${echapper(lieu(p.lieu).nom)}</b> : clique sur son repère pour y entrer.</p>` : ''}
       ${panneau}
       ${enregistre ? '' : '<p class="alerte">Ce navigateur ne permet pas de sauvegarder : ta partie sera perdue si tu fermes la page.</p>'}

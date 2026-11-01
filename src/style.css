@@ -2199,3 +2199,39 @@ ul.pertes { margin: 6px 0 0; padding-left: 1.1em; list-style: none; }
 
 .pancarte { margin: 10px 0; padding: 8px 12px; border: 2px dashed var(--bordure); border-radius: 6px; background: rgba(214, 190, 140, 0.18); }
 .payer-part { margin-left: 8px; vertical-align: middle; }
+
+/* Les compagnons vivent leur vie en ville : un petit pion près du lieu où ils sont. */
+.pion-compagnon {
+  position: absolute;
+  transform: translate(calc(-50% + var(--dx, 0px)), calc(-50% + var(--dy, 0px)));
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #2f6b4f;
+  color: #fff;
+  border: 2px solid #fff;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+  z-index: 3;
+  cursor: help;
+}
+.pion-compagnon.mini {
+  position: static;
+  display: inline-block;
+  transform: none;
+  width: 14px;
+  height: 14px;
+  line-height: 11px;
+  font-size: 0.6rem;
+  font-style: normal;
+  border-width: 1px;
+  margin-right: 4px;
+}
+.compagnons-ici {
+  margin: 0.4em 0;
+  padding-left: 1.2em;
+  color: #2f6b4f;
+}

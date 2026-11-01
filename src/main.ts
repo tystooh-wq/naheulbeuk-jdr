@@ -1,3 +1,4 @@
+import { quitterVieVille } from './rules/vie-en-ville';
 import './style.css';
 import { calculerFiche, type Personnage } from './rules/creation';
 import { nouvellePartie, type Partie } from './rules/partie';
@@ -40,10 +41,14 @@ const jouer = (partie: Partie) => {
         ouvrirFiche: fiche(() => ville(), 'Retour en ville'),
         retourAccueil: accueil,
         quitterVille: () => {
+          quitterVieVille(partie);
           partie.lieuMonde = cite(partie.ville).lieuMonde;
           monde();
         },
-        entrerDonjon: (id, par) => donjon(id, par),
+        entrerDonjon: (id, par) => {
+          quitterVieVille(partie);
+          donjon(id, par);
+        },
         finDePartie: () => {
           effacerTout();
           accueil();

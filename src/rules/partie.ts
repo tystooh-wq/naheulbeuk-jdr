@@ -78,6 +78,8 @@ export interface EtatCompagnon {
   destin?: number;
   /** Sa part du butin pas encore payée (on paie le soir, au campement ou à l'auberge). */
   du?: number;
+  /** Jour de sa dernière bonne soirée en ville (voir vie-en-ville.ts). */
+  soiree?: number;
 }
 
 /** Les compagnons se reposent en même temps que le héros (jamais au-delà de leur maximum, et au moins 1 PV). */
@@ -150,6 +152,8 @@ export interface Partie {
   peage?: string;
   /** Portes où le garde nous reconnaît encore : heure absolue (jour × 24 + heure) jusqu'à laquelle on passe sans payer. */
   peagesPayes?: Record<string, number>;
+  /** Dernière fois (heure absolue) que la vie des compagnons en ville a été jouée, et dans quelle ville. */
+  vieVille?: { ville: string; t: number };
   /** Or gagné avec le groupe et pas encore partagé (combat, coffres) : à régler avant la nuit. */
   butin?: number;
   /** Hauts faits obtenus (succès du Donjon de Naheulbeuk) : combien de fois chacun. */
