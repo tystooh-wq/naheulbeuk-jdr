@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Personnage } from '../src/rules/creation';
-import { creerCombat, deplacer, ecart, heros, planifier, tirer, toucherParSort, tourSuivant } from '../src/rules/combat';
+import { apresTir, creerCombat, deplacer, ecart, etapeTir, heros, planifier, recharger, tirer, toucherParSort, tourSuivant, viser } from '../src/rules/combat';
 import { ea, lancerSort, sort, sortsConnus, soinLeger, valeurSort } from '../src/rules/magie';
 import { objet } from '../src/rules/objets';
 import { acheter, dormir, equiper, nouvellePartie } from '../src/rules/partie';
@@ -62,6 +62,26 @@ describe('armes à distance', () => {
     const p = nouvellePartie(perso({}));
     const c = creerCombat(p, { ligne: TABLE_TERRES_SAUVAGES[5], nombre: 1, d20: 6 });
     expect(c.combattants[1].tireur).toMatchObject({ ad: 11, degats: '1D+3', recharge: 3 });
+  });
+
+  it('le héros archer enchaîne recharger, viser, tirer ; à l\'arbalète, quatre fois recharger', () => {
+    const p = nouvellePartie(perso({}));
+    const c = creerCombat(p, { ligne: TABLE_TERRES_SAUVAGES[8], nombre: 1, d20: 9 });
+    expect(etapeTir(c)).toBe('tirer');
+    apresTir(c, 3);
+    expect(etapeTir(c)).toBe('recharger');
+    recharger(c);
+    expect(etapeTir(c)).toBe('viser');
+    viser(c);
+    expect(etapeTir(c)).toBe('tirer');
+    apresTir(c, 6);
+    for (let i = 0; i < 4; i++) {
+      expect(etapeTir(c)).toBe('recharger');
+      recharger(c);
+    }
+    expect(etapeTir(c)).toBe('viser');
+    apresTir(c, 2);
+    expect(etapeTir(c)).toBe('viser');
   });
 
   it("à l'arc, on tire une fois tous les trois assauts (rechargement 3), héros comme ennemis", () => {

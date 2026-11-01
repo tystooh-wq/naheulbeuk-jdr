@@ -151,8 +151,10 @@ export interface Combat {
   hauteur: number;
   /** Le combattant dont c'est le tour s'est déjà déplacé. */
   deplace?: boolean;
-  /** Assauts avant que l'arme à distance du héros soit rechargée. */
+  /** Actions « Recharger » qu'il reste au héros avant de pouvoir viser (arc : 1, arbalète : 4). */
   recharge: number;
+  /** L'arme de tir du héros : vide (à recharger), chargée (à viser) ou visée (prête à tirer). Bandée au début du combat. */
+  armement?: 'vide' | 'chargee' | 'visee';
   /** L'arme de jet du héros est partie (on la ramasse après une victoire). */
   armeLancee?: boolean;
   /** Projectiles tirés par le héros (identifiants d'objets). */
@@ -723,6 +725,28 @@ const paradeCritique = (c: Combat, action: Action, def: Combattant, a: Combattan
 };
 
 /**
+ * Le cycle du tir du héros (règles V4 : arc 3 assauts, arbalète 6) : tirer, recharger (rechargement − 2 fois),
+ * viser, tirer. Chaque étape prend le tour.
+ */
+export const etapeTir = (c: Combat): 'recharger' | 'viser' | 'tirer' =>
+  (c.armement ?? 'visee') === 'visee' ? 'tirer' : c.armement === 'chargee' ? 'viser' : 'recharger';
+
+/** Après un tir : l'arme est vide ; une arme qui se recharge en deux assauts (javelot…) est aussitôt prête à viser. */
+export const apresTir = (c: Combat, rechargement: number) => {
+  c.recharge = Math.max(0, rechargement - 2);
+  c.armement = c.recharge ? 'vide' : 'chargee';
+};
+
+export const recharger = (c: Combat) => {
+  c.recharge = Math.max(0, c.recharge - 1);
+  if (!c.recharge) c.armement = 'chargee';
+};
+
+export const viser = (c: Combat) => {
+  c.armement = 'visee';
+};
+
+/**
  * Résout une attaque. Le dé d'attaque est fourni (celui du joueur, ou celui tiré pour le monstre) ;
  * la défense aussi quand c'est le joueur qui la lance, sinon elle est tirée ici.
  */
@@ -874,7 +898,6 @@ export const tourSuivant = (c: Combat) => {
         c.journal.push(`${x.nom} saigne : −${d} PV.`);
       }
     }
-    c.recharge = Math.max(0, c.recharge - 1);
     for (const x of c.combattants) if (x.tireur?.attente) x.tireur.attente -= 1;
   }
 };

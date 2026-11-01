@@ -30,8 +30,12 @@ import {
   type Combat,
   type Combattant,
   type ModeDefense,
+  apresTir,
   creerHeros,
+  etapeTir,
   prendreArme,
+  recharger,
+  viser,
   ramasserArme,
 } from '../rules/combat';
 import { fouiller, tableButin, type Fouille } from '../rules/butin';
@@ -163,6 +167,25 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
 
   const armesDuSac = () => [...new Set(p.sac)].filter((id) => objet(id).type === 'arme' && !objet(id).tir && essaiEquiper(p, id, 'arme').refus === null);
 
+  /** Où en est le tir (recharger → viser → tirer), et ce qu'il reste dans le carquois. */
+  const panneauTir = (t: NonNullable<ReturnType<typeof valeursTir>>, etape: ReturnType<typeof etapeTir>) => {
+    const etapes: [typeof etape, string][] = [
+      ['recharger', t.recharge > 3 ? `Recharger (${t.recharge - 2 - c.recharge}/${t.recharge - 2})` : 'Recharger'],
+      ['viser', 'Viser'],
+      ['tirer', 'Tirer'],
+    ];
+    const rang = etapes.findIndex(([e]) => e === etape);
+    const cycle = `<ol class="cycle-tir">${etapes
+      .filter(([e]) => e !== 'recharger' || t.recharge > 2)
+      .map(([e, l]) => `<li class="${etapes.findIndex(([x]) => x === e) < rang ? 'fait' : e === etape ? 'actuel' : ''}">${l}</li>`)
+      .join('')}</ol>`;
+    const munition = t.arme.tir?.munition;
+    if (!munition) return cycle;
+    const n = p.sac.filter((id) => objet(id).munition === munition).length;
+    const fleches = '<i></i>'.repeat(Math.min(n, 30));
+    return `${cycle}<p class="carquois" title="${n} ${munition === 'carreau' ? 'carreau' : 'flèche'}${n > 1 ? 's' : ''}"><span>${munition === 'carreau' ? 'Carreaux' : 'Carquois'}</span><span class="fleches">${fleches}</span><b>${n}</b>${n > 30 ? ' ' : ''}</p>`;
+  };
+
   const panneauJoueur = () => {
     if (!attente) return '';
     const x = h();
@@ -181,15 +204,23 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
       const cibles = auContact(c);
       const loin = adversaires(c, x);
       const t = valeursTir(p);
-      const tirImpossible = !t ? '' : c.tirPerdu ? 'arme de tir perdue' : c.armeLancee ? 'arme déjà lancée' : t.aSec ? 'plus de projectiles' : c.recharge > 0 ? `rechargement : encore ${c.recharge} assaut${c.recharge > 1 ? 's' : ''}` : '';
+      const tirImpossible = !t ? '' : c.tirPerdu ? 'arme de tir perdue' : c.armeLancee ? 'arme déjà lancée' : t.aSec ? 'plus de projectiles' : '';
+      const etape = etapeTir(c);
       const tirs =
         t && !cibles.length
-          ? `<p class="actions-lieu">${loin
-              .map((e) => `<button data-tirer="${e.id}" ${tirImpossible ? 'disabled' : ''}>🏹 Tirer sur ${echapper(e.nom)} (AD ${t.ad})</button>`)
-              .join('')}</p>
-             <p class="note">${echapper(t.arme.nom)} : dégâts ${echapper(t.degats)}${t.projectile ? `, ${echapper(t.projectile.nom)} (${p.sac.filter((id) => id === t.projectile!.id).length} dans le sac)` : ''}${
-              t.details.length ? ` · AD ${echapper(t.details.join(', '))}` : ''
-            }${tirImpossible ? ` · <b>${tirImpossible}</b>` : ''}</p>`
+          ? `<div class="tir-heros">
+              ${panneauTir(t, etape)}
+              <p class="actions-lieu">${
+                tirImpossible
+                  ? ''
+                  : etape === 'recharger'
+                    ? `<button data-recharger>🏹 Recharger${c.recharge > 1 ? ` (encore ${c.recharge} fois)` : ''}</button>`
+                    : etape === 'viser'
+                      ? '<button data-viser>🎯 Viser</button>'
+                      : loin.map((e) => `<button data-tirer="${e.id}">➶ Tirer sur ${echapper(e.nom)} (AD ${t.ad})</button>`).join('')
+              }</p>
+              <p class="note">${echapper(t.arme.nom)} : dégâts ${echapper(t.degats)}${t.details.length ? ` · AD ${echapper(t.details.join(', '))}` : ''}${tirImpossible ? ` · <b>${tirImpossible}</b>` : ''}</p>
+            </div>`
           : '';
       const sorts = sortsConnus(p).filter((s) => s.enCombat);
       // On ne lance pas un sort avec un ennemi dans les pattes.
@@ -762,11 +793,32 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
         c.projectiles.push(t.projectile.id);
       }
       if (t.arme.tir?.lancee) c.armeLancee = true;
-      c.recharge = t.recharge;
+      apresTir(c, t.recharge);
       const a = tirer(c, 'heros', cible, d, { ad: t.ad, degats: t.degats, rupture: t.arme.rupture });
       await montrer(a, { attaque: true }, t.degats);
       apres();
       if (!c.fin) await attendre(600);
+      avancer();
+    });
+
+    sur('[data-recharger]', async () => {
+      if (attente?.type !== 'action' || etapeTir(c) !== 'recharger') return (occupe = false);
+      attente = null;
+      recharger(c);
+      const t = valeursTir(p);
+      message(`${h().nom} ${t?.arme.tir?.munition === 'carreau' ? 'tend la corde et place un carreau' : 'encoche une flèche'}${c.recharge ? ` (encore ${c.recharge} fois)` : ''}.`);
+      apres();
+      if (!c.fin) await attendre(500);
+      avancer();
+    });
+
+    sur('[data-viser]', async () => {
+      if (attente?.type !== 'action' || etapeTir(c) !== 'viser') return (occupe = false);
+      attente = null;
+      viser(c);
+      message(`${h().nom} bande son arme et vise.`);
+      apres();
+      if (!c.fin) await attendre(500);
       avancer();
     });
 
