@@ -42,12 +42,12 @@ import {
 import { fouiller, tableButin, type Fouille } from '../rules/butin';
 import { avecDe, lancer } from '../rules/des';
 import { objet } from '../rules/objets';
-import { ajouterBlessure, boirePotion, equiper, essaiEquiper, lancerExpression, niveau, noter, type Partie } from '../rules/partie';
+import { ajouterBlessure, blessuresActives, boirePotion, porte, valeursCombat, equiper, essaiEquiper, lancerExpression, mainGauche, niveau, noter, type Partie } from '../rules/partie';
 import { consommerProjectile, valeursTir } from '../rules/tir';
 import { degatsSort, ea, eaMax, lancerSort, sort, sortsConnus, valeurSort, type Sort } from '../rules/magie';
 import type { Rencontre } from '../rules/rencontres';
 import { aTalent } from '../rules/talents';
-import { ajouterButin, compagnon, garderButin, obeit, ORDRES, partButin, partagerButin, reagir, valeurObeissance, type Ordre } from '../rules/compagnons';
+import { ajouterButin, compagnon, obeit, ORDRES, reagir, valeurObeissance, type Ordre } from '../rules/compagnons';
 import { boutonsVitesse, lierVitesse, vitesse } from './commun';
 import { PAS as PAS_HEROS } from '../rules/combat';
 import { boutonAutrement } from './idees';
@@ -58,12 +58,24 @@ import { animerDes, de, echapper } from './outils';
 // seuls ; au tour du joueur, le temps s'arrête : il peut avancer (cases en surbrillance), puis choisir
 // son action et lancer ses propres dés (attaque, dégâts, parade ou esquive, fuite).
 
+/** Les blessures graves du combat, en rouge : « ✚ Main droite tranchée (pour toujours) ». */
+export const listeBlessures = (b: BilanCombat, balise = 'li') =>
+  (b.blessures ?? [])
+    .map((x) => `<${balise} class="perte">✚ ${echapper(x.nom)} ${x.permanente ? '(pour toujours, sauf chez un mage soigneur)' : '(guérira avec le temps)'}</${balise}>`)
+    .join('');
+
+/** Les mêmes, en une phrase rouge à glisser dans un récit. */
+export const pertes = (b: BilanCombat) =>
+  b.blessures?.length ? ` <span class="perte">Blessure${b.blessures.length > 1 ? 's' : ''} grave${b.blessures.length > 1 ? 's' : ''} : ${echapper(b.blessures.map((x) => x.nom.toLowerCase()).join(', '))}.</span>` : '';
+
 export interface BilanCombat {
   /** Reddition : le héros jette son arme devant des créatures pensantes (Donjon de Naheulbeuk : direction les cachots). */
   fin: 'victoire' | 'defaite' | 'fuite' | 'reddition';
   xp: number;
   or: number;
   perdu: number;
+  /** Blessures graves reçues par le héros pendant ce combat (membres perdus, os cassés…). */
+  blessures?: { nom: string; permanente: boolean }[];
   /** Objets ramassés sur les vaincus (déjà dans le sac). */
   objets: string[];
   fouilles: Fouille[];
@@ -109,6 +121,36 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
   const dague = () => !!p.equipe.arme && /dague|poignard|couteau|surin|stylet/i.test(objet(p.equipe.arme).nom);
   /** Frapper lâchement (une fois par combat, avec une lame courte) : seulement sur un ennemi au contact dont on est dans le dos. */
   const lachementPossible = () => aTalent(p, 'Frapper lâchement') && !lachementFait && dague();
+  /** Les malus qui pèsent sur un jet (pièces portées, blessures, coups reçus) : affichés en rouge au survol des boutons. */
+  const malusDe = (k: 'AT' | 'PRD' | 'AD' | 'COU', extra: [string, number][] = []): [string, number][] => {
+    const x = h();
+    const v = valeursCombat(p);
+    const liste: [string, number][] = [];
+    const bricABrac = !!x.talents?.bricABrac;
+    for (const o of porte(p)) {
+      const m = o.mods?.[k] ?? 0;
+      if (m < 0 && !(k === 'PRD' && bricABrac)) liste.push([o.nom, m]);
+    }
+    for (const b of blessuresActives(p)) if ((b.mods[k] ?? 0) < 0) liste.push([b.nom, b.mods[k]!]);
+    let combat = 0;
+    for (const b of x.blessures ?? []) if ((b.mods[k] ?? 0) < 0) {
+      liste.push([`${b.nom} (ce combat)`, b.mods[k]!]);
+      combat += b.mods[k]!;
+    }
+    if (k === 'AT' && x.famille === 'mains-nues' && !x.bourrePif) {
+      liste.push(['Mains nues', -4]);
+      combat -= 4;
+    }
+    const actuel = { AT: x.at, PRD: x.prd, AD: x.ad, COU: x.cou }[k];
+    const prevu = { AT: v.at, PRD: v.prd, AD: v.ad, COU: v.cou }[k] + combat;
+    if (actuel < prevu) liste.push(['Coups reçus pendant le combat', actuel - prevu]);
+    return [...liste, ...extra.filter(([, m]) => m < 0)];
+  };
+  const survol = (malus: [string, number][]) =>
+    malus.length
+      ? `<span class="survol-malus" role="tooltip">${malus.map(([n, m]) => `<span>${echapper(n)} : ${String(m).replace('-', '−')}</span>`).join('')}</span>`
+      : '';
+
   const dosOfferts = () => (lachementPossible() ? auContact(c).filter((e) => dansLeDos(h(), e)) : []);
 
   const h = () => heros(c);
@@ -195,12 +237,12 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
     if (attente.type === 'action') {
       const fuite = x.talents?.renforts
         ? `<button class="secondaire" data-fuir>🏃 Appel des renforts : fuir sans épreuve</button>`
-        : `<button class="secondaire" data-fuir>🎲 Prendre la fuite (AD ${x.ad})</button>`;
+        : `<button class="secondaire" data-fuir>🎲 Prendre la fuite (AD ${x.ad})${survol(malusDe('AD'))}</button>`;
       const talents = [
         berserkerPossible() ? `<button class="secondaire" data-berserker>😡 Entrer en rage (Berserker, une fois par jour)</button>` : '',
         dosOfferts().length
           ? dosOfferts()
-              .map((e) => `<button class="secondaire" data-lachement="${e.id}">🗡 Frapper lâchement ${echapper(e.nom)} dans le dos (dégâts doublés, pas de parade, une fois)</button>`)
+              .map((e) => `<button class="secondaire" data-lachement="${e.id}">🗡 Frapper lâchement ${echapper(e.nom)} dans le dos (dégâts doublés, pas de parade, une fois)${survol(malusDe('AT'))}</button>`)
               .join('')
           : lachementPossible() && auContact(c).length
             ? '<span class="note">Frapper lâchement : place-toi dans le dos d\'un ennemi (derrière sa flèche).</span>'
@@ -222,7 +264,10 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
                     ? `<button data-recharger>🏹 Recharger${c.recharge > 1 ? ` (encore ${c.recharge} fois)` : ''}</button>`
                     : etape === 'viser'
                       ? '<button data-viser>🎯 Viser</button>'
-                      : loin.map((e) => `<button data-tirer="${e.id}">➶ Tirer sur ${echapper(e.nom)} (AD ${t.ad})</button>`).join('')
+                      : loin.map((e) => `<button data-tirer="${e.id}">➶ Tirer sur ${echapper(e.nom)} (AD ${t.ad})${survol(malusDe('AD', t.details.flatMap((d): [string, number][] => {
+                          const m = /^[−-](\d+)\s*(.*)$/.exec(d);
+                          return m ? [[m[2], -Number(m[1])]] : [];
+                        })))}</button>`).join('')
               }</p>
               <p class="note">${echapper(t.arme.nom)} : dégâts ${echapper(t.degats)}${t.details.length ? ` · AD ${echapper(t.details.join(', '))}` : ''}${tirImpossible ? ` · <b>${tirImpossible}</b>` : ''}</p>
             </div>`
@@ -240,13 +285,17 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
               )
               .join('')}</p>`
           : '';
+      const g = mainGauche(p);
+      const gaucheRefus = g && 'refus' in g ? g.refus : '';
       const bouger = c.deplace ? '' : `Tu peux d'abord avancer de ${PAS_HEROS} cases (cases claires du terrain). `;
       const consigne = cibles.length
-        ? `<p><b>À toi !</b> Le temps s'arrête. ${bouger}Choisis ta cible au contact et lance ton D20 : il faut faire <b>${x.at} ou moins</b>.</p>`
+        ? `<p><b>À toi !</b> Le temps s'arrête. ${bouger}Choisis ta cible au contact et lance ton D20 : il faut faire <b>${x.at} ou moins</b>.${
+            x.mainGauche ? ` Puis, deux armes en main : <b>un deuxième coup de la main gauche</b> (${echapper(x.mainGauche.nom)}, ${x.mainGauche.at} ou moins).` : gaucheRefus ? ` <span class="note">Main gauche : ${echapper(gaucheRefus)}</span>` : ''
+          }</p>`
         : `<p><b>À toi !</b> Aucun ennemi au contact. ${bouger}${t ? 'Tu peux tirer, ' : ''}${sorts.length ? 'lancer un sort, ' : ''}${
             t || sorts.length ? 'ou ' : ''
           }avancer vers eux et finir ton tour.</p>`;
-      const melee = `<p class="actions-lieu">${cibles.map((e) => `<button data-cible="${e.id}">🎲 Attaquer ${echapper(e.nom)}</button>`).join('')}<button class="secondaire" data-attendre>⏳ ${
+      const melee = `<p class="actions-lieu">${cibles.map((e) => `<button data-cible="${e.id}">🎲 Attaquer ${echapper(e.nom)}${survol(malusDe('AT'))}</button>`).join('')}<button class="secondaire" data-attendre>⏳ ${
         c.deplace ? 'Finir le tour' : 'Attendre de pied ferme'
       }</button></p>`;
       // Les mains vides (arme lâchée, ou entré sans arme) : on peut ramasser la sienne ou en sortir une du sac.
@@ -270,7 +319,7 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
       const g = x.mainGauche!;
       return `<div class="a-toi"><p><b>Ambidextrie !</b> Ta main gauche tient ${echapper(g.nom)} : une deuxième attaque, plus difficile (AT −5). Il faut <b>${g.at} ou moins</b>. Deux fois plus de chances de toucher… et de te blesser tout seul.</p>
         <p class="actions-lieu">${auContact(c)
-          .map((e) => `<button data-main-gauche="${e.id}">🎲 Frapper ${echapper(e.nom)} de la main gauche</button>`)
+          .map((e) => `<button data-main-gauche="${e.id}">🎲 Frapper ${echapper(e.nom)} de la main gauche${survol(malusDe('AT', [['Deuxième arme (Ambidextrie)', -5]]))}</button>`)
           .join('')}<button class="secondaire" data-sans-gauche>Pas de deuxième coup</button></p></div>`;
     }
     if (attente.type === 'defense') {
@@ -280,8 +329,8 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
       const pourquoi = a.imparable ? 'ses coups ne se parent pas' : x.sansParade ? 'à mains nues, on ne pare pas' : '';
       return `<div class="a-toi"><p><b>${echapper(a.nom)} te touche !</b> Défends-toi : une seule parade ou esquive par assaut.</p>
         <p class="actions-lieu">
-          <button data-defense="parade" ${parade === null ? `disabled title="${pourquoi}"` : ''}>🎲 Parer (PRD ${parade ?? '—'})</button>
-          <button data-defense="esquive" ${esquive === null ? 'disabled title="Trop d\'armure pour esquiver"' : ''}>🎲 Esquiver (AD ${esquive ?? '—'})</button>
+          <button data-defense="parade" ${parade === null ? `disabled title="${pourquoi}"` : ''}>🎲 Parer (PRD ${parade ?? '—'})${parade === null ? '' : survol(malusDe('PRD'))}</button>
+          <button data-defense="esquive" ${esquive === null ? 'disabled title="Trop d\'armure pour esquiver"' : ''}>🎲 Esquiver (AD ${esquive ?? '—'})${esquive === null ? '' : survol(malusDe('AD', [['Armure (esquive)', esquive - x.ad]]))}</button>
           <button class="secondaire" data-defense="encaisser">🛡 Encaisser</button>
         </p>
         <p class="note">${pourquoi ? `${pourquoi.charAt(0).toUpperCase() + pourquoi.slice(1)}. ` : ''}Esquiver t'éloigne : tu rates ta prochaine attaque, sauf esquive critique. Encaisser : tu prends le coup (moins ton armure), mais tu restes au contact pour frapper.</p></div>`;
@@ -305,7 +354,7 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
     return `<div class="a-toi bilan"><p><b>${titre}</b></p>
       <ul>${b.xp ? `<li>${b.xp} points d'expérience</li>` : ''}<li>${
         b.perdu > 0 ? `${b.perdu} PV perdus dans la bagarre` : 'Pas une égratignure'
-      }</li></ul>
+      }</li>${listeBlessures(b)}</ul>
       ${
         b.fouilles.length
           ? `<p><b>Tu fouilles les corps</b> <span class="note">(ton D20 sur la table de butin)</span></p><ul class="fouilles">${b.fouilles
@@ -319,12 +368,7 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
           : ''
       }
       ${b.recuperes ? `<p class="note">${echapper(b.recuperes.trim())}</p>` : ''}
-      ${
-        p.butin && (p.compagnons ?? []).length
-          ? `<p><b>Le groupe attend sa part :</b> ${p.butin} PO à partager.</p><p class="actions-lieu"><button data-partager>Partager à parts égales (${partButin(p)} PO chacun)</button><button class="secondaire" data-garder>Tout garder</button></p>
-             <p class="note">Sans partage avant la nuit, le groupe considère que tu as tout gardé.</p>`
-          : ''
-      }
+      ${p.butin && (p.compagnons ?? []).length ? `<p class="note"><b>Le groupe attend sa part :</b> ${p.butin} PO en tout, à partager ce soir au campement ou à l'auberge.</p>` : ''}
       ${b.groupe?.length ? `<p><b>Le groupe</b></p><ul class="reactions">${b.groupe.map((l) => `<li>${echapper(l)}</li>`).join('')}</ul>` : ''}
       <p><button id="fin-combat">Continuer</button></p>
       <p>${boutonAutrement({ type: 'combat', id: `bilan:${r.ligne.nom}`, titre: `${titre} (combat contre ${r.ligne.nom})` })}</p></div>`;
@@ -521,7 +565,6 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
     // Les suites des critiques : blessures graves, saignement, armes perdues ou cassées.
     const hh = h();
     for (const b of hh.blessures ?? []) ajouterBlessure(p, b);
-    if (hh.blessures?.length) notes.push(`Blessure${hh.blessures.length > 1 ? 's' : ''} grave${hh.blessures.length > 1 ? 's' : ''} : ${hh.blessures.map((b) => b.nom.toLowerCase()).join(', ')} (voir ta fiche).`);
     if (hh.hemorragie !== undefined && p.ev > 0) {
       const d = lancer(6);
       p.ev = Math.max(0, p.ev - d);
@@ -593,7 +636,8 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
     const objets = fouilles.flatMap((f) => (f.objet ? [f.objet] : []));
     p.sac.push(...objets);
     const recuperes = [recup, ...notes].filter(Boolean).join(' ');
-    const bilan: BilanCombat = { fin, xp, or, perdu: evDepart - p.ev, objets, fouilles, recuperes, groupe: reactions };
+    const blessures = (h().blessures ?? []).map((b) => ({ nom: b.nom, permanente: b.jours === undefined }));
+    const bilan: BilanCombat = { fin, xp, or, perdu: evDepart - p.ev, blessures, objets, fouilles, recuperes, groupe: reactions };
     p.xp = (p.xp ?? 0) + xp;
     p.or += or;
     ajouterButin(p, or);
@@ -991,16 +1035,6 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
     });
 
     app.querySelector('#lancer-fouille')?.addEventListener('click', () => void fouillerCorps());
-    sur('[data-partager]', () => {
-      reactions.push(...partagerButin(p));
-      occupe = false;
-      render();
-    });
-    sur('[data-garder]', () => {
-      reactions.push(...garderButin(p));
-      occupe = false;
-      render();
-    });
     sur('[data-ordre]', (el) => {
       const y = combattant(c, el.dataset.qui!);
       const e = (p.compagnons ?? []).find((k) => k.id === y.compagnon);

@@ -153,7 +153,7 @@ export const valeursCompagnon = (p: Partie, e: EtatCompagnon) => valeursCombat(v
 export const tirCompagnon = (p: Partie, e: EtatCompagnon) => {
   const id = compagnon(e.id).equipe.distance;
   if (!id) return undefined;
-  return { ad: valeursCompagnon(p, e).ad, degats: objet(id).degats ?? '1D', arme: objet(id).nom, recharge: objet(id).tir?.recharge ?? 3 };
+  return { ad: valeursCompagnon(p, e).ad, degats: objet(id).degats ?? '1D', arme: objet(id).nom, recharge: objet(id).tir?.recharge ?? 2 };
 };
 
 export const groupe = (p: Partie) => p.compagnons ?? [];
@@ -293,32 +293,86 @@ export const reagir = (p: Partie, ev: Evenement): string[] => {
 
 // --- Le partage du butin --------------------------------------------------------------------
 
-/** Ajoute de l'or gagné avec le groupe au butin à partager (rien à partager quand on est seul). */
+/**
+ * Le butin se partage le soir, au campement ou à l'auberge : chaque compagnon attend sa part (EtatCompagnon.du).
+ * On peut payer chacun séparément : régler les radins, garder la part de ceux qui ne regardent pas trop.
+ * Une part pas payée à la nuit est une part gardée : il en veut au héros selon ce qu'elle représente
+ * à côté de ce qu'il a coûté à l'embauche, et selon son goût pour l'or (choix maison, à valider).
+ */
+
+/** Ce que le groupe attend en tout. */
+const recompter = (p: Partie) => {
+  const total = arrondirOr(groupe(p).reduce((s, e) => s + (e.du ?? 0), 0));
+  p.butin = total > 0 ? total : undefined;
+};
+
+/** Les vieilles sauvegardes n'avaient qu'un pot commun : on le répartit. */
+const repartirAncien = (p: Partie) => {
+  const g = groupe(p);
+  if (!p.butin || !g.length || g.some((e) => e.du !== undefined)) return;
+  for (const e of g) e.du = arrondirOr(p.butin / (g.length + 1));
+};
+
+/** Ajoute de l'or gagné avec le groupe : chacun a droit à sa part égale, héros compris (rien à partager quand on est seul). */
 export const ajouterButin = (p: Partie, or: number) => {
-  if (or > 0 && groupe(p).length) p.butin = arrondirOr((p.butin ?? 0) + or);
+  const g = groupe(p);
+  if (or <= 0 || !g.length) return;
+  repartirAncien(p);
+  for (const e of g) e.du = arrondirOr((e.du ?? 0) + or / (g.length + 1));
+  recompter(p);
+};
+
+/** Ce qu'on doit à ce compagnon (pièces entières). */
+export const partDue = (p: Partie, e: EtatCompagnon) => {
+  repartirAncien(p);
+  return Math.floor(e.du ?? 0);
 };
 
 /** La part de chacun si l'on partage à parts égales, héros compris. */
-export const partButin = (p: Partie) => Math.floor((p.butin ?? 0) / (groupe(p).length + 1));
+export const partButin = (p: Partie) => Math.max(0, ...groupe(p).map((e) => partDue(p, e)));
 
-export const partagerButin = (p: Partie): string[] => {
-  const part = partButin(p);
-  const lignes: string[] = [];
-  for (const e of [...groupe(p)]) {
-    p.or = arrondirOr(p.or - part);
-    lignes.push(apprecier(p, e, a(e, 'cupide') || a(e, 'honneur') ? 2 : 1, `reçoit sa part, ${part} PO`));
+/** Il a un faible pour l'or : plus il est cupide, plus une part oubliée lui reste en travers. */
+const appetit = (e: EtatCompagnon) => (a(e, 'cupide') ? 2 : 0) + (a(e, 'honneur') ? 1 : 0);
+
+/** Donne à ce compagnon sa part. Renvoie la ligne à afficher, ou le refus. */
+export const payerPart = (p: Partie, e: EtatCompagnon): string => {
+  const part = partDue(p, e);
+  if (!part) {
+    e.du = 0;
+    recompter(p);
+    return `${prenom(e.id)} n'attend rien.`;
   }
-  noter(p, `partage le butin : ${part} PO pour chacun.`);
-  p.butin = undefined;
-  return lignes.filter(Boolean);
+  if (p.or < part) return `Il te manque ${arrondirOr(part - p.or)} PO pour payer ${prenom(e.id)}.`;
+  p.or = arrondirOr(p.or - part);
+  e.du = 0;
+  recompter(p);
+  noter(p, `donne sa part à ${prenom(e.id)} : ${part} PO.`);
+  return apprecier(p, e, appetit(e) ? 2 : 1, `reçoit sa part, ${part} PO`) || `${prenom(e.id)} empoche ses ${part} PO.`;
 };
 
-export const garderButin = (p: Partie, raison = 'tu gardes tout le butin pour toi'): string[] => {
-  const lignes = groupe(p)
-    .map((e) => apprecier(p, e, a(e, 'cupide') ? -3 : a(e, 'honneur') ? -2 : -1, raison))
-    .filter(Boolean);
-  p.butin = undefined;
-  return lignes;
+export const partagerButin = (p: Partie): string[] => groupe(p).filter((e) => partDue(p, e) > 0).map((e) => payerPart(p, e));
+
+/** Ce que lui coûte une part gardée : selon la somme (comparée à son prix d'embauche) et son goût pour l'or. */
+export const rancune = (p: Partie, e: EtatCompagnon) => {
+  const part = partDue(p, e);
+  if (!part) return 0;
+  const prix = compagnon(e.id).prix ?? 30;
+  return Math.min(6, Math.floor((part / prix) * 4) + appetit(e));
+};
+
+/** La nuit tombe (ou le héros dit qu'il garde tout) : chaque part pas payée est une part gardée. */
+export const garderButin = (p: Partie, raison = 'tu as gardé sa part du butin'): string[] => {
+  repartirAncien(p);
+  const lignes: string[] = [];
+  for (const e of [...groupe(p)]) {
+    const part = partDue(p, e);
+    if (!part) continue;
+    const r = rancune(p, e);
+    e.du = 0;
+    lignes.push(r ? apprecier(p, e, -r, `${raison} (${part} PO)`) : `${prenom(e.id)} ne réclame pas ses ${part} PO : il n'y tenait pas tant que ça.`);
+  }
+  recompter(p);
+  return lignes.filter(Boolean);
 };
 
 // --- Discuter, payer une tournée, donner des ordres ----------------------------------------

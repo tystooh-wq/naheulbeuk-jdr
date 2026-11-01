@@ -70,7 +70,7 @@ import { acheter, formatHeure, noter, passerTemps, soigner, type Partie } from '
 import { donjonTermine, progresserQuetes } from '../rules/quetes';
 import type { LigneRencontre, Rencontre } from '../rules/rencontres';
 import { bandeau, lierSac, lierVitesse, panneauGroupe, panneauJournal, panneauSac } from './commun';
-import { ecranCombat, type BilanCombat } from './combat';
+import { ecranCombat, pertes, type BilanCombat } from './combat';
 import { boutonAutrement, lierIdeesLieu, panneauIdeesLieu } from './idees';
 import { animerDes, de, echapper } from './outils';
 import { lierQuetes, panneauJournalQuetes, panneauQuetes } from './quetes';
@@ -544,7 +544,7 @@ export const ecranDonjon = (app: HTMLElement, p: Partie, s: SortiesDonjon) => {
   const apresCombat = (r: Rencontre, bilan: BilanCombat, victoire: () => string, fuite = 'Tu prends la fuite et reviens sur tes pas, le cœur battant.') => {
     if (bilan.fin === 'victoire') {
       const hauts = ddn() ? apresVictoire(p, vaincus(r)) : [];
-      return dire(`Victoire (+${bilan.xp} XP${bilan.or ? `, ${formatOr(bilan.or)}` : ''}${bilan.objets.length ? `, ${bilan.objets.map((o) => objet(o).nom).join(', ')}` : ''}). ${victoire()}${hauts.map((h) => ` ${echapper(h)}.`).join('')}`);
+      return dire(`Victoire (+${bilan.xp} XP${bilan.or ? `, ${formatOr(bilan.or)}` : ''}${bilan.objets.length ? `, ${bilan.objets.map((o) => objet(o).nom).join(', ')}` : ''}). ${victoire()}${hauts.map((h) => ` ${echapper(h)}.`).join('')}${pertes(bilan)}`);
     }
     scene = undefined;
     if (bilan.fin === 'fuite') {
@@ -691,7 +691,7 @@ export const ecranDonjon = (app: HTMLElement, p: Partie, s: SortiesDonjon) => {
       noter(p, `fouille ${sa.nom} : ${gains.join(', ')}.`);
       const h = t.hautFait && ddn() ? hautFait(p, t.hautFait) : null;
       dire(
-        `${echapper(t.texte)} <b>${echapper(gains.join(', '))}</b>.${t.heures ? ` (${t.heures} h de fouille)` : ''}${p.butin ? ` Le groupe attend sa part (${p.butin} PO à partager, onglet Groupe).` : ''}${h ? ` ${echapper(h)}.` : ''}`,
+        `${echapper(t.texte)} <b>${echapper(gains.join(', '))}</b>.${t.heures ? ` (${t.heures} h de fouille)` : ''}${p.butin ? ` Le groupe attend sa part (${p.butin} PO, à partager ce soir).` : ''}${h ? ` ${echapper(h)}.` : ''}`,
       );
     });
     sur('#combattre', () => {

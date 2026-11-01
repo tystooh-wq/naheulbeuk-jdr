@@ -51,7 +51,7 @@ export const emplacementDe = (o: Objet): CleEquipement | null => {
 };
 
 // La deuxième arme ne compte pas dans les malus de tous les jours : seulement quand elle frappe.
-const porte = (p: Partie): Objet[] =>
+export const porte = (p: Partie): Objet[] =>
   EMPLACEMENTS.filter(([k]) => k !== 'armeGauche')
     .map(([k]) => p.equipe[k])
     .filter((id): id is string => !!id)
@@ -76,6 +76,8 @@ export interface EtatCompagnon {
   tournee?: number;
   /** Points de destin (1D4−1, tirés à son arrivée dans le groupe) : chacun lui évite la mort une fois. */
   destin?: number;
+  /** Sa part du butin pas encore payée (on paie le soir, au campement ou à l'auberge). */
+  du?: number;
 }
 
 /** Les compagnons se reposent en même temps que le héros (jamais au-delà de leur maximum, et au moins 1 PV). */
@@ -136,7 +138,7 @@ export interface Partie {
   /** Bivouac de qualité monté ce soir (compétences de camping) : +2 PV et +4 PA à la nuit. */
   campQualite?: boolean;
   /** Blessures graves (tables des critiques) : `jusqua` est le jour où elles guérissent, absent si permanentes. */
-  blessures?: (BlessureGrave & { jusqua?: number })[];
+  blessures?: (BlessureGrave & { jusqua?: number; soignee?: boolean })[];
   /** Donjon en cours d'exploration. */
   donjon?: EtatDonjon;
   /** L'état des donjons dont on est ressorti : salles vidées, coffres pillés, plan déjà vu. */
@@ -146,6 +148,8 @@ export interface Partie {
   arrive: boolean;
   /** Cité dont on a payé le droit d'entrée (on le repaie en revenant). */
   peage?: string;
+  /** Portes où le garde nous reconnaît encore : heure absolue (jour × 24 + heure) jusqu'à laquelle on passe sans payer. */
+  peagesPayes?: Record<string, number>;
   /** Or gagné avec le groupe et pas encore partagé (combat, coffres) : à régler avant la nuit. */
   butin?: number;
   /** Hauts faits obtenus (succès du Donjon de Naheulbeuk) : combien de fois chacun. */
@@ -304,7 +308,8 @@ export const mainGauche = (p: Partie): { at: number; degats: string; arme: Objet
   const v = valeursCombat(p);
   const arme = objet(p.equipe.armeGauche);
   if (!ambidextre(p)) return { refus: 'Il faut la compétence Ambidextrie et le niveau 2.' };
-  if (v.ad < 14) return { refus: `Il faut AD 14 pour frapper des deux mains (tu as ${v.ad}).` };
+  // Le seuil se lit sur l'Adresse du personnage : les malus d'armure ou de blessure ne l'empêchent pas de frapper des deux mains.
+  if (f.caracs.AD < 14) return { refus: `Il faut AD 14 pour frapper des deux mains (tu as ${f.caracs.AD}).` };
   const droite = p.equipe.arme ? objet(p.equipe.arme) : undefined;
   return { at: v.at - (droite?.mods?.AT ?? 0) + (arme.mods?.AT ?? 0) - 5, degats: degatsAvec(f, arme), arme };
 };
@@ -489,7 +494,7 @@ export const boirePotion = (p: Partie, id: string, rng?: Rng): { rendu: number; 
 export const dormir = (p: Partie, confort: 'mauvais' | 'normal' | 'excellent'): number => {
   if (p.heure >= 6) p.jour += 1;
   p.heure = 7;
-  if (p.butin) garderButin(p, 'la nuit tombe sans que personne ait vu la couleur du butin');
+  if (p.butin) garderButin(p, 'la nuit est tombée sans qu\'il voie la couleur de sa part');
   reposAstral(p, 8, confort);
   reposCompagnons(p, { mauvais: 2, normal: 4, excellent: 8 }[confort]);
   return soigner(p, { mauvais: 2, normal: 4, excellent: 8 }[confort]);

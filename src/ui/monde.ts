@@ -29,7 +29,8 @@ import { lierQuetes, marqueQuete, panneauJournalQuetes, panneauQuetes } from './
 import { arrondirOr, formatOr } from '../rules/monnaie';
 import { bandeau, jaugeReputation, lierSac, lierVitesse, majHorloge, panneauGroupe, panneauJournal, panneauSac, vitesse } from './commun';
 import { animerDes, de, echapper } from './outils';
-import { ecranCombat, type BilanCombat } from './combat';
+import { ecranCombat, listeBlessures, pertes, type BilanCombat } from './combat';
+import { panneauPartage, partageDuSoir } from './groupe';
 import { cite, CITES } from '../rules/cites';
 import { EVENEMENT_PROVOQUER } from './encyclopedie';
 import { boutonAutrement, lierIdeesLieu, panneauIdeesLieu, ideesValidees, type Contexte, type ResultatIdee, NOM_EPREUVE, resoudreIdee, surChangement, valeurEpreuve, type Idee } from './idees';
@@ -219,6 +220,7 @@ export const ecranMonde = (app: HTMLElement, p: Partie, s: Sorties) => {
     let extra = '';
     if (l.type === 'bac') extra = '<p><button disabled>Traverser vers la Caladie</button> <span class="note">La Caladie n\'est pas encore sur la carte du jeu.</span></p>';
     if (l.planAVenir) extra += `<p class="note">${echapper(l.nom)} a un plan officiel : on pourra s'y promener dans une prochaine version.</p>`;
+    if (l.auberge || !l.ville) extra += panneauPartage(p);
     extra += panneauQuetes(p, `monde:${l.id}`, epreuveQuete);
     const corps = `<p>${echapper(l.description)}</p>${extra}
       ${msg ? `<div class="recit">${msg}</div>` : ''}
@@ -294,7 +296,7 @@ export const ecranMonde = (app: HTMLElement, p: Partie, s: Sorties) => {
               b.objets.length ? `, et dans ton sac : ${b.objets.map((o) => objet(o).nom).join(', ')}` : ''
             }.`
           : "Tu as réussi à t'enfuir, le souffle court."
-      }${b.perdu > 0 ? ` Tu y as laissé ${b.perdu} PV.` : ''}</div>
+      }${b.perdu > 0 ? ` Tu y as laissé ${b.perdu} PV.` : ''}${b.blessures?.length ? `<ul class="pertes">${listeBlessures(b)}</ul>` : ''}</div>
       <p><button id="suite">Continuer</button></p>`;
     } else if (!issue && f.tactique) {
       const t = TACTIQUES[f.tactique];
@@ -384,6 +386,7 @@ export const ecranMonde = (app: HTMLElement, p: Partie, s: Sorties) => {
         <p>${p.sac.includes('couverture') ? 'Tu as une couverture : récupération normale.' : 'Sans couverture, la nuit sera froide : récupération basse.'}
         ${p.sac.includes('rations') ? 'Tu manges une ration.' : "Pas de ration : tu dormiras le ventre vide (récupération divisée par deux)."}</p>
         ${campingHtml(f)}
+        ${panneauPartage(p)}
         ${aTalent(p, 'Sentir des pieds') ? '<p class="note">Sentir des pieds : tu retires tes bottes. Aucune bête sensée n\'approchera du camp cette nuit.</p>' : ''}
         <p><button id="bivouac">Installer le bivouac</button></p>`;
     return cadreFenetre(position(), 'Bivouac', 'La nuit tombe', `${dateLongue(p.jour)}, ${formatHeure(p.heure)}`, corps, false, {
@@ -583,12 +586,13 @@ export const ecranMonde = (app: HTMLElement, p: Partie, s: Sorties) => {
 
   const dormirDehors = () => {
     // On dort jusqu'à l'aube : l'horloge avance jusqu'à 6 h du jour suivant.
+    const plaintes = partageDuSoir(p);
     const b = bivouaquer(p);
     noter(p, `bivouaque et récupère ${b.rendu} PV.`);
     const confort = b.confort === 'normal' ? 'Bien emmitouflé dans ta couverture' : 'Recroquevillé sur le sol froid';
     fenetre = {
       type: 'nuit',
-      resultat: `${confort}${b.matelas ? ', sur ton matelas de camping' : ''}, tu dors ${b.mange ? 'après un repas frugal' : 'le ventre vide'}. À l'aube du ${dateLongue(p.jour)}, ${b.rendu ? `tu as récupéré <b>${b.rendu} PV</b>` : 'tu te lèves en pleine forme'}.`,
+      resultat: `${confort}${b.matelas ? ', sur ton matelas de camping' : ''}, tu dors ${b.mange ? 'après un repas frugal' : 'le ventre vide'}. À l'aube du ${dateLongue(p.jour)}, ${b.rendu ? `tu as récupéré <b>${b.rendu} PV</b>` : 'tu te lèves en pleine forme'}.${plaintes}`,
     };
     sauver();
     render();
@@ -678,9 +682,10 @@ export const ecranMonde = (app: HTMLElement, p: Partie, s: Sorties) => {
     });
     sur('#chambre', () => {
       p.or -= l.auberge!.chambre;
+      const plaintes = partageDuSoir(p);
       const rendu = dormir(p, l.auberge!.confort);
       noter(p, `dort à « ${l.auberge!.nom} » (${l.nom}) et récupère ${rendu} PV.`);
-      dire(`Une nuit sous un vrai toit. Au matin du ${dateLongue(p.jour)}, tu as récupéré <b>${rendu} PV</b>.`);
+      dire(`Une nuit sous un vrai toit. Au matin du ${dateLongue(p.jour)}, tu as récupéré <b>${rendu} PV</b>.${plaintes}`);
     });
     sur('#guerisseur', () => {
       const n = Math.min(evMax(p) - p.ev, Math.floor(p.or / l.guerisseur!));
@@ -705,7 +710,7 @@ export const ecranMonde = (app: HTMLElement, p: Partie, s: Sorties) => {
               sauver();
               return render();
             }
-            dire(bilan.fin === 'victoire' ? `Victoire (+${bilan.xp} XP). ${echapper(apres())}` : 'Tu prends la fuite. Tu pourras revenir finir le travail.');
+            dire((bilan.fin === 'victoire' ? `Victoire (+${bilan.xp} XP). ${echapper(apres())}` : 'Tu prends la fuite. Tu pourras revenir finir le travail.') + pertes(bilan));
           }),
         donjon: (id, par) => s.entrerDonjon(id, par),
       },
@@ -948,7 +953,7 @@ export const ecranMonde = (app: HTMLElement, p: Partie, s: Sorties) => {
 
   if (echapActif) document.removeEventListener('keydown', echapActif);
   echapActif = (e: KeyboardEvent) => {
-    if (e.key === 'Escape' && (fenetre?.type === 'lieu' || fenetre?.type === 'itineraire') && app.querySelector('#popup')) fermer();
+    if (e.key === 'Escape' && app.querySelector('#carte') && (fenetre?.type === 'lieu' || fenetre?.type === 'itineraire') && app.querySelector('#popup')) fermer();
   };
   document.addEventListener('keydown', echapActif);
 

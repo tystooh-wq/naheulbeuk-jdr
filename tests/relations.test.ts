@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Personnage } from '../src/rules/creation';
-import { ajouterButin, appreciation, discuter, garderButin, obeit, valeurObeissance, partagerButin, payerTournee, reagir, recruter, seuilDepart } from '../src/rules/compagnons';
+import { ajouterButin, partDue, payerPart, rancune, appreciation, discuter, garderButin, obeit, valeurObeissance, partagerButin, payerTournee, reagir, recruter, seuilDepart } from '../src/rules/compagnons';
 import { bilanCompagnons, creerCombat, deplacer, heros, planifier, verifier } from '../src/rules/combat';
 import { cite } from '../src/rules/cites';
 import { donjon, entrerDonjon, fouiller, quitterDonjon, regler, repeuplement, REPEUPLEMENT } from '../src/rules/donjons';
@@ -66,8 +66,28 @@ describe('appréciation des compagnons', () => {
     const p = avec('bralk');
     ajouterButin(p, 12);
     dormir(p, 'normal');
-    expect(appreciation(etat(p, 'bralk'))).toBe(-3);
-    expect(etat(p, 'bralk').souvenirs?.[0].texte).toMatch(/butin/);
+    // 6 PO, peu à côté de ses 40 PO d'embauche, mais Bralk est cupide.
+    expect(appreciation(etat(p, 'bralk'))).toBe(-2);
+    expect(etat(p, 'bralk').souvenirs?.[0].texte).toMatch(/sa part/);
+    expect(p.butin).toBeUndefined();
+  });
+
+  it('on paie chacun sa part : les radins, et on garde celle des moins regardants', () => {
+    const p = avec('gaston', 'bralk');
+    ajouterButin(p, 30);
+    expect(partDue(p, etat(p, 'bralk'))).toBe(10);
+    expect(rancune(p, etat(p, 'bralk'))).toBe(3);
+    expect(rancune(p, etat(p, 'gaston'))).toBeLessThan(3);
+    const or = p.or;
+    payerPart(p, etat(p, 'bralk'));
+    expect(p.or).toBe(or - 10);
+    expect(partDue(p, etat(p, 'bralk'))).toBe(0);
+    expect(p.butin).toBe(10);
+    const avant = appreciation(etat(p, 'gaston'));
+    const r = rancune(p, etat(p, 'gaston'));
+    garderButin(p);
+    expect(appreciation(etat(p, 'gaston'))).toBe(avant - r);
+    expect(p.butin).toBeUndefined();
   });
 
   it('seul, il n’y a rien à partager', () => {
@@ -170,15 +190,15 @@ describe('donjons persistants', () => {
 });
 
 describe("droits d'entrée", () => {
-  it('Jambfer : 5 PO par personne, compagnons compris', () => {
+  it('Jambfer : 5 PO par personne, chaque compagnon paie sa place', () => {
     const p = avec('bralk');
     const c = cite('jambfer');
     expect(peageDu(p, c)).toBe(true);
     const g = fixerPeage(c);
-    expect(totalPeage(p, g)).toBe(10);
+    expect(totalPeage(p, g)).toBe(5);
     const or = p.or;
     expect(payerPeage(p, c, g)).toBeNull();
-    expect(p.or).toBe(or - 10);
+    expect(p.or).toBe(or - 5);
     expect(peageDu(p, c)).toBe(false);
     expect(peageDu(p, cite('valtordu'))).toBe(false);
   });
@@ -194,6 +214,13 @@ describe("droits d'entrée", () => {
     expect(discuterPeage(p, g, 20).prix).toBe(8);
     p.or = 2;
     expect(payerPeage(p, c, g)).toMatch(/manque/);
+    p.or = 50;
+    expect(payerPeage(p, c, g)).toBeNull();
+    p.peage = undefined;
+    p.jour += 6;
+    expect(peageDu(p, c)).toBe(false);
+    p.jour += 2;
+    expect(peageDu(p, c)).toBe(true);
   });
 });
 

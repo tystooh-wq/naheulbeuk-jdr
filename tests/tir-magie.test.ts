@@ -24,8 +24,8 @@ const perso = (p: Partial<Personnage>): Personnage => ({
 
 describe('armes à distance', () => {
   it('arcs et flèches viennent du catalogue avec leur rechargement', () => {
-    expect(objet('arc-court-de-qualite-correcte').tir).toMatchObject({ recharge: 3, munition: 'fleche' });
-    expect(objet('arbalete-de-qualite-correcte').tir).toMatchObject({ recharge: 6, munition: 'carreau', mecanique: true });
+    expect(objet('arc-court-de-qualite-correcte').tir).toMatchObject({ recharge: 2, munition: 'fleche' });
+    expect(objet('arbalete-de-qualite-correcte').tir).toMatchObject({ recharge: 4, munition: 'carreau', mecanique: true });
     expect(objet('javelot-de-base').tir?.lancee).toBe(true);
     expect(objet('fleche-de-base')).toMatchObject({ munition: 'fleche', modTir: -1 });
   });
@@ -61,7 +61,7 @@ describe('armes à distance', () => {
   it('les brigands archers tirent', () => {
     const p = nouvellePartie(perso({}));
     const c = creerCombat(p, { ligne: TABLE_TERRES_SAUVAGES[5], nombre: 1, d20: 6 });
-    expect(c.combattants[1].tireur).toMatchObject({ ad: 11, degats: '1D+3', recharge: 3 });
+    expect(c.combattants[1].tireur).toMatchObject({ ad: 11, degats: '1D+3', recharge: 2 });
   });
 
   it("chacun regarde où il va et qui il frappe ; on n'est dans le dos que derrière la flèche", () => {
@@ -104,7 +104,7 @@ describe('armes à distance', () => {
     expect(etapeTir(c)).toBe('viser');
   });
 
-  it("à l'arc, on tire une fois tous les trois assauts (rechargement 3), héros comme ennemis", () => {
+  it("à l'arc, on tire une fois tous les deux assauts (règle maison), héros comme ennemis", () => {
     const p = nouvellePartie(perso({}));
     const c = creerCombat(p, { ligne: TABLE_TERRES_SAUVAGES[5], nombre: 1, d20: 6, approche: 4 });
     const archer = c.combattants[1];
@@ -116,7 +116,7 @@ describe('armes à distance', () => {
       }
       for (let i = 0; i < c.ordre.length; i++) tourSuivant(c);
     }
-    expect(tirs.map((a) => a - tirs[0])).toEqual([0, 3, 6]);
+    expect(tirs.map((a) => a - tirs[0])).toEqual([0, 2, 4, 6, 8]);
   });
 });
 

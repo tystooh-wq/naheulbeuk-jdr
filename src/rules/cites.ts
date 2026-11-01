@@ -42,6 +42,8 @@ export interface Peage {
   prix: number | string;
   /** Peut-on discuter le prix (épreuve de Charisme) ? */
   marchandable: boolean;
+  /** Le garde se souvient de ceux qui ont payé pendant tant d'heures (rien : on repaie à chaque entrée). */
+  souvenir?: number;
 }
 
 export const CITES: Cite[] = [
@@ -175,6 +177,7 @@ export const CITES: Cite[] = [
       texte: "Le garde de la porte ouest se gratte le menton, compte tes bagages du regard, et annonce un prix. Par personne. Il le trouve sans doute raisonnable.",
       prix: '1D+2',
       marchandable: true,
+      souvenir: 7 * 24,
     },
   },
   {

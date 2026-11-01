@@ -246,8 +246,8 @@ const tireurDe = (notes: string, degats: string, ad: number) => {
   if (!/\barc\b|arbalète/i.test(notes)) return undefined;
   const d = /Arc\s*:\s*(\d*D[+-]?\d*)/i.exec(notes)?.[1];
   const a = Number(/AD\s*:?\s*(\d+)/.exec(notes)?.[1] ?? ad);
-  // Rechargement (règles V4) : arc 3 assauts, arbalète 6.
-  return { ad: a, degats: d ?? degats.replace('*', ''), recharge: /arbalète/i.test(notes) ? 6 : 3 };
+  // Rechargement : règle maison (Sedy, 1/11), arc 2 assauts, arbalète 4 (règles V4 : 3 et 6).
+  return { ad: a, degats: d ?? degats.replace('*', ''), recharge: /arbalète/i.test(notes) ? 4 : 2 };
 };
 
 /** Un compagnon du héros, avec sa fiche et son équipement. */
@@ -742,7 +742,7 @@ const paradeCritique = (c: Combat, action: Action, def: Combattant, a: Combattan
 };
 
 /**
- * Le cycle du tir du héros (règles V4 : arc 3 assauts, arbalète 6) : tirer, recharger (rechargement − 2 fois),
+ * Le cycle du tir du héros (règle maison : arc 2 assauts, arbalète 4) : tirer, recharger (rechargement − 2 fois),
  * viser, tirer. Chaque étape prend le tour.
  */
 export const etapeTir = (c: Combat): 'recharger' | 'viser' | 'tirer' =>
@@ -939,7 +939,7 @@ export const tirer = (
   tourner(a, cible);
   const action: Action = { attaquant: a.id, cible: cible.id, de, valeur: tir.ad, issue: jet(de, tir.ad), effets: [], tir: true };
   // Les tireurs du jeu (ennemis, compagnons) rechargent ; celui du héros est suivi dans c.recharge.
-  if (a.tireur && a.id !== 'heros') a.tireur.attente = a.tireur.recharge ?? 3;
+  if (a.tireur && a.id !== 'heros') a.tireur.attente = a.tireur.recharge ?? 2;
   if (action.issue === 'rate') return action;
   if (action.issue === 'maladresse') {
     maladresse(c, action, a, options.rng, { tir });

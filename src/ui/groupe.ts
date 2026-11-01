@@ -11,7 +11,9 @@ import {
   groupe,
   humeur,
   partagerButin,
-  partButin,
+  partDue,
+  payerPart,
+  rancune,
   payerTournee,
   PRIX_TOURNEE,
   recruter,
@@ -82,16 +84,46 @@ const relationHtml = (p: Partie, e: EtatCompagnon) => {
   </div>`;
 };
 
+/** Avant de dormir : les parts pas payées sont gardées. Renvoie le récit des rancunes (vide si rien). */
+export const partageDuSoir = (p: Partie) => {
+  dernierPartage = '';
+  const l = garderButin(p);
+  return l.length ? `<ul class="reactions">${l.map((x) => `<li>${echapper(x)}</li>`).join('')}</ul>` : '';
+};
+
+/** Le dernier partage (qui a été payé, qui râle), affiché dans le panneau jusqu'au prochain. */
+let dernierPartage = '';
+
+/**
+ * Le partage du butin, à faire le soir : chacun sa part, payée une par une ou toutes ensemble.
+ * Une part pas payée à la nuit est une part gardée, et les plus cupides le prennent mal.
+ */
+export const panneauPartage = (p: Partie) => {
+  const g = groupe(p).filter((e) => partDue(p, e) > 0);
+  const fait = dernierPartage ? `<div class="recit">${dernierPartage}</div>` : '';
+  if (!g.length) return fait;
+  const lignes = g
+    .map((e) => {
+      const part = partDue(p, e);
+      const r = rancune(p, e);
+      const nom = echapper(compagnon(e.id).perso.nom.split(' ')[0]);
+      return `<li><b>${nom}</b> attend <b>${part} PO</b> <span class="note">${
+        r ? `sans paiement ce soir : appréciation −${r}${r >= 3 ? ', il tient à son or' : ''}` : 'il ne regarde pas trop : il ne dira rien si tu gardes sa part'
+      }</span> <button class="secondaire petit" data-payer-part="${e.id}" ${p.or < part ? 'disabled' : ''}>Payer ${nom}</button></li>`;
+    })
+    .join('');
+  return `${fait}<div class="recit partage"><b>Partage du butin</b> <span class="note">(${p.butin} PO gagnés ensemble, une part égale chacun, la tienne comprise)</span>
+    <ul class="parts">${lignes}</ul>
+    <p class="actions-lieu"><button data-partager>Payer tout le monde</button><button class="secondaire" data-garder>Tout garder</button></p>
+    <p class="note">On partage le soir, au campement ou à l'auberge. Une part pas payée avant de dormir est une part gardée.</p></div>`;
+};
+
 /** L'onglet « Groupe » : la fiche complète de chaque compagnon. */
 export const panneauGroupe = (p: Partie, message?: string) => {
   const g = groupe(p);
   return `<div class="panneau">
     <h2>Groupe</h2>
-    ${
-      p.butin && g.length
-        ? `<div class="recit"><b>Butin à partager :</b> ${p.butin} PO gagnés ensemble. <p class="actions-lieu"><button data-partager>Partager à parts égales (${partButin(p)} PO chacun)</button><button class="secondaire" data-garder>Tout garder</button></p><p class="note">Sans partage avant la nuit, le groupe considère que tu as tout gardé.</p></div>`
-        : ''
-    }
+    ${panneauPartage(p)}
     ${message ? `<div class="recit">${message}</div>` : ''}
     ${
       g.length
@@ -135,8 +167,15 @@ export const lierGroupe = (app: HTMLElement, p: Partie, message: (html: string) 
       message(liste([payerTournee(p, e)]));
     }),
   );
-  app.querySelector('[data-partager]')?.addEventListener('click', () => message(`Tu comptes les pièces devant tout le monde.${liste(partagerButin(p))}`));
-  app.querySelector('[data-garder]')?.addEventListener('click', () => message(`Tu fourres tout dans ta bourse.${liste(garderButin(p))}`));
+  const partage = (html: string) => {
+    dernierPartage = html;
+    message('');
+  };
+  app.querySelectorAll<HTMLElement>('[data-payer-part]').forEach((b) =>
+    b.addEventListener('click', () => partage(liste([payerPart(p, etat(b.dataset.payerPart!))]))),
+  );
+  app.querySelector('[data-partager]')?.addEventListener('click', () => partage(`Tu comptes les pièces devant tout le monde.${liste(partagerButin(p))}`));
+  app.querySelector('[data-garder]')?.addEventListener('click', () => partage(`Tu fourres tout dans ta bourse.${liste(garderButin(p, 'tu as gardé sa part pour toi'))}`));
   app.querySelectorAll<HTMLElement>('[data-renvoyer]').forEach((b) =>
     b.addEventListener('click', () => {
       const nom = compagnon(b.dataset.renvoyer!).perso.nom;

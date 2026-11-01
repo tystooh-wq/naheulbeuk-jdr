@@ -2141,3 +2141,13 @@ details.ordres summary {
 .terrain .face::after { content: ''; position: absolute; right: -3px; top: 50%; transform: translateY(-50%); border-top: 6px solid transparent; border-bottom: 6px solid transparent; border-left: 8px solid var(--encre); }
 .terrain .face-ennemi::after { border-left-color: var(--rouge); }
 .terrain .face-heros::after { border-left-color: var(--vert); }
+
+/* Blessures graves au bilan d'un combat */
+.perte { color: #a01d1d; font-weight: 600; }
+ul.pertes { margin: 6px 0 0; padding-left: 1.1em; list-style: none; }
+
+/* Au survol d'une action de combat : les malus du jet, en rouge */
+.a-toi button { position: relative; }
+.survol-malus { display: none; position: absolute; left: 50%; bottom: calc(100% + 6px); transform: translateX(-50%); z-index: 20; min-width: 180px; max-width: 280px; padding: 6px 10px; border-radius: 6px; background: #fffaf0; border: 1px solid #a01d1d; box-shadow: 0 3px 10px rgba(0,0,0,.25); color: #a01d1d; font-size: .82rem; font-weight: 600; text-align: left; white-space: normal; pointer-events: none; }
+.survol-malus span { display: block; }
+.a-toi button:hover .survol-malus, .a-toi button:focus-visible .survol-malus { display: block; }

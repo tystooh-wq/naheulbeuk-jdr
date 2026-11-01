@@ -1,4 +1,5 @@
 import { dateLongue } from '../rules/calendrier';
+import { adressesSpecialistes, soignerGrave, soinsGraves } from '../rules/chirurgie';
 import planWaldorg from '../assets/waldorg.jpg';
 import planValtordu from '../assets/valtordu.jpg';
 import planLoubet from '../assets/loubet.jpg';
@@ -29,7 +30,7 @@ import { cite, lieuCite, longueurCite, pointCite, trajetCite } from '../rules/ci
 import type { Lieu, TypeLieu } from '../rules/waldorg';
 import type { Rencontre } from '../rules/rencontres';
 import { bandeau, jaugeReputation, lierSac, lierVitesse, ligneObjet, panneauGroupe, panneauJournal, panneauSac, vitesse } from './commun';
-import { ecranCombat } from './combat';
+import { ecranCombat, pertes } from './combat';
 import { ecranMort } from './mort';
 import { aTalent, bonusSituation, texteBonus } from '../rules/talents';
 import { lierQuetes, marqueQuete, panneauJournalQuetes, panneauQuetes } from './quetes';
@@ -38,8 +39,8 @@ import { marchander, type Marchandage } from '../rules/marchandage';
 import { arrondirOr, formatOr } from '../rules/monnaie';
 import { boutonAutrement, lierIdeesLieu, panneauIdeesLieu } from './idees';
 import { sauvegarderPartie } from './sauvegarde';
-import { lierGroupe, panneauEmbauche } from './groupe';
-import { discuterPeage, fixerPeage, payerPeage, peageDu, personnes, totalPeage, type Peage } from '../rules/peage';
+import { lierGroupe, panneauEmbauche, panneauPartage, partageDuSoir } from './groupe';
+import { discuterPeage, fixerPeage, payerPeage, peageDu, personnes, reconnuJusqua, totalPeage, type Peage } from '../rules/peage';
 import { facteurPrix, rangReputation, reputation } from '../rules/reputation';
 
 // Lettres sur le plan, dans l'esprit des symboles des cartes MJ (A, E, T…).
@@ -220,7 +221,7 @@ export const ecranVille = (app: HTMLElement, p: Partie, sorties: SortiesVille, a
           const total = totalPeage(p, t.g);
           const n = personnes(p);
           parts.push(`<div class="recit">${echapper(c.peage!.texte)}
-            <p>${t.g.des.length ? `${t.g.des.map((x) => de(x)).join('')} ` : ''}<b>${t.g.prix} PO par personne</b>${n > 1 ? `, soit <b>${total} PO</b> pour vous ${n}` : ''}. Tu as ${formatOr(p.or)}.</p>
+            <p>${t.g.des.length ? `${t.g.des.map((x) => de(x)).join('')} ` : ''}<b>${t.g.prix} PO par personne</b>.${n > 1 ? ` Chacun paie sa place : ${n === 2 ? 'ton compagnon sort la sienne' : 'tes compagnons sortent la leur'} de sa part du butin.` : ''}${c.peage!.souvenir ? ' Le garde a de la mémoire : une fois payé, il te laissera passer pendant une semaine.' : ''} Tu as ${formatOr(p.or)}.</p>
             ${t.g.discussion ? `<p>${de(t.g.discussion.de)} ${echapper(t.g.discussion.texte)}</p>` : ''}
             ${
               t.discute
@@ -229,7 +230,11 @@ export const ecranVille = (app: HTMLElement, p: Partie, sorties: SortiesVille, a
                   ${c.peage!.marchandable && !t.g.discussion ? `<button class="secondaire" id="discuter-peage">Discuter le prix (Charisme)</button>` : ''}
                   <button class="secondaire" id="quitter">Rebrousser chemin</button></p>`
             }</div>`);
-        } else parts.push(`<p><button id="quitter">${echapper(c.sortie)}</button></p>`);
+        } else {
+          const r = c.peage && reconnuJusqua(p, c);
+          if (r) parts.push(`<p class="note">Le garde te reconnaît et te fait signe de passer. Il s'en souviendra jusqu'au ${echapper(dateLongue(Math.floor(r / 24)))}.</p>`);
+          parts.push(`<p><button id="quitter">${echapper(c.sortie)}</button></p>`);
+        }
         break;
       }
       case 'bar':
@@ -243,18 +248,35 @@ export const ecranVille = (app: HTMLElement, p: Partie, sorties: SortiesVille, a
         </p>
         <p class="note">Une nuit ici rend ${{ mauvais: 2, normal: 4, excellent: 8 }[a.confort]} points de vie (8 heures de repos, ${
           { mauvais: 'mauvaises conditions', normal: 'conditions normales', excellent: 'excellentes conditions' }[a.confort]
-        }).</p>`);
+        }).</p>${panneauPartage(p)}`);
         break;
       }
       case 'soins': {
         const manque = evMax(p) - p.ev;
         const soignables = Math.min(manque, Math.floor(p.or / l.prixSoin!));
+        const graves = soinsGraves(p, `${c.id}:${l.id}`, l.prixSoin!);
         parts.push(
           manque === 0
-            ? `<p>Le soigneur te regarde de haut en bas : « Vous êtes en pleine forme. Revenez quand il vous manquera un bras. »</p>`
+            ? p.blessures?.length
+              ? `<p>Le soigneur te regarde de haut en bas : « Côté points de vie, rien à faire. Pour le reste, voyons voir. »</p>`
+              : `<p>Le soigneur te regarde de haut en bas : « Vous êtes en pleine forme. Revenez quand il vous manquera un bras. »</p>`
             : `<p>Il te manque ${manque} points de vie. Tarif : ${l.prixSoin} PO le point.</p>
              <p><button id="soigner" ${soignables === 0 ? 'disabled' : ''}>Se faire soigner (${soignables} PV pour ${soignables * l.prixSoin!} PO)</button></p>`,
         );
+        if (graves.possibles.length)
+          parts.push(
+            `<p><b>Blessures graves</b> <span class="note">${graves.specialiste ? 'Le mage de la clinique peut recoller ou faire repousser ce qui manque.' : 'Fractures et luxations : remises en place, elles guérissent deux fois plus vite.'}</span></p>
+            <p class="actions-lieu">${graves.possibles
+              .map(
+                (g) =>
+                  `<button data-soin-grave="${g.index}" ${p.or < g.prix ? 'disabled' : ''}>${g.type === 'reparer' ? 'Réparer' : 'Remettre en place'} : ${echapper(g.nom.toLowerCase())} (${g.prix} PO)</button>`,
+              )
+              .join('')}</p>`,
+          );
+        if (graves.ailleurs.length)
+          parts.push(
+            `<p class="recit">Le guérisseur regarde ${echapper(graves.ailleurs.map((n) => n.toLowerCase()).join(', '))} et secoue la tête. « Ça, c'est pas de mon niveau. Il faut un mage soigneur qui sait recoller les morceaux. Allez voir ${echapper(adressesSpecialistes().join(', ou '))}. Et ne traînez pas trop. »</p>`,
+          );
         break;
       }
       case 'emplois':
@@ -518,9 +540,10 @@ export const ecranVille = (app: HTMLElement, p: Partie, sorties: SortiesVille, a
     sur('#chambre', () => {
       const l = lieu(p.lieu);
       p.or -= l.auberge!.chambre;
+      const plaintes = partageDuSoir(p);
       const rendu = dormir(p, l.auberge!.confort);
       noter(p, `passe la nuit à « ${l.nom} » et récupère ${rendu} PV.`);
-      message(`Tu dors comme une bûche${l.auberge!.confort === 'normal' ? ', malgré les chants de marins' : ''}. Au matin du ${dateLongue(p.jour)}, tu as récupéré <b>${rendu} PV</b>.`);
+      message(`Tu dors comme une bûche${l.auberge!.confort === 'normal' ? ', malgré les chants de marins' : ''}. Au matin du ${dateLongue(p.jour)}, tu as récupéré <b>${rendu} PV</b>.${plaintes}`);
     });
     sur('#soigner', () => {
       const l = lieu(p.lieu);
@@ -529,6 +552,11 @@ export const ecranVille = (app: HTMLElement, p: Partie, sorties: SortiesVille, a
       soigner(p, n);
       noter(p, `se fait soigner (${l.nom}, ${n} PV).`);
       message(`Le soigneur marmonne une formule et applique un onguent qui pique. Tu récupères <b>${n} PV</b>.`);
+    });
+    sur('[data-soin-grave]', (el) => {
+      const l = lieu(p.lieu);
+      const s = soinsGraves(p, `${c.id}:${l.id}`, l.prixSoin!).possibles.find((g) => g.index === Number(el.dataset.soinGrave));
+      if (s) message(echapper(soignerGrave(p, s)));
     });
     sur('#action-lieu', () => message(echapper(lieu(p.lieu).action!.texte)));
 
@@ -542,7 +570,7 @@ export const ecranVille = (app: HTMLElement, p: Partie, sorties: SortiesVille, a
       },
       (r) =>
         ecranCombat(app, p, r, (bilan) => {
-          if (bilan.fin === 'victoire') return message(`Victoire (+${bilan.xp} XP).`);
+          if (bilan.fin === 'victoire') return message(`Victoire (+${bilan.xp} XP).${pertes(bilan)}`);
           if (bilan.fin === 'fuite') return message('Tu prends tes jambes à ton cou.');
           noter(p, 'tombe au combat.');
           ecranMort(app, p, 'Tout devient noir… Tu t\'effondres au milieu du combat.', (texte) => message(texte), sorties.finDePartie);
@@ -560,7 +588,7 @@ export const ecranVille = (app: HTMLElement, p: Partie, sorties: SortiesVille, a
         },
         combat: (r: Rencontre, apres) =>
           ecranCombat(app, p, r, (bilan) => {
-            if (bilan.fin === 'victoire') return message(`Victoire (+${bilan.xp} XP). ${echapper(apres())}`);
+            if (bilan.fin === 'victoire') return message(`Victoire (+${bilan.xp} XP). ${echapper(apres())}${pertes(bilan)}`);
             if (bilan.fin === 'fuite') return message('Tu prends tes jambes à ton cou. Tu pourras revenir finir le travail.');
             noter(p, 'tombe au combat.');
             ecranMort(app, p, 'Tout devient noir… Tu t\'effondres au milieu du combat.', (texte) => message(texte), sorties.finDePartie);
@@ -577,7 +605,7 @@ export const ecranVille = (app: HTMLElement, p: Partie, sorties: SortiesVille, a
   // Échap ferme la fenêtre du lieu. Un seul écouteur à la fois, même si l'écran est recréé.
   if (echapActif) document.removeEventListener('keydown', echapActif);
   echapActif = (e: KeyboardEvent) => {
-    if (e.key === 'Escape' && popup && vue === 'lieu' && app.querySelector('#popup')) {
+    if (e.key === 'Escape' && popup && vue === 'lieu' && app.querySelector('#plan') && app.querySelector('#popup')) {
       popup = false;
       render();
     }

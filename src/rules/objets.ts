@@ -258,8 +258,8 @@ const MODIFS: Modif[] = ['AT', 'PRD', 'COU', 'CHA', 'AD'];
 
 /** Rechargement des armes à distance par famille (règles V4, tableau 8.12). */
 const TIRS: [RegExp, Tir][] = [
-  [/^Arcs/, { recharge: 3, munition: 'fleche' }],
-  [/^Arbalètes/, { recharge: 6, munition: 'carreau', mecanique: true }],
+  [/^Arcs/, { recharge: 2, munition: 'fleche' }], // règle maison (Sedy, 1/11) : officiel 3 assauts
+  [/^Arbalètes/, { recharge: 4, munition: 'carreau', mecanique: true }], // règle maison : officiel 6
   [/^Haches de jet/, { recharge: 2, lancee: true }],
   [/^Javelots/, { recharge: 2, lancee: true }],
   [/^Sarbacane/, { recharge: 3 }],
