@@ -66,6 +66,8 @@ export interface Combattant {
   rate: number;
   /** A déjà paré ou esquivé pendant cet assaut. */
   defendu: boolean;
+  /** Règles V2 : sa défense de l'assaut, qui sert contre toutes les attaques suivantes du même assaut. */
+  defenseAssaut?: Defense;
   /** Armé d'un arc ou d'une arbalète : il tire tant que personne n'est à son contact. */
   tireur?: { ad: number; degats: string; recharge?: number; attente?: number };
   /** Compétences du héros qui jouent en combat (voir talents.ts). */
@@ -118,6 +120,29 @@ export interface Defense {
   de: number;
   valeur: number;
   issue: IssueJet;
+  /** Règles V2 : valeur − dé, et les degrés qui en sortent. */
+  marge?: number;
+  degres?: number;
+  /** La parade de l'assaut, déjà lancée contre une attaque précédente, resservie telle quelle. */
+  reprise?: boolean;
+}
+
+/**
+ * Règles de combat V2 (Sedy, 1/11 ; feuille « Règles de combat V2 ») : l'attaque et la défense se lancent en opposition.
+ * Marge = valeur − D20 ; degrés = marge ÷ 2, arrondi vers zéro. L'attaque passe si ses degrés dépassent ceux
+ * de la défense (égalité : la défense gagne), ou si la défense est ratée (marge négative). Les dégâts prennent
+ * l'écart en bonus (ou en malus), avant l'armure. Le 1 et le 20 gardent leurs tables de critiques et de maladresses.
+ */
+export const degres = (marge: number) => Math.trunc(marge / 2) || 0;
+
+export interface Opposition {
+  degresAttaque: number;
+  degresDefense: number;
+  /** La défense a raté (marge négative) : le coup passe, quels que soient les degrés. */
+  defenseRatee: boolean;
+  passe: boolean;
+  /** Écart des degrés, ajouté aux dégâts. */
+  bonus: number;
 }
 
 export interface Action {
@@ -127,9 +152,11 @@ export interface Action {
   valeur: number;
   issue: IssueJet;
   defense?: Defense;
+  /** Règles V2 : la comparaison des degrés (absente sur un critique ou une maladresse d'attaque). */
+  opposition?: Opposition;
   /** Pourquoi la cible n'a pas pu se défendre. */
   sansDefense?: string;
-  degats?: { des: number[]; total: number; pr: number; blessure: number; poison?: number[]; bonus?: number };
+  degats?: { des: number[]; total: number; pr: number; blessure: number; poison?: number[]; bonus?: number; ecart?: number };
   /** Conséquences des critiques et maladresses, en clair. */
   effets: string[];
   /** Les D20 lancés sur les tables de critiques et de maladresses, dans l'ordre. */
@@ -470,9 +497,9 @@ export const valeurDefense = (cible: Combattant, mode: ModeDefense, attaquant?: 
   return cible.prd;
 };
 
-/** La cible peut-elle encore se défendre de ce coup (ni critique, ni déjà défendue cet assaut) ? */
+/** La cible a-t-elle une défense à lancer (ni critique, ni maladresse, pas déjà défendue cet assaut) ? Règles V2 : même contre une attaque ratée. */
 export const peutSeDefendre = (cible: Combattant, deAttaque: number, valeurAttaque: number) =>
-  !cible.defendu && !cible.inconscient && jet(deAttaque, valeurAttaque) === 'reussi';
+  !cible.defendu && !cible.inconscient && ['reussi', 'rate'].includes(jet(deAttaque, valeurAttaque));
 
 // --- Critiques et maladresses (tables de l'écran Baston, voir critiques.ts) -----------------------
 
@@ -785,32 +812,44 @@ export const attaquer = (
     action.effets.push('Pas de coup critique à mains nues sans Bourre-pif.');
   }
 
-  if (action.issue === 'rate') return action;
   if (action.issue === 'maladresse') {
     maladresse(c, action, a, rng);
     return action;
   }
 
   const critique = action.issue === 'critique';
+  const degresAttaque = degres(a.at - de);
+  // Sans défense (assommé, pris dans le dos, coup encaissé…) : la défense compte pour 0 degré.
+  let degresDefense = 0;
+  let defenseRatee = false;
+  const reprise = cible.defendu ? cible.defenseAssaut : undefined;
   if (critique) action.sansDefense = 'attaque critique, impossible à parer';
-  else if (cible.inconscient) action.sansDefense = 'sans connaissance';
-  else if (cible.defendu) action.sansDefense = 'déjà occupé à se défendre pendant cet assaut';
+  else if (cible.inconscient) action.sansDefense = 'sans connaissance (défense comptée à 0 degré)';
+  else if (reprise) {
+    // Une seule défense par assaut, mais elle sert contre toutes les attaques de l'assaut.
+    action.defense = { ...reprise, reprise: true };
+    if (reprise.issue === 'critique') return action;
+    degresDefense = reprise.degres ?? 0;
+    defenseRatee = (reprise.marge ?? 0) < 0;
+  } else if (cible.defendu) action.sansDefense = 'déjà occupé à se défendre pendant cet assaut';
   // Frapper lâchement : frappé dans le dos, la cible ne peut ni parer ni esquiver.
-  else if (a.lachement) action.sansDefense = 'frappé dans le dos, pas de défense possible';
+  else if (a.lachement) action.sansDefense = 'frappé dans le dos (défense comptée à 0 degré)';
   // Encaisser : on serre les dents sans parer ni esquiver, mais on garde son attaque suivante.
-  else if (options.encaisser) action.sansDefense = 'encaisse le coup en serrant les dents';
+  else if (options.encaisser) action.sansDefense = 'encaisse le coup en serrant les dents (défense comptée à 0 degré)';
   else {
     // Les monstres parent ; ceux qui ne le peuvent pas (PRD nulle) esquivent comme ils peuvent.
     const mode: ModeDefense = options.defense?.mode ?? (valeurDefense(cible, 'parade', a) === null ? 'esquive' : 'parade');
     const valeur = valeurDefense(cible, mode, a);
-    if (valeur === null) action.sansDefense = mode === 'parade' ? 'impossible de parer' : "trop d'armure pour esquiver";
+    if (valeur === null) action.sansDefense = mode === 'parade' ? 'impossible de parer (défense comptée à 0 degré)' : "trop d'armure pour esquiver (défense comptée à 0 degré)";
     else {
       const d = options.defense?.de ?? lancer(20, rng);
       let issue = jet(d, valeur);
       // Super esquive : jamais de maladresse en esquivant.
       if (mode === 'esquive' && issue === 'maladresse' && cible.talents?.superEsquive) issue = 'rate';
-      action.defense = { mode, de: d, valeur, issue };
+      const marge = valeur - d;
+      action.defense = { mode, de: d, valeur, issue, marge, degres: degres(marge) };
       cible.defendu = true;
+      cible.defenseAssaut = action.defense;
       if (mode === 'esquive' && issue !== 'critique') {
         // Super esquive : on attaque quand même ; Esquive naturelle : sur 4 à 6 au D6.
         const t = cible.talents;
@@ -821,9 +860,18 @@ export const attaquer = (
       }
       if (issue === 'critique' && mode === 'parade') paradeCritique(c, action, cible, a, rng);
       if (issue === 'critique' && mode === 'esquive') action.effets.push(`Esquive critique : ${cible.nom} reste au contact et pourra attaquer.`);
+      if (issue === 'critique') return action;
       if (issue === 'maladresse') maladresse(c, action, cible, rng, { esquive: mode === 'esquive' });
-      if (issue === 'critique' || issue === 'reussi') return action;
+      degresDefense = degres(marge);
+      defenseRatee = marge < 0;
     }
+  }
+  let ecartDegres = 0;
+  if (!critique) {
+    const passe = degresAttaque > degresDefense || defenseRatee;
+    ecartDegres = degresAttaque - degresDefense;
+    action.opposition = { degresAttaque, degresDefense, defenseRatee, passe, bonus: ecartDegres };
+    if (!passe) return action;
   }
 
   // Attaque critique : table de l'arme (bonus de dégâts, blessures graves…).
@@ -840,11 +888,11 @@ export const attaquer = (
     a.lachement = false;
     action.effets.push(`Frappé lâchement : dégâts doublés (${j.total}).`);
   }
-  j.total += k.bonus;
+  j.total = Math.max(0, j.total + k.bonus + ecartDegres);
   // Critique : l'armure ne compte pas, sauf la protection naturelle (Truc de mauviette). Vicieux : 1 point d'armure ignoré.
   const pr = Math.max(0, (critique ? (cible.talents?.prNaturelle ?? 0) : cible.pr) - (a.talents?.vicieux ? 1 : 0));
   const blessure = Math.max(0, j.total - pr);
-  action.degats = { des: j.des, total: j.total, pr, blessure, bonus: k.bonus || undefined };
+  action.degats = { des: j.des, total: j.total, pr, blessure, bonus: k.bonus || undefined, ecart: ecartDegres || undefined };
   if (a.poison && blessure > 0) {
     const poison = lancerExpression('1D', rng);
     action.degats.poison = poison.des;
@@ -910,6 +958,7 @@ export const tourSuivant = (c: Combat) => {
     c.assaut += 1;
     for (const x of c.combattants) {
       x.defendu = false;
+      x.defenseAssaut = undefined;
       if (x.inconscient) x.inconscient -= 1;
       // Hémorragie : 1D6 PV par minute (30 assauts de 2 secondes).
       if (x.hemorragie !== undefined && enLice(x) && (c.assaut - x.hemorragie) % 30 === 0) {

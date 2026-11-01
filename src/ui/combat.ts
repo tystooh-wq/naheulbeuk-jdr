@@ -18,6 +18,7 @@ import {
   occupant,
   panique,
   peutSeDefendre,
+  degres,
   planifier,
   tenterFuite,
   tirer,
@@ -95,6 +96,15 @@ type Attente =
   | null;
 
 const attendre = (ms: number) => new Promise((r) => setTimeout(r, ms / vitesse()));
+
+/** Règles V2 : « marge 2 → 1 degré de réussite ». */
+const texteDegres = (marge: number) => {
+  const n = degres(marge);
+  const quoi = marge < 0 ? "d'échec" : 'de réussite';
+  const signe = `marge ${marge > 0 ? '+' : ''}${String(marge).replace('-', '−')}`;
+  if (n === 0) return `${signe} → 0 degré${marge < 0 ? ', raté de peu' : ''}`;
+  return `${signe} → ${Math.abs(n)} degré${Math.abs(n) > 1 ? 's' : ''} ${quoi}`;
+};
 
 const VERDICT: Record<string, string> = {
   critique: 'critique !',
@@ -327,7 +337,8 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
       const parade = valeurDefense(x, 'parade', a);
       const esquive = valeurDefense(x, 'esquive', a);
       const pourquoi = a.imparable ? 'ses coups ne se parent pas' : x.sansParade ? 'à mains nues, on ne pare pas' : '';
-      return `<div class="a-toi"><p><b>${echapper(a.nom)} te touche !</b> Défends-toi : une seule parade ou esquive par assaut.</p>
+      const degA = degres(a.at - attente.de);
+      return `<div class="a-toi"><p><b>${echapper(a.nom)} t'attaque</b> avec ${degA > 0 ? `${degA} degré${degA > 1 ? 's' : ''} de réussite` : degA < 0 ? `${-degA} degré${degA < -1 ? 's' : ''} d'échec` : '0 degré'}. Défends-toi : il faut faire mieux que lui en degrés, et ne pas rater ta défense. Ta parade ou ton esquive servira contre toutes les attaques de cet assaut.</p>
         <p class="actions-lieu">
           <button data-defense="parade" ${parade === null ? `disabled title="${pourquoi}"` : ''}>🎲 Parer (PRD ${parade ?? '—'})${parade === null ? '' : survol(malusDe('PRD'))}</button>
           <button data-defense="esquive" ${esquive === null ? 'disabled title="Trop d\'armure pour esquiver"' : ''}>🎲 Esquiver (AD ${esquive ?? '—'})${esquive === null ? '' : survol(malusDe('AD', [['Armure (esquive)', esquive - x.ad]]))}</button>
@@ -494,15 +505,29 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
     const att = combattant(c, a.attaquant);
     const cib = combattant(c, a.cible);
     zone.innerHTML = `<p class="qui"><b>${echapper(att.nom)}</b> ${a.tir ? 'tire sur' : 'attaque'} <b>${echapper(cib.nom)}</b></p>`;
-    let el = etape(zone, `${a.tir ? 'Tir (AD)' : 'Attaque'} ${de(a.de, 'anim')} contre ${a.valeur} : <span class="verdict ${a.issue}">${VERDICT[a.issue]}</span>`);
+    // Règles V2 : au contact, l'attaque se lit en degrés (le tir et les sorts restent des épreuves simples).
+    const opp = a.opposition;
+    const verdictAttaque = opp ? `<span class="verdict ${a.de <= a.valeur ? 'reussi' : 'rate'}">${texteDegres(a.valeur - a.de)}</span>` : `<span class="verdict ${a.issue}">${VERDICT[a.issue]}</span>`;
+    let el = etape(zone, `${a.tir ? 'Tir (AD)' : 'Attaque'} ${de(a.de, 'anim')} contre ${a.valeur} : ${verdictAttaque}`);
     await reveler(el, 20, [a.de], !!lances.attaque);
     if (a.defense) {
       const d = a.defense;
-      const issue = d.issue === 'reussi' ? (d.mode === 'parade' ? 'paré' : 'esquivé') : VERDICT[d.issue];
-      el = etape(zone, `${d.mode === 'parade' ? 'Parade' : 'Esquive'} ${de(d.de, 'anim')} contre ${d.valeur} : <span class="verdict ${d.issue}">${issue}</span>`);
-      await reveler(el, 20, [d.de], !!lances.defense);
+      const nom = d.mode === 'parade' ? 'Parade' : 'Esquive';
+      const verdict =
+        d.issue === 'critique' || d.issue === 'maladresse' || d.marge === undefined
+          ? `<span class="verdict ${d.reprise ? 'visible ' : ''}${d.issue}">${d.issue === 'reussi' ? (d.mode === 'parade' ? 'paré' : 'esquivé') : VERDICT[d.issue]}</span>`
+          : `<span class="verdict ${d.reprise ? 'visible ' : ''}${d.marge >= 0 ? 'reussi' : 'rate'}">${texteDegres(d.marge)}</span>`;
+      el = etape(zone, `${nom}${d.reprise ? ' <span class="note">(celle de cet assaut, déjà lancée)</span>' : ''} ${de(d.de, d.reprise ? '' : 'anim')} contre ${d.valeur} : ${verdict}`);
+      if (!d.reprise) await reveler(el, 20, [d.de], !!lances.defense);
     } else if (a.sansDefense) {
       etape(zone, `<span class="note">Pas de défense : ${echapper(a.sansDefense)}.</span>`);
+    }
+    if (opp) {
+      const fmt = (n: number) => (n > 0 ? `+${n}` : String(n).replace('-', '−'));
+      const issue = opp.passe
+        ? `<span class="verdict visible reussi">touché${opp.bonus ? `, ${fmt(opp.bonus)} aux dégâts` : ''}</span>${opp.defenseRatee && opp.degresAttaque <= opp.degresDefense ? ' <span class="note">(la défense a raté)</span>' : ''}`
+        : `<span class="verdict visible rate">${a.defense?.mode === 'esquive' ? 'esquivé' : a.defense ? 'paré' : 'raté'}</span>${opp.degresAttaque === opp.degresDefense ? ' <span class="note">(égalité : la défense gagne)</span>' : ''}`;
+      etape(zone, `Opposition : ${fmt(opp.degresAttaque)} contre ${fmt(opp.degresDefense)} → ${issue}`);
     }
     await montrerTables(zone, a);
     // Les suites des critiques et maladresses avant les dégâts du coup lui-même : c'est dans cet ordre que ça se passe.
@@ -512,7 +537,7 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
       if (att.id === 'heros') await clicDegats(zone, expr ?? att.degats);
       el = etape(
         zone,
-        `Dégâts sur ${echapper(cib.nom)} ${g.des.map((x) => de(x, 'anim')).join('')}${g.bonus ? ` + ${g.bonus} (critique)` : ''} = ${g.total}${g.pr ? `, moins ${g.pr} d'armure` : a.issue === 'critique' ? ', armure ignorée' : ''} : <span class="verdict rate">−${g.blessure - (g.poison?.[0] ?? 0)} PV</span>`,
+        `Dégâts sur ${echapper(cib.nom)} ${g.des.map((x) => de(x, 'anim')).join('')}${g.bonus ? ` + ${g.bonus} (critique)` : ''}${g.ecart ? ` ${g.ecart > 0 ? '+' : '−'} ${Math.abs(g.ecart)} (degrés)` : ''} = ${g.total}${g.pr ? `, moins ${g.pr} d'armure` : a.issue === 'critique' ? ', armure ignorée' : ''} : <span class="verdict rate">−${g.blessure - (g.poison?.[0] ?? 0)} PV</span>`,
       );
       await reveler(el, 6, g.des, false);
       if (g.poison) {
@@ -528,9 +553,9 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
   const resumer = (a: Action) => {
     const att = combattant(c, a.attaquant).nom;
     const cib = combattant(c, a.cible).nom;
-    if (a.issue === 'rate') return `${att} rate ${cib}.`;
     if (a.issue === 'maladresse') return `${att} : maladresse ! ${a.effets.join(' ')}`;
-    if (!a.degats) return `${cib} ${a.defense?.mode === 'esquive' ? 'esquive' : 'pare'} le coup de ${att}.`;
+    if (!a.degats && a.defense) return `${cib} ${a.defense.mode === 'esquive' ? 'esquive' : 'pare'} le coup de ${att}.`;
+    if (!a.degats) return `${att} rate ${cib}.`;
     if (!a.degats.blessure) return `${att} touche ${cib}, mais l'armure encaisse tout.`;
     return `${att} touche ${cib}${a.issue === 'critique' ? ' (critique)' : ''} : −${a.degats.blessure} PV.`;
   };
@@ -728,7 +753,7 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
       if (peutSeDefendre(h(), d, x.at) && (valeurDefense(h(), 'parade', x) !== null || valeurDefense(h(), 'esquive', x) !== null)) {
         const zone = app.querySelector<HTMLElement>('#action')!;
         zone.innerHTML = `<p class="qui"><b>${echapper(x.nom)}</b> attaque <b>${echapper(h().nom)}</b></p>`;
-        const el = etape(zone, `Attaque ${de(d, 'anim')} contre ${x.at} : <span class="verdict reussi">touché</span>`);
+        const el = etape(zone, `Attaque ${de(d, 'anim')} contre ${x.at} : <span class="verdict ${d <= x.at ? 'reussi' : 'rate'}">${texteDegres(x.at - d)}</span>`);
         await reveler(el, 20, [d], false);
         scene = zone.innerHTML;
         attente = { type: 'defense', attaquant: x.id, de: d };

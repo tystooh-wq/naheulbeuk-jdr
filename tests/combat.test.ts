@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { avecDe } from '../src/rules/des';
 import {
   attaquer,
+  degres,
   auContact,
   contacts,
   planifier,
@@ -109,9 +110,10 @@ describe('un assaut', () => {
     const c = creerCombat(nouvellePartie(perso), rencontre(9, 2));
     attaquer(c, 'e1', 'heros', 3, { defense: { mode: 'parade', de: 2 } });
     expect(heros(c).defendu).toBe(true);
+    // Règles V2 : la parade de l'assaut sert aussi contre la deuxième attaque, sans nouveau jet.
     const a = attaquer(c, 'e2', 'heros', 3, { desDegats: [6] });
-    expect(a.sansDefense).toMatch(/déjà/);
-    expect(a.degats!.blessure).toBe(6 + 4 - heros(c).pr);
+    expect(a.defense).toMatchObject({ reprise: true, de: 2 });
+    expect(a.opposition!.degresDefense).toBe(degres(heros(c).prd - 2));
     // Nouvel assaut : on peut de nouveau se défendre.
     c.ordre.forEach(() => tourSuivant(c));
     expect(heros(c).defendu).toBe(false);
@@ -169,6 +171,41 @@ describe('encaisser', () => {
     expect(a.defense).toBeUndefined();
     expect(a.sansDefense).toMatch(/encaisse/);
     expect(heros(c).rate).toBe(0);
-    expect(a.degats!.blessure).toBe(Math.max(0, 4 - heros(c).pr));
+    // Sans défense : 0 degré ; l'écart s'ajoute aux dégâts.
+    expect(a.opposition).toMatchObject({ degresDefense: 0, passe: true });
+    expect(a.degats!.blessure).toBe(Math.max(0, 4 + a.opposition!.bonus - heros(c).pr));
+  });
+});
+
+describe('règles V2 : attaque et défense en opposition', () => {
+  it('degrés : marge ÷ 2 arrondie vers zéro', () => {
+    expect([2, 0, -1, -9, -10, 7, -11].map(degres)).toEqual([1, 0, 0, -4, -5, 3, -5]);
+  });
+
+  const duel = (at: number, prd: number) => {
+    const c = creerCombat(nouvellePartie(perso), rencontre(9, 1));
+    Object.assign(combattant(c, 'e1'), { at });
+    Object.assign(heros(c), { prd, pr: 0 });
+    return c;
+  };
+
+  it('exemple 2 de la feuille : attaque ratée de 1, défense catastrophique → touché, +4', () => {
+    const c = duel(5, 8);
+    const a = attaquer(c, 'e1', 'heros', 6, { defense: { mode: 'parade', de: 19 }, desDegats: [3] });
+    expect(a.opposition).toMatchObject({ degresAttaque: 0, degresDefense: -5, passe: true, bonus: 5 });
+    expect(a.degats!.total).toBe(3 + 5 + Number(/[+-]\d+$/.exec(combattant(c, 'e1').degats)?.[0] ?? 0));
+  });
+
+  it("égalité : la défense gagne ; défense réussie et plus haute : paré", () => {
+    const c = duel(9, 9);
+    const a = attaquer(c, 'e1', 'heros', 2, { defense: { mode: 'parade', de: 2 } });
+    expect(a.opposition).toMatchObject({ degresAttaque: 3, degresDefense: 3, passe: false });
+    expect(a.degats).toBeUndefined();
+  });
+
+  it('défense ratée de peu (0 degré) : le coup passe avec l’écart en bonus (exemple 7)', () => {
+    const c = duel(9, 9);
+    const a = attaquer(c, 'e1', 'heros', 2, { defense: { mode: 'parade', de: 10 }, desDegats: [1] });
+    expect(a.opposition).toMatchObject({ degresAttaque: 3, degresDefense: 0, defenseRatee: true, passe: true, bonus: 3 });
   });
 });
