@@ -2135,3 +2135,9 @@ details.ordres summary {
 .carquois { display: flex; align-items: center; gap: 8px; margin: 0 0 6px; font-size: 0.9em; }
 .carquois .fleches { display: inline-flex; gap: 2px; flex-wrap: wrap; max-width: 260px; }
 .carquois .fleches i { display: inline-block; width: 3px; height: 16px; background: linear-gradient(to bottom, var(--rouge) 0 4px, var(--encre-douce) 4px); border-radius: 1px; }
+
+/* L'orientation des pions : une pointe sur le bord, du côté où regarde le combattant. */
+.terrain .face { position: absolute; inset: 4%; pointer-events: none; z-index: 2; }
+.terrain .face::after { content: ''; position: absolute; right: -3px; top: 50%; transform: translateY(-50%); border-top: 6px solid transparent; border-bottom: 6px solid transparent; border-left: 8px solid var(--encre); }
+.terrain .face-ennemi::after { border-left-color: var(--rouge); }
+.terrain .face-heros::after { border-left-color: var(--vert); }

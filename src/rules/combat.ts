@@ -80,6 +80,8 @@ export interface Combattant {
     renforts?: boolean;
     poubelles?: boolean;
   };
+  /** Où il regarde (une case voisine : −1, 0 ou 1 sur chaque axe). Il se tourne en marchant et en frappant. */
+  face?: { x: number; y: number };
   /** Frapper lâchement : les dégâts de la prochaine attaque réussie sont doublés. */
   lachement?: boolean;
   /** Famille de son arme : elle choisit les tables de critiques et de maladresses. */
@@ -311,6 +313,20 @@ const placer = (c: Combat, approche: number) => {
   // Les tireurs restent en retrait, les autres en première ligne.
   ranger([...amis.filter((x) => !x.tireur || x.id === 'heros'), ...amis.filter((x) => x.tireur && x.id !== 'heros')], 1, -1);
   ranger(ennemis(c), Math.min(c.largeur - 1, 2 + PAS * approche), 1);
+  for (const x of c.combattants) x.face = { x: x.camp === 'heros' ? 1 : -1, y: 0 };
+};
+
+/** Se tourner vers une case (ou un combattant). */
+export const tourner = (x: Combattant, vers: { x: number; y: number }) => {
+  const dx = Math.sign(vers.x - x.x);
+  const dy = Math.sign(vers.y - x.y);
+  if (dx || dy) x.face = { x: dx, y: dy };
+};
+
+/** `a` est-il dans le dos de `cible` (derrière lui, ou en diagonale arrière) ? */
+export const dansLeDos = (a: Combattant, cible: Combattant) => {
+  const f = cible.face ?? { x: cible.camp === 'heros' ? 1 : -1, y: 0 };
+  return Math.sign(a.x - cible.x) * f.x + Math.sign(a.y - cible.y) * f.y < 0;
 };
 
 export const creerCombat = (p: Partie, r: Rencontre): Combat => {
@@ -379,6 +395,7 @@ export const casesAccessibles = (c: Combat, x: Combattant, pas = x.mv ?? PAS): M
 export const deplacer = (c: Combat, id: string, x: number, y: number): boolean => {
   const z = combattant(c, id);
   if (!casesAccessibles(c, z).has(`${x},${y}`)) return false;
+  tourner(z, { x, y });
   z.x = x;
   z.y = y;
   c.deplace = true;
@@ -759,6 +776,7 @@ export const attaquer = (
 ): Action => {
   const a = combattant(c, idAttaquant);
   const cible = combattant(c, idCible);
+  tourner(a, cible);
   const { rng } = options;
   const action: Action = { attaquant: a.id, cible: cible.id, de, valeur: a.at, issue: jet(de, a.at), effets: [] };
   // Sans Bourre-pif, pas de coup critique à mains nues : le 1 est une simple réussite.
@@ -777,6 +795,8 @@ export const attaquer = (
   if (critique) action.sansDefense = 'attaque critique, impossible à parer';
   else if (cible.inconscient) action.sansDefense = 'sans connaissance';
   else if (cible.defendu) action.sansDefense = 'déjà occupé à se défendre pendant cet assaut';
+  // Frapper lâchement : frappé dans le dos, la cible ne peut ni parer ni esquiver.
+  else if (a.lachement) action.sansDefense = 'frappé dans le dos, pas de défense possible';
   // Encaisser : on serre les dents sans parer ni esquiver, mais on garde son attaque suivante.
   else if (options.encaisser) action.sansDefense = 'encaisse le coup en serrant les dents';
   else {
@@ -916,6 +936,7 @@ export const tirer = (
 ): Action => {
   const a = combattant(c, idTireur);
   const cible = combattant(c, idCible);
+  tourner(a, cible);
   const action: Action = { attaquant: a.id, cible: cible.id, de, valeur: tir.ad, issue: jet(de, tir.ad), effets: [], tir: true };
   // Les tireurs du jeu (ennemis, compagnons) rechargent ; celui du héros est suivi dans c.recharge.
   if (a.tireur && a.id !== 'heros') a.tireur.attente = a.tireur.recharge ?? 3;

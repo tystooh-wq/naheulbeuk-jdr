@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Personnage } from '../src/rules/creation';
-import { apresTir, creerCombat, deplacer, ecart, etapeTir, heros, planifier, recharger, tirer, toucherParSort, tourSuivant, viser } from '../src/rules/combat';
+import { apresTir, dansLeDos, tourner, creerCombat, deplacer, ecart, etapeTir, heros, planifier, recharger, tirer, toucherParSort, tourSuivant, viser } from '../src/rules/combat';
 import { ea, lancerSort, sort, sortsConnus, soinLeger, valeurSort } from '../src/rules/magie';
 import { objet } from '../src/rules/objets';
 import { acheter, dormir, equiper, nouvellePartie } from '../src/rules/partie';
@@ -62,6 +62,26 @@ describe('armes à distance', () => {
     const p = nouvellePartie(perso({}));
     const c = creerCombat(p, { ligne: TABLE_TERRES_SAUVAGES[5], nombre: 1, d20: 6 });
     expect(c.combattants[1].tireur).toMatchObject({ ad: 11, degats: '1D+3', recharge: 3 });
+  });
+
+  it("chacun regarde où il va et qui il frappe ; on n'est dans le dos que derrière la flèche", () => {
+    const p = nouvellePartie(perso({}));
+    const c = creerCombat(p, { ligne: TABLE_TERRES_SAUVAGES[8], nombre: 1, d20: 9 });
+    const h = heros(c);
+    const e = c.combattants[1];
+    expect(h.face).toEqual({ x: 1, y: 0 });
+    expect(e.face).toEqual({ x: -1, y: 0 });
+    Object.assign(e, { x: 5, y: 2 });
+    Object.assign(h, { x: 6, y: 2 });
+    expect(dansLeDos(h, e)).toBe(true);
+    Object.assign(h, { x: 6, y: 1 });
+    expect(dansLeDos(h, e)).toBe(true);
+    Object.assign(h, { x: 5, y: 1 });
+    expect(dansLeDos(h, e)).toBe(false);
+    tourner(e, h);
+    expect(e.face).toEqual({ x: 0, y: -1 });
+    Object.assign(h, { x: 5, y: 3 });
+    expect(dansLeDos(h, e)).toBe(true);
   });
 
   it('le héros archer enchaîne recharger, viser, tirer ; à l\'arbalète, quatre fois recharger', () => {

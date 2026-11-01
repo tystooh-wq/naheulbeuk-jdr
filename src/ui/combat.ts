@@ -31,6 +31,7 @@ import {
   type Combattant,
   type ModeDefense,
   apresTir,
+  dansLeDos,
   creerHeros,
   etapeTir,
   prendreArme,
@@ -106,7 +107,9 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
   let reactions: string[] = [];
   const berserkerPossible = () => aTalent(p, 'Berserker') && !rage && Math.floor((p.talents?.berserker ?? -99) / 24) !== p.jour;
   const dague = () => !!p.equipe.arme && /dague|poignard|couteau|surin|stylet/i.test(objet(p.equipe.arme).nom);
-  const lachementPossible = () => aTalent(p, 'Frapper lâchement') && !lachementFait && dague() && auContact(c).length > 0;
+  /** Frapper lâchement (une fois par combat, avec une lame courte) : seulement sur un ennemi au contact dont on est dans le dos. */
+  const lachementPossible = () => aTalent(p, 'Frapper lâchement') && !lachementFait && dague();
+  const dosOfferts = () => (lachementPossible() ? auContact(c).filter((e) => dansLeDos(h(), e)) : []);
 
   const h = () => heros(c);
   const synchroniser = () => (p.ev = Math.max(0, h().ev));
@@ -195,11 +198,13 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
         : `<button class="secondaire" data-fuir>🎲 Prendre la fuite (AD ${x.ad})</button>`;
       const talents = [
         berserkerPossible() ? `<button class="secondaire" data-berserker>😡 Entrer en rage (Berserker, une fois par jour)</button>` : '',
-        lachementPossible()
-          ? auContact(c)
-              .map((e) => `<button class="secondaire" data-lachement="${e.id}">🗡 Frapper lâchement ${echapper(e.nom)} (dégâts doublés, une fois)</button>`)
+        dosOfferts().length
+          ? dosOfferts()
+              .map((e) => `<button class="secondaire" data-lachement="${e.id}">🗡 Frapper lâchement ${echapper(e.nom)} dans le dos (dégâts doublés, pas de parade, une fois)</button>`)
               .join('')
-          : '',
+          : lachementPossible() && auContact(c).length
+            ? '<span class="note">Frapper lâchement : place-toi dans le dos d\'un ennemi (derrière sa flèche).</span>'
+            : '',
       ].join('');
       const cibles = auContact(c);
       const loin = adversaires(c, x);
@@ -332,6 +337,12 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
     x.id === 'heros' ? '★' : x.nom.split(/\s+/).filter((m) => /^[A-ZÀ-Ý]/.test(m)).map((m) => m[0]).join('').slice(0, 2) + (/\d+$/.exec(x.nom)?.[0] ?? '');
   const classePion = (x: Combattant) => (x.id === 'heros' ? 'pion-heros' : x.compagnon ? 'pion-compagnon' : x.allie ? 'pion-allie' : 'pion-ennemi');
 
+  /** La flèche qui montre où regarde le combattant (son dos est de l'autre côté). */
+  const orientation = (z: Combattant) => {
+    const f = z.face ?? { x: z.camp === 'heros' ? 1 : -1, y: 0 };
+    return `<i class="face face-${z.camp}" style="transform:rotate(${Math.round((Math.atan2(f.y, f.x) * 180) / Math.PI)}deg)" aria-hidden="true"></i>`;
+  };
+
   const terrain = () => {
     const tourHeros = attente?.type === 'action' && !c.deplace;
     const accessibles = tourHeros ? casesAccessibles(c, h()) : new Map<string, number>();
@@ -347,7 +358,7 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
               const tag = attaquable ? 'button' : 'span';
               return `<${tag} class="pion ${classePion(z)} ${acteur(c).id === z.id && !c.fin ? 'son-tour' : ''} ${touche === z.id ? 'touche' : ''}" ${
                 attaquable ? `data-cible="${z.id}"` : ''
-              } title="${echapper(`${z.nom} : ${Math.max(0, z.ev)}/${z.evMax} PV`)}">${initiales(z)}<i class="pv-pion" style="width:${pct}%"></i></${tag}>`;
+              } title="${echapper(`${z.nom} : ${Math.max(0, z.ev)}/${z.evMax} PV`)}">${initiales(z)}<i class="pv-pion" style="width:${pct}%"></i></${tag}>${orientation(z)}`;
             })()
           : morts.length
             ? '<span class="corps" title="À terre">✝</span>'
@@ -883,7 +894,7 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
     });
 
     sur('[data-lachement]', async (el) => {
-      if (attente?.type !== 'action' || !lachementPossible()) return (occupe = false);
+      if (attente?.type !== 'action' || !dosOfferts().some((e) => e.id === el.dataset.lachement)) return (occupe = false);
       attente = null;
       lachementFait = true;
       h().lachement = true;
