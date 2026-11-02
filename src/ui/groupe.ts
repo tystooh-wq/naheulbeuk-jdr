@@ -264,8 +264,9 @@ export const lierGroupe = (app: HTMLElement, p: Partie, message: (html: string) 
   app.querySelectorAll<HTMLElement>('[data-payer-part]').forEach((b) =>
     b.addEventListener('click', () => partage(liste([payerPart(p, etat(b.dataset.payerPart!))]))),
   );
-  app.querySelector('[data-partager]')?.addEventListener('click', () => partage(`Tu comptes les pièces devant tout le monde.${liste(partagerButin(p))}`));
-  app.querySelector('[data-garder]')?.addEventListener('click', () => partage(`Tu fourres tout dans ta bourse.${liste(garderButin(p, 'tu as gardé sa part pour toi'))}`));
+  // Le partage peut s'afficher deux fois (lieu et fenêtre de quête) : chaque bouton répond.
+  app.querySelectorAll('[data-partager]').forEach((b) => b.addEventListener('click', () => partage(`Tu comptes les pièces devant tout le monde.${liste(partagerButin(p))}`)));
+  app.querySelectorAll('[data-garder]').forEach((b) => b.addEventListener('click', () => partage(`Tu fourres tout dans ta bourse.${liste(garderButin(p, 'tu as gardé sa part pour toi'))}`)));
   app.querySelectorAll<HTMLElement>('[data-renvoyer]').forEach((b) =>
     b.addEventListener('click', () => {
       const nom = compagnon(b.dataset.renvoyer!).perso.nom;

@@ -118,6 +118,8 @@ export const ecranVille = (app: HTMLElement, p: Partie, sorties: SortiesVille, a
   let epreuveQuete: string | undefined;
   /** Le parchemin du tableau d'affichage ouvert (détail de la quête). */
   let queteOuverte: string | undefined;
+  /** Ce que la quête vient de donner (récit, récompense) : affiché dans la fenêtre de la quête, avec le partage. */
+  let resultatQuete: string | undefined;
   /** Le droit d'entrée (Chnafon, Jambfer) : la porte réclame son dû avant tout. */
   const taxe = () => {
     // Déjà en ville (ailleurs qu'à la porte) : on est passé, le garde ne court pas après nous.
@@ -323,6 +325,15 @@ export const ecranVille = (app: HTMLElement, p: Partie, sorties: SortiesVille, a
   /** Le détail d'une quête du tableau d'affichage, par-dessus la fenêtre du lieu. */
   const popupQuete = (l: Lieu): string => {
     if (!queteOuverte) return '';
+    if (resultatQuete !== undefined)
+      return `<div class="popup-quete" id="popup-quete" role="dialog" aria-label="Quête">
+      <div class="panneau parchemin-ouvert">
+        <div class="barre-fermer"><button class="secondaire petit fermer" id="fermer-quete" aria-label="Fermer">✕</button></div>
+        <div class="recit resultat-quete">${resultatQuete}</div>
+        ${panneauPartage(p)}
+        <p class="actions-lieu"><button id="continuer-quete">Continuer</button></p>
+      </div>
+    </div>`;
     const detail = detailQuete(p, ou(l), queteOuverte, epreuveQuete);
     if (!detail) {
       queteOuverte = undefined;
@@ -443,6 +454,15 @@ export const ecranVille = (app: HTMLElement, p: Partie, sorties: SortiesVille, a
     render();
   };
 
+  /** Le résultat d'une quête : dans la fenêtre de la quête si elle est ouverte (récompense, partage, Continuer). */
+  const messageQuete = (html: string) => {
+    epreuveQuete = undefined;
+    if (!queteOuverte) return message(html);
+    resultatQuete = html;
+    sauver();
+    render();
+  };
+
   const entrer = () => {
     vue = 'lieu';
     popup = true;
@@ -468,6 +488,7 @@ export const ecranVille = (app: HTMLElement, p: Partie, sorties: SortiesVille, a
       visite = {};
       epreuveQuete = undefined;
       queteOuverte = undefined;
+      resultatQuete = undefined;
       sauver();
       entrer();
     };
@@ -536,10 +557,12 @@ export const ecranVille = (app: HTMLElement, p: Partie, sorties: SortiesVille, a
     });
     sur('[data-ouvrir-quete]', (el) => {
       queteOuverte = el.dataset.ouvrirQuete;
+      resultatQuete = undefined;
       epreuveQuete = undefined;
       render();
     });
-    sur('#fermer-quete', () => {
+    sur('#fermer-quete, #continuer-quete', () => {
+      resultatQuete = undefined;
       queteOuverte = undefined;
       epreuveQuete = undefined;
       render();
@@ -547,6 +570,7 @@ export const ecranVille = (app: HTMLElement, p: Partie, sorties: SortiesVille, a
     app.querySelector('#popup-quete')?.addEventListener('click', (e) => {
       if (e.target === e.currentTarget) {
         queteOuverte = undefined;
+        resultatQuete = undefined;
         epreuveQuete = undefined;
         render();
       }
@@ -691,19 +715,15 @@ export const ecranVille = (app: HTMLElement, p: Partie, sorties: SortiesVille, a
       app,
       p,
       {
-        message: (html) => {
-          epreuveQuete = undefined;
-          queteOuverte = undefined;
-          message(html);
-        },
+        message: messageQuete,
         combat: (r: Rencontre, apres) =>
           ecranCombat(app, p, r, (bilan) => {
-            if (bilan.fin === 'victoire') return message(`Victoire (+${bilan.xp} XP). ${echapper(apres())}${pertes(bilan)}`);
-            if (bilan.fin === 'fuite') return message('Tu prends tes jambes à ton cou. Tu pourras revenir finir le travail.');
+            if (bilan.fin === 'victoire') return messageQuete(`Victoire (+${bilan.xp} XP). ${echapper(apres())}${pertes(bilan)}`);
+            if (bilan.fin === 'fuite') return messageQuete('Tu prends tes jambes à ton cou. Tu pourras revenir finir le travail.');
             noter(p, 'tombe au combat.');
             // Les compagnons ont gagné : la quête avance quand même.
             const venge = bilan.venge ? ` ${vengeTexte(bilan)} ${echapper(apres())}` : '';
-            ecranMort(app, p, 'Tout devient noir… Tu t\'effondres au milieu du combat.', (texte) => message(echapper(texte) + venge), sorties.finDePartie);
+            ecranMort(app, p, 'Tout devient noir… Tu t\'effondres au milieu du combat.', (texte) => messageQuete(echapper(texte) + venge), sorties.finDePartie);
           }),
         donjon: (id, par) => sorties.entrerDonjon(id, par),
       },
@@ -721,6 +741,7 @@ export const ecranVille = (app: HTMLElement, p: Partie, sorties: SortiesVille, a
       // Le parchemin ouvert se referme d'abord.
       if (queteOuverte) {
         queteOuverte = undefined;
+        resultatQuete = undefined;
         epreuveQuete = undefined;
         return render();
       }
