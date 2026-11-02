@@ -791,7 +791,7 @@ button.petit.actif {
   inset: 3% 2.5%;
   z-index: 6;
   display: grid;
-  grid-template-columns: minmax(0, 36%) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 42%) minmax(0, 1fr);
   gap: 18px;
   align-items: start;
 }
@@ -849,7 +849,17 @@ button.petit.actif {
   max-height: 100%;
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: 4px 6px 12px;
+  padding: 4px 6px 26px;
+  /* Défile encore à la molette si l'écran est petit, mais sans barre visible. */
+  scrollbar-width: none;
+}
+
+.colonne-lieu::-webkit-scrollbar {
+  display: none;
+}
+
+.colonne-lieu .illustration {
+  margin-top: 0;
 }
 
 /* Le tableau d'affichage : le panneau de bois de Sedy, des parchemins punaisés. */
@@ -858,7 +868,6 @@ button.petit.actif {
   margin: 16px 0 0;
   aspect-ratio: 768 / 522;
   background: center / 100% 100% no-repeat;
-  filter: drop-shadow(0 8px 14px rgba(0, 0, 0, 0.45));
 }
 
 .liege {
