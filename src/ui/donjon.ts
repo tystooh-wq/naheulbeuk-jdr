@@ -77,7 +77,11 @@ import { lierQuetes, panneauJournalQuetes, panneauQuetes } from './quetes';
 import { sauvegarderPartie } from './sauvegarde';
 import { ecranMort } from './mort';
 import { aTalent, bonusSituation, texteBonus } from '../rules/talents';
-import MASQUES from '../assets/ddn/masques.json';
+import MASQUES_DDN from '../assets/ddn/masques.json';
+import MASQUES_CV from '../assets/chateau-valtordu/masques.json';
+import planCvRdc from '../assets/chateau-valtordu/rdc.jpg';
+import planCvEtage from '../assets/chateau-valtordu/etage.jpg';
+import planCvSout from '../assets/chateau-valtordu/souterrains.jpg';
 import { pauseEssai, quandReessayer } from '../rules/essais';
 import planN0 from '../assets/ddn/n0.jpg';
 import planCave from '../assets/ddn/cave.jpg';
@@ -104,7 +108,10 @@ const CASE = 92;
 
 const NOM_CARAC = { COU: 'Courage', INT: 'Intelligence', CHA: 'Charisme', AD: 'Adresse', FO: 'Force' };
 
-const PLANS: Record<string, string> = { n0: planN0, cave: planCave, sout: planSout, n1: planN1, n2: planN2, n3: planN3, n4: planN4, n5: planN5, n6: planN6 };
+/** Les brouillards de tous les donjons sur plans (DDN, château de Valtordu). */
+const MASQUES = { plans: { ...MASQUES_DDN.plans, ...MASQUES_CV.plans }, salles: { ...MASQUES_DDN.salles, ...MASQUES_CV.salles } };
+
+const PLANS: Record<string, string> = { 'cv-rdc': planCvRdc, 'cv-etage': planCvEtage, 'cv-sout': planCvSout, n0: planN0, cave: planCave, sout: planSout, n1: planN1, n2: planN2, n3: planN3, n4: planN4, n5: planN5, n6: planN6 };
 
 /** L'icône d'une salle déjà vue, selon ce qu'elle contient en ce moment. */
 const icone = (d: Donjon, e: EtatDonjon, id: string, p: Partie) => {

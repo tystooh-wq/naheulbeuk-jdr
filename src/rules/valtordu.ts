@@ -1,8 +1,9 @@
 import type { Lieu } from './waldorg';
 
 // Valtordu, village de départ des débutants. Lieux et PNJ d'après « Valtordu pour le MJ ».
-// Le plan officiel (« plan parchemin ») ne numérote pas les bâtiments : les positions sont choisies
-// pour le jeu le long des rues nommées sur le plan, en % de sa largeur et de sa hauteur.
+// Positions (en % du plan) relevées sur la carte MJ du scénario « Rendez-nous nos impôts ! » (boucheries,
+// auberges, serrurier, Chien qui Pleure, château, poste de garde, forge, Donjon Facile, bazar, boulangerie),
+// recalée sur le plan parchemin. Le guérisseur n'y figure pas : sa maison est choisie pour le jeu.
 
 const BOUDINS = ['boudin-valtordu', 'boudin-epices', 'boudin-oignons', 'boudin-special'];
 
@@ -21,8 +22,8 @@ export const LIEUX_VALTORDU: Lieu[] = [
     id: 'garde',
     nom: 'Poste de garde',
     type: 'info',
-    x: 42,
-    y: 31,
+    x: 49,
+    y: 32,
     quartier: 'Place des Pendus',
     description:
       "Le sergent Melchior dirige le poste, c'est-à-dire trois gardes et un chien. Firmin, assigné à la surveillance de la place, surveille surtout l'étal du boucher.",
@@ -36,8 +37,8 @@ export const LIEUX_VALTORDU: Lieu[] = [
     id: 'boucherie-jobard',
     nom: 'Boucherie Jobard',
     type: 'boutique',
-    x: 38,
-    y: 41,
+    x: 58,
+    y: 42,
     quartier: 'Place des Pendus',
     description:
       "Maître Jobard vend son boudin sous l'arbre de la place des Pendus, en jetant des regards noirs vers la rue du Vieux Bélier, où son rival Plandu gagne le concours tous les ans.",
@@ -47,9 +48,9 @@ export const LIEUX_VALTORDU: Lieu[] = [
     id: 'trois-boudins',
     nom: 'Auberge des Trois Boudins',
     type: 'auberge',
-    x: 58,
-    y: 43,
-    quartier: 'Rue des Trois Boudins',
+    x: 37.5,
+    y: 39.5,
+    quartier: 'Place des Pendus',
     description:
       "L'établissement le plus connu du village, face à la place des Pendus. Gros Didier, costaud et plutôt aimable, fait son travail correctement, mais il n'aime pas qu'on vienne foutre le bazar chez lui. Au menu : du boudin.",
     auberge: { repas: 2, chambre: 3, confort: 'normal' },
@@ -58,8 +59,8 @@ export const LIEUX_VALTORDU: Lieu[] = [
     id: 'chien',
     nom: 'Taverne du Chien qui Pleure',
     type: 'bar',
-    x: 66,
-    y: 49,
+    x: 75,
+    y: 39,
     quartier: 'Rue des Trois Boudins',
     description:
       "La taverne de Hugues Jeanfort, le frère du seigneur. La bière est tiède, le chien de l'enseigne pleure vraiment (on ne sait pas pourquoi), et le vieux Bertrand raconte à qui veut l'entendre ce que tout le monde fait de travers.",
@@ -70,9 +71,9 @@ export const LIEUX_VALTORDU: Lieu[] = [
     id: 'guerisseur',
     nom: "Chez Archibald Ozonuc, guérisseur",
     type: 'soins',
-    x: 75,
-    y: 53,
-    quartier: 'Rue Claudique',
+    x: 66,
+    y: 48.5,
+    quartier: 'Rue des Trois Boudins',
     description:
       "Archibald Ozonuc est connu de tous : il soigne les bergers, les moutons et les aventuriers, dans cet ordre. Il donne parfois des quêtes, surtout quand il a besoin d'un coursier. Les tarifs de village sont doux.",
     prixSoin: 1,
@@ -82,11 +83,11 @@ export const LIEUX_VALTORDU: Lieu[] = [
     id: 'bazar',
     nom: 'Bazar de Robert Moutier',
     type: 'boutique',
-    x: 54,
-    y: 54,
-    quartier: 'Chemin des Étourneaux',
+    x: 48,
+    y: 52.5,
+    quartier: 'Place des Pendus',
     description:
-      "Robert Moutier achète et vend à peu près n'importe quoi, y compris des choses dont il ignore l'usage. Il fait aussi boulangerie le mardi.",
+      "Robert Moutier achète et vend à peu près n'importe quoi, y compris des choses dont il ignore l'usage. Il prétend qu'il n'y a rien qu'il ne puisse revendre, et il a sans doute raison.",
     boutique: {
       stock: ['sac', 'briquet', 'couverture', 'gourde', 'chaussettes', 'rations', 'corde', 'torche', 'lampe', 'matelas', 'gourdin', 'baton', 'couteau-qualite', 'vetements-rembourres', 'pull-valtordu', 'instrument'],
       prix: 1,
@@ -98,8 +99,8 @@ export const LIEUX_VALTORDU: Lieu[] = [
     id: 'forge',
     nom: 'Forge de Ben',
     type: 'boutique',
-    x: 30,
-    y: 44,
+    x: 28.5,
+    y: 36.5,
     quartier: "Rue de la Forêt d'Ouien",
     description:
       "Ben, le jeune forgeron, grand et baraqué, a repris l'entreprise de son père. Il ferre surtout des chevaux, mais il a toujours quelques lames et des pièces d'armure pour les aventuriers de passage.",
@@ -115,7 +116,7 @@ export const LIEUX_VALTORDU: Lieu[] = [
     nom: 'Château de Valtordu',
     type: 'emplois',
     x: 10,
-    y: 42,
+    y: 43,
     quartier: 'Rue du Château',
     description:
       "Le petit château du seigneur Hubert Jeanfort, un homme plutôt sympathique qui possède aussi quelques fermes du patelin. Églantine, la fille du guérisseur, y travaille. Le seigneur reçoit les aventuriers qui veulent rendre service.",
@@ -124,9 +125,9 @@ export const LIEUX_VALTORDU: Lieu[] = [
     id: 'donjon-facile',
     nom: 'Le Donjon Facile',
     type: 'caisse',
-    x: 84,
-    y: 72,
-    quartier: 'Rue Chafouin',
+    x: 91,
+    y: 55,
+    quartier: 'Rue Claudique',
     description:
       "Le donjon d'entraînement de Léonard Boudu, tenu avec sa fille Clémence. Burgal, un vétéran, surveille l'entrée. Le panneau promet « Des vrais monstres, des vrais pièges, un vrai trésor ».",
   },
@@ -134,8 +135,8 @@ export const LIEUX_VALTORDU: Lieu[] = [
     id: 'boucherie-plandu',
     nom: 'Boucherie Plandu',
     type: 'boutique',
-    x: 79,
-    y: 62,
+    x: 72.5,
+    y: 53.5,
     quartier: 'Rue du Vieux Bélier',
     description:
       "La boucherie qui gagne le concours du meilleur boudin chaque année, grâce à une recette secrète. Plandu ne la montre à personne, et son arrière-boutique est fermée par un rideau très épais.",
@@ -145,8 +146,8 @@ export const LIEUX_VALTORDU: Lieu[] = [
     id: 'boucherie-salabert',
     nom: 'Boucherie Salabert',
     type: 'boutique',
-    x: 86,
-    y: 47,
+    x: 82,
+    y: 43.5,
     quartier: 'Rue Claudique',
     description: 'Madame Salabert vend le boudin le moins cher du village. Elle jure que c\'est du mouton.',
     boutique: { stock: BOUDINS, prix: 0.9 },
@@ -155,11 +156,53 @@ export const LIEUX_VALTORDU: Lieu[] = [
     id: 'boucherie-flantier',
     nom: 'Boucherie Flantier',
     type: 'boutique',
-    x: 22,
-    y: 33,
+    x: 30.5,
+    y: 51.5,
     quartier: "Rue de la Forêt d'Ouien",
     description: "Flantier fume ses boudins au bois de la forêt d'Ouien. Ça sent bon jusqu'à la place Pairav.",
     boutique: { stock: BOUDINS, prix: 1 },
+  },
+  {
+    id: 'arbre',
+    nom: "L'arbre aux pendus",
+    type: 'info',
+    x: 52,
+    y: 41.5,
+    quartier: 'Place des Pendus',
+    description:
+      "Le grand arbre tordu qui a donné son nom à la place. Plus personne n'y est pendu depuis longtemps, mais on y donne volontiers ses rendez-vous discrets. Le vieux Bertrand y a son banc.",
+  },
+  {
+    id: 'serrurier',
+    nom: 'Échoppe du serrurier',
+    type: 'boutique',
+    x: 83.5,
+    y: 59.5,
+    quartier: 'Rue du Vieux Bélier',
+    description:
+      "Le serrurier du village, un grand maigre qui sursaute au moindre bruit, se méfie de tout le monde. Des clés pendent au plafond par centaines, comme des chauves-souris en fer.",
+    boutique: { stock: ['outils-crochetage', 'corde'], prix: 1, rachat: 0.4, rachete: ['materiel'] },
+  },
+  {
+    id: 'boulangerie',
+    nom: 'Boulangerie',
+    type: 'boutique',
+    x: 40.5,
+    y: 50,
+    quartier: 'Place des Pendus',
+    description: "Le pain de Valtordu est dense, honnête et se garde une semaine. Le boulanger le vend en rations de voyage, avec un peu de fromage de brebis.",
+    boutique: { stock: ['rations'], prix: 0.9 },
+  },
+  {
+    id: 'auberge-pairav',
+    nom: 'Auberge de la place Pairav',
+    type: 'auberge',
+    x: 16.5,
+    y: 23,
+    quartier: 'Place Pairav',
+    description:
+      "La seconde auberge du village (son nom n'est pas sur la carte : celui-ci est choisi pour le jeu), plus petite et plus calme que les Trois Boudins. On y dort sur des matelas de laine de mouton, évidemment.",
+    auberge: { repas: 1, chambre: 2, confort: 'normal' },
   },
 ];
 
@@ -255,16 +298,20 @@ export const RESEAU_VALTORDU = {
   acces: {
     'porte': 'est',
     'garde': 'garde',
-    'boucherie-jobard': 'pendusO',
-    'trois-boudins': 'tb1',
-    'chien': 'tb2',
-    'guerisseur': 'puits',
+    'boucherie-jobard': 'tb1',
+    'trois-boudins': 'pendusO',
+    'chien': 'tb3',
+    'guerisseur': 'tb2',
     'bazar': 'pendusSE',
     'forge': 'forgeP',
     'chateau': 'chateauP',
-    'donjon-facile': 'chafouinE',
-    'boucherie-plandu': 'belierM',
-    'boucherie-salabert': 'salabert',
-    'boucherie-flantier': 'foretM',
+    'donjon-facile': 'claudE',
+    'boucherie-plandu': 'belierN',
+    'boucherie-salabert': 'puits',
+    'boucherie-flantier': 'forgeP',
+    'arbre': 'pendus',
+    'serrurier': 'belierM',
+    'boulangerie': 'pendusS',
+    'auberge-pairav': 'foretH',
   } as Record<string, string>,
 };

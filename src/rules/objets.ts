@@ -137,6 +137,8 @@ export const OBJETS: Objet[] = [
   { id: 'certificat-donjon-facile', nom: 'Certificat du Donjon Facile', type: 'materiel', prix: 0, quete: true, estime: true, description: "« Aventurier certifié Donjon Facile ». Ça n'impressionne personne, mais c'est joli au mur." },
   { id: 'champignons-orange', nom: 'Champignons orange', type: 'materiel', prix: 2, estime: true, description: "Ramassés au bord du chemin. Comestibles ? Hallucinogènes ? Mortels ? Un alchimiste le saurait." },
   // --- Donjon de Naheulbeuk : clés et objets de quête (manuel du MJ, quêtes volume 1) -----------------
+  { id: 'cle-chateau-valtordu', nom: 'Double de la clé du château de Valtordu', type: 'materiel', prix: 0, quete: true, estime: true, description: 'Prêté par le serrurier du village : la grande porte du château.' },
+  { id: 'cle-souterrains-valtordu', nom: 'Clé des souterrains du château', type: 'materiel', prix: 0, quete: true, estime: true, description: 'Prise au chef des gardes du château de Valtordu : la grosse porte des souterrains.' },
   { id: 'cle-zombie', nom: 'Petite clé gluante', type: 'materiel', prix: 0, quete: true, estime: true, description: "Trouvée sur un zombie du rez-de-chaussée. Elle ouvre sûrement un coffre pas loin." },
   { id: 'cle-coffre-orques', nom: 'Clé du coffre des gardes', type: 'materiel', prix: 0, quete: true, estime: true, description: 'Prise au chef des orques du rez-de-chaussée : le coffre de leur dortoir.' },
   { id: 'cle-cave', nom: 'Grosse clé de la cave', type: 'materiel', prix: 0, quete: true, estime: true, description: "Prise au chef des orques : la porte entre l'escalier du rez-de-chaussée et la cave." },

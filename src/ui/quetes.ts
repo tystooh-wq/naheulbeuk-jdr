@@ -1,6 +1,6 @@
 import { lancer } from '../rules/des';
 import { quetesRefusees, villeDe } from '../rules/reputation';
-import { dansHoraire, donjonIci } from '../rules/donjons';
+import { dansHoraire, donjon, donjonIci } from '../rules/donjons';
 import { objet } from '../rules/objets';
 import { niveau, type Partie } from '../rules/partie';
 import {
@@ -57,7 +57,10 @@ export const panneauQuetes = (p: Partie, ou: string, epreuveEnCours?: string): s
       .map(({ quete: q, etape: e }) => {
         let bouton = `<button data-etape="${q.id}">${echapper(e.action)}</button>`;
         if (e.combat) bouton = `<button data-etape="${q.id}">⚔ ${echapper(e.action)}</button>`;
-        if (e.donjon) bouton = `<button data-entrer-donjon="${e.donjon}">♖ ${echapper(e.action)}</button>`;
+        if (e.donjon) {
+          const dj = donjon(e.donjon);
+          bouton = dj.entrees ? boutonsEntree(p, dj) : `<button data-entrer-donjon="${e.donjon}">♖ ${echapper(e.action)}</button>`;
+        }
         const manque = e.requiert?.(p);
         if (manque) bouton = `<button disabled>${echapper(e.action)}</button> <span class="note">${echapper(manque)}</span>`;
         if (e.epreuve)

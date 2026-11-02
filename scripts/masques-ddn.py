@@ -4,7 +4,8 @@ On part du repère de la salle (px, py en %) et on remplit le sol blanc du plan,
 (les embrasures de porte sont refermées en épaississant les murs). Le remplissage s'arrête à une
 certaine distance, pour qu'un couloir ne dévoile pas tout l'étage. On rend ensuite les murs autour.
 Sortie : src/assets/ddn/masques.json (une petite image PNG par salle, en data URL).
-Usage : python3 -I scripts/masques-ddn.py [dossier-apercus]
+Usage : python3 -I scripts/masques-ddn.py [dossier-apercus] [chateau]
+Avec « chateau » : le château de Valtordu (src/rules/chateau-valtordu.ts → src/assets/chateau-valtordu/masques.json).
 """
 import base64, io, json, re, sys
 from collections import deque
@@ -12,17 +13,20 @@ import numpy as np
 from PIL import Image, ImageFilter
 
 RACINE = '/home/claude/naheulbeuk-jdr/'
-PLANS = {'n0': 'n0', 'cave': 'cave', 'sout': 'souterrains', 'n1': 'n1', 'n2': 'n2', 'n3': 'n3', 'n4': 'n4', 'n5': 'n5', 'n6': 'n6'}
+CHATEAU = len(sys.argv) > 2 and sys.argv[2] == 'chateau'
+DOSSIER = 'chateau-valtordu' if CHATEAU else 'ddn'
+SOURCE = 'chateau-valtordu.ts' if CHATEAU else 'ddn-salles.ts'
+PLANS = {'cv-rdc': 'rdc', 'cv-etage': 'etage', 'cv-sout': 'souterrains'} if CHATEAU else {'n0': 'n0', 'cave': 'cave', 'sout': 'souterrains', 'n1': 'n1', 'n2': 'n2', 'n3': 'n3', 'n4': 'n4', 'n5': 'n5', 'n6': 'n6'}
 FERMER = 5  # demi-largeur des embrasures refermées (pixels, plan de 1000 px)
 PORTEE = 450  # distance maximale du remplissage (pixels, plan de 1000 px)
 
-src = open(RACINE + 'src/rules/ddn-salles.ts').read()
+src = open(RACINE + 'src/rules/' + SOURCE).read()
 salles = re.findall(r"id: '([^']+)',\s*nom: [\"'].*?[\"'],\s*niveau: '([^']+)',\s*px: ([\d.]+),\s*py: ([\d.]+)", src)
-apercus = sys.argv[1] if len(sys.argv) > 1 else None
+apercus = sys.argv[1] if len(sys.argv) > 1 and sys.argv[1] != '-' else None
 sortie = {'plans': {}, 'salles': {}}
 
 for niv, fichier in PLANS.items():
-    im = Image.open(f'{RACINE}src/assets/ddn/{fichier}.jpg').convert('RGB')
+    im = Image.open(f'{RACINE}src/assets/{DOSSIER}/{fichier}.jpg').convert('RGB')
     W, H = im.size
     k = max(1, round(FERMER * W / 1000))
     portee = PORTEE * W / 1000
@@ -81,5 +85,5 @@ for niv, fichier in PLANS.items():
     if apercu is not None:
         apercu.save(f'{apercus}/masques-{niv}.png')
 
-json.dump(sortie, open(RACINE + 'src/assets/ddn/masques.json', 'w'), separators=(',', ':'))
+json.dump(sortie, open(RACINE + f'src/assets/{DOSSIER}/masques.json', 'w'), separators=(',', ':'))
 print(len(sortie['salles']), 'salles,', round(len(json.dumps(sortie)) / 1024), 'Ko')

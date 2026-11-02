@@ -8,6 +8,7 @@ import { valeurEpreuve, type CaracQuete } from './epreuves';
 import type { LigneRencontre, Rencontre } from './rencontres';
 import type { Evenement } from './evenements';
 import { DDN } from './ddn-salles';
+import { CHATEAU_VALTORDU } from './chateau-valtordu';
 import { pauseEssai, quandReessayer, rater, reussir } from './essais';
 
 // Donjons : une suite de salles reliées entre elles, montrées sur une mini-carte façon Darkest Dungeon.
@@ -354,6 +355,7 @@ export const DONJONS: Donjon[] = [
     ],
   },
   DDN,
+  CHATEAU_VALTORDU,
 ];
 
 export const donjon = (id: string): Donjon => {

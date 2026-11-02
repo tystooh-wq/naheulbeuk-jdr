@@ -1,6 +1,7 @@
 import type { Situation } from './talents';
 import { ajouterButin, reagir, recruter } from './compagnons';
-import { changerReputation, quetesRefusees, villeDe } from './reputation';
+import { changerReputation, quetesRefusees, reputation, villeDe } from './reputation';
+import { MV } from './chateau-valtordu';
 import { calculerFiche } from './creation';
 import { arrondirOr } from './monnaie';
 import { epreuve, noter, type Partie } from './partie';
@@ -58,6 +59,10 @@ export interface Quete {
   niveau?: number;
   /** Objets de quête confiés en acceptant (une poudre, une lettre…). */
   remet?: string[];
+  /** La quête n'est proposée que si… (une réputation assez haute, une autre quête finie…). */
+  condition?: (p: Partie) => boolean;
+  /** Le donneur fait signe au groupe dès qu'il arrive dans la ville (une fois) : le message. */
+  appel?: string;
 }
 
 const rencontre = (ligne: LigneRencontre, nombre: number, approche = 1): Rencontre => ({ ligne, nombre, d20: ligne.d20, approche });
@@ -167,6 +172,91 @@ export const QUETES: Quete[] = [
     ],
     recompense: { or: 40, xp: 60, texte: '40 PO' },
     niveau: 2,
+    // Pendant l'affaire des impôts, le seigneur ne reçoit personne.
+    condition: (p) => p.quetes['impots-valtordu'] !== 'acceptee',
+  },
+  {
+    // Scénario officiel « Rendez-nous nos impôts ! » (POC), pour des aventuriers de bas niveau.
+    id: 'impots-valtordu',
+    titre: 'Rendez-nous nos impôts !',
+    donneur: 'ville:valtordu:arbre',
+    qui: 'Le vieux Bertrand, sous l\'arbre aux pendus',
+    appel:
+      "Un gamin te tire par la manche : « Le vieux Bertrand veut te voir. Sous l'arbre aux pendus. Il dit que t'as bonne réputation, et que c'est rare. » Il file avant que tu puisses répondre.",
+    // Le vieux Bertrand ne fait confiance qu'à des gens dont on dit du bien (réputation « Apprécié » ou mieux).
+    condition: (p) => reputation(p, 'valtordu') >= 2,
+    proposition:
+      "Un vieil homme t'attend sur le banc, sous l'arbre aux pendus. « Les choses vont mal à Valtordu. Les gardes font régner la terreur, les impôts ont triplé, et le seigneur a fait enfermer tous les émissaires qu'on lui a envoyés. Pourtant, Hubert Jeanfort était un brave homme. Et personne ne l'a vu depuis des semaines… Vous n'êtes pas d'ici. À vous de mener l'enquête. Le château est au bout de la rue… du Château. »",
+    etapes: [
+      {
+        ou: 'ville:valtordu:chateau',
+        objectif: 'Aller voir ce qui se passe au château, au bout de la rue du Château.',
+        action: 'Frapper à la porte du château',
+        recit:
+          "Porte close. Personne ne répond. Une femme qui passait en rasant les murs s'arrête, jette un regard inquiet aux fenêtres et te glisse : « Ne restez pas là. Allez plutôt au Chien qui Pleure : les gens y parlent, là-bas. Pas trop fort. »",
+      },
+      {
+        ou: 'ville:valtordu:chien',
+        objectif: 'Questionner les habitués de la taverne du Chien qui Pleure.',
+        action: 'Payer une tournée et poser des questions',
+        recit:
+          "On finit par te désigner le vieil Archibald, le guérisseur, qui mange ici matin, midi et soir. Il baisse la voix : « Ma fille Églantine est servante au château. Je ne l'ai pas vue depuis des jours. Je n'ose pas y aller… Mais le serrurier du village a un double de la clé de la grande porte. Personne n'a le courage d'entrer, voilà tout. »",
+        epreuve: { carac: 'CHA', situation: 'negocier', echec: 'Les paysans se taisent et regardent leur bière. Un étranger qui pose des questions, ici, ça ressemble à un garde déguisé.', orEchec: 2 },
+      },
+      {
+        ou: 'ville:valtordu:serrurier',
+        objectif: 'Convaincre le serrurier, rue du Vieux Bélier, de prêter le double de la clé du château.',
+        action: 'Lui parler de la part du vieux Bertrand',
+        recit:
+          "Le grand maigre sursaute, puis se détend en entendant le nom de Bertrand. « Ah, s'il vous envoie… » Il décroche une grosse clé du plafond. « Je ne vous l'ai pas donnée. Je ne vous ai jamais vu. Et rapportez-la. »",
+        epreuve: { carac: 'CHA', modif: 2, situation: 'negocier', echec: "« Des représailles, voilà ce que ça me vaudra ! » Il te claque la porte au nez. Il faudra revenir, avec de meilleurs arguments." },
+        donne: 'cle-chateau-valtordu',
+      },
+      {
+        ou: 'ville:valtordu:chateau',
+        objectif: 'Entrer dans le château (par la grande porte, ou par la salle des gardes à droite), découvrir la vérité et libérer la famille du seigneur.',
+        action: 'Entrer dans le château',
+        recit: 'Le château est libéré, les enfants du seigneur sont saufs.',
+        donjon: 'chateau-valtordu',
+      },
+      {
+        ou: 'ville:valtordu:chateau',
+        objectif: 'Recevoir la reconnaissance du seigneur Hubert Jeanfort.',
+        action: 'Se présenter au seigneur',
+        recit:
+          "Hubert Jeanfort serre ses enfants contre lui. « Les impôts retourneront à ceux qui les ont payés, jusqu'à la dernière cuillère. Mais vous, vous serez payés, et bien payés. » Les gardes, penauds, vous font une haie d'honneur. Le serrurier récupère sa clé en jurant qu'il n'y est pour rien.",
+        reprend: 'cle-chateau-valtordu',
+      },
+    ],
+    recompense: { or: 150, xp: 50, objets: ['potion-soin'], texte: '150 PO et une potion de soin' },
+    niveau: 1,
+  },
+  {
+    // Quête secondaire du même scénario.
+    id: 'brigands-tricoteuses',
+    titre: 'Les brigands du pont des Tricoteuses',
+    donneur: 'ville:valtordu:forge',
+    qui: 'Ben, le forgeron',
+    proposition:
+      "Ben pose son marteau, essuie son front. « Le fils de ma voisine s'est fait attaquer par trois brigands. Ils ont monté un campement dans les bois, de l'autre côté du pont des Tricoteuses, et ils détroussent les gens qui arrivent par la route de l'Est. Les gardes ne font plus rien en ce moment. Faudrait leur faire peur. Fais ça, et je te forge quelque chose de bien. »",
+    etapes: [
+      {
+        ou: 'ville:valtordu:porte',
+        objectif: 'Trouver le campement des brigands dans les bois, de l\'autre côté du pont des Tricoteuses, et les chasser.',
+        action: 'Marcher dix minutes dans les bois, vers le campement',
+        recit:
+          "Les trois brigands, à moitié ivres, ne se relèveront pas de sitôt. Sous leur abri de toile : quelques pièces, du petit matériel, des armes de base, et un sac d'ingrédients bizarres volés à un camelot. Tu prends ce qui vaut quelque chose.",
+        combat: { ligne: MV.brigand, nombre: 3 },
+      },
+      {
+        ou: 'ville:valtordu:forge',
+        objectif: 'Annoncer à Ben le forgeron que la route de l\'Est est sûre.',
+        action: 'Raconter le combat à Ben',
+        recit: "Ben éclate de rire et te tend une épée qu'il gardait pour une grande occasion. « Belle lame, bien équilibrée. Elle te portera chance. »",
+      },
+    ],
+    recompense: { or: 15, xp: 30, objets: ['epee-bonne', 'corde'], texte: '15 PO, une corde, et une épée de bonne qualité forgée par Ben' },
+    niveau: 1,
   },
   {
     id: 'donjon-facile',
@@ -234,7 +324,16 @@ export const etapeEnCours = (p: Partie, id: string): number => p.etapesQuetes?.[
 export const quetesProposees = (p: Partie, ou: string) => {
   const ville = villeDe(ou);
   if (ville && quetesRefusees(p, ville)) return [];
-  return QUETES.filter((q) => q.donneur === ou && !p.quetes[q.id]);
+  return QUETES.filter((q) => q.donneur === ou && !p.quetes[q.id] && (q.condition?.(p) ?? true));
+};
+
+/** En arrivant dans une ville : les donneurs de quête qui font signe au groupe (une seule fois chacun). */
+export const appelsQuetes = (p: Partie, ville: string): string[] => {
+  const appels = QUETES.filter(
+    (q) => q.appel && villeDe(q.donneur) === ville && !p.quetes[q.id] && (q.condition?.(p) ?? true) && !p.marques?.includes(`appel:${q.id}`) && !quetesRefusees(p, ville),
+  );
+  for (const q of appels) p.marques = [...(p.marques ?? []), `appel:${q.id}`];
+  return appels.map((q) => q.appel!);
 };
 
 /** Étapes de quêtes en cours qui se jouent ici. */

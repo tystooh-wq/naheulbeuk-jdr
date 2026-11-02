@@ -40,6 +40,7 @@ import { arrondirOr, formatOr } from '../rules/monnaie';
 import { boutonAutrement, lierIdeesLieu, panneauIdeesLieu } from './idees';
 import { sauvegarderPartie } from './sauvegarde';
 import { occupation, vivreEnVille } from '../rules/vie-en-ville';
+import { appelsQuetes } from '../rules/quetes';
 import { compagnon, groupe, prenom } from '../rules/compagnons';
 import { lierGroupe, panneauEmbauche, panneauPartage, partageDuSoir } from './groupe';
 import { discuterPeage, fixerPeage, payerPeage, peageDu, personnes, reconnuJusqua, totalPeage, type Peage } from '../rules/peage';
@@ -122,8 +123,11 @@ export const ecranVille = (app: HTMLElement, p: Partie, sorties: SortiesVille, a
     return peageEnCours;
   };
   if (peageDu(p, c)) p.lieu = 'porte';
+  // Un donneur de quête qui fait signe au groupe en ville (le vieux Bertrand, quand on est apprécié à Valtordu).
+  const appels = appelsQuetes(p, c.id);
+  if (appels.length) visite.message = [visite.message, ...appels.map((t) => `<p>${echapper(t)}</p>`)].filter(Boolean).join('');
   /** La fenêtre du lieu est ouverte au-dessus du plan : seulement si on clique sur un lieu, ou si quelque chose s'y passe. */
-  let popup = !!taxe() || !!accueilMessage;
+  let popup = !!taxe() || !!visite.message;
   /** Le héros marche : on ignore les clics le temps du trajet. */
   let enRoute = false;
   let enregistre = true;
