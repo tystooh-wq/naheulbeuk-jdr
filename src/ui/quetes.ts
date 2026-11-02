@@ -4,6 +4,7 @@ import imgP2 from '../assets/tableau/p2.webp';
 import imgP3 from '../assets/tableau/p3.webp';
 import imgP4 from '../assets/tableau/p4.webp';
 import imgExclamation from '../assets/tableau/exclamation.webp';
+import imgInterrogation from '../assets/tableau/interrogation.webp';
 import imgTampon from '../assets/tableau/tampon.webp';
 import imgCoche from '../assets/tableau/coche.webp';
 import { lancer } from '../rules/des';
@@ -112,13 +113,13 @@ export const tableauQuetes = (p: Partie, ou: string): string => {
   const { refus } = quetesDuLieu(p, ou);
   const parchemins = epingles(p, ou)
     .map(({ q, etat }, i) => {
-      const titre = `${q.titre}${etat === 'en-cours' ? ' (en cours)' : etat === 'a-rendre' ? ' (accomplie, à rendre)' : ''}`;
-      const signe =
-        etat === 'nouvelle'
-          ? `<img class="signe signe-nouvelle" src="${imgExclamation}" alt="" />`
-          : etat === 'en-cours'
-            ? `<img class="signe signe-tampon" src="${imgTampon}" alt="" />`
-            : `<img class="signe signe-coche" src="${imgCoche}" alt="" />`;
+      const titre = `${q.titre}${{ nouvelle: '', 'en-cours': ' (en cours)', action: ' (quelque chose à faire ici)', 'a-rendre': ' (accomplie, à rendre : récompense)' }[etat]}`;
+      const signe = {
+        nouvelle: `<img class="signe signe-nouvelle" src="${imgInterrogation}" alt="" />`,
+        'en-cours': `<img class="signe signe-tampon" src="${imgTampon}" alt="" />`,
+        action: `<img class="signe signe-action" src="${imgExclamation}" alt="" />`,
+        'a-rendre': `<img class="signe signe-coche" src="${imgCoche}" alt="" />`,
+      }[etat];
       return `<button class="parchemin ${etat}" style="--r:${[-6, 4, -2, 7, -4, 3][i % 6]}deg;background-image:url(${PARCHEMINS[i % PARCHEMINS.length]})" data-ouvrir-quete="${q.id}" title="${echapper(titre)}" aria-label="${echapper(titre)}">${signe}</button>`;
     })
     .join('');
@@ -128,7 +129,7 @@ export const tableauQuetes = (p: Partie, ou: string): string => {
   </div>`;
 };
 
-type EtatEpingle = 'nouvelle' | 'en-cours' | 'a-rendre';
+type EtatEpingle = 'nouvelle' | 'en-cours' | 'action' | 'a-rendre';
 
 /**
  * Ce qui est épinglé au tableau : les quêtes proposées ici, celles qu'on a prises ici (en cours, ou accomplies
@@ -138,7 +139,11 @@ const epingles = (p: Partie, ou: string): { q: Quete; etat: EtatEpingle }[] => {
   const { proposees, ici } = quetesDuLieu(p, ou);
   const etatDe = (q: Quete): EtatEpingle => {
     const i = etapeEnCours(p, q.id);
-    return i === q.etapes.length - 1 && q.etapes[i].ou === ou && q.etapes.length > 1 ? 'a-rendre' : 'en-cours';
+    // La dernière étape, ici : on rend la quête et on touche la récompense.
+    if (i === q.etapes.length - 1 && q.etapes[i].ou === ou && q.etapes.length > 1) return 'a-rendre';
+    // L'étape du moment se joue ici (descendre à la cave, affronter les rats…).
+    if (ici.some((x) => x.quete.id === q.id)) return 'action';
+    return 'en-cours';
   };
   const prises = QUETES.filter((q) => p.quetes[q.id] === 'acceptee' && (q.donneur === ou || ici.some((x) => x.quete.id === q.id)));
   return [...proposees.map((q) => ({ q, etat: 'nouvelle' as const })), ...prises.map((q) => ({ q, etat: etatDe(q) }))];

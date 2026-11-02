@@ -916,6 +916,11 @@ button.petit.actif {
 }
 
 .parchemin .signe-nouvelle {
+  height: 54%;
+  width: auto;
+}
+
+.parchemin .signe-action {
   height: 52%;
   width: auto;
 }
