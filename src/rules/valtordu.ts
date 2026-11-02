@@ -30,7 +30,7 @@ export const LIEUX_VALTORDU: Lieu[] = [
     action: {
       bouton: 'Demander des nouvelles au sergent Melchior',
       texte:
-        "« Rien à signaler, à part des brigands sur la route de Tronville, des rats chez Gros Didier et un concours de boudin qui va encore finir en bagarre. Le guérisseur cherche toujours un coursier, et le seigneur paie ceux qui rendent service. Si tu veux t'entraîner, va voir Léonard au Donjon Facile. »",
+        "« Rien à signaler, à part des brigands sur la route de Tronville, des rats chez Gros Didier et un concours de boudin qui va encore finir en bagarre. Le guérisseur cherche toujours un coursier. Et si tu as du courage, j'ai des brigands à te confier. Si tu veux t'entraîner, va voir Léonard au Donjon Facile. »",
     },
   },
   {
@@ -119,7 +119,7 @@ export const LIEUX_VALTORDU: Lieu[] = [
     y: 43,
     quartier: 'Rue du Château',
     description:
-      "Le petit château du seigneur Hubert Jeanfort, un homme plutôt sympathique qui possède aussi quelques fermes du patelin. Églantine, la fille du guérisseur, y travaille. Le seigneur reçoit les aventuriers qui veulent rendre service.",
+      "Le petit château du seigneur Hubert Jeanfort, un homme plutôt sympathique qui possède aussi quelques fermes du patelin. Églantine, la fille du guérisseur, y travaille. Depuis quelque temps, les volets restent fermés et seuls les gardes entrent et sortent.",
   },
   {
     id: 'donjon-facile',
@@ -212,7 +212,7 @@ export const RUMEURS_VALTORDU = [
   "Le guérisseur Archibald cherche quelqu'un pour porter un colis à Loubet. Le dernier coursier s'est cassé une jambe.",
   "Les pulls de Valtordu protègent du rhume des pierres. Ils protègent aussi des compliments.",
   "Vers le sud, après Loubet, il y a des ogres. Des gros. Qui mangent les moutons, et pas qu'eux.",
-  "Le seigneur Hubert paie bien ceux qui débarrassent la route de Tronville de ses brigands.",
+  "Le sergent Melchior paie bien ceux qui débarrassent la route de Tronville de ses brigands. Le seigneur, lui, ne reçoit plus personne.",
   "Gros Didier a des rats dans sa cave. Il n'ose pas descendre, mais ne lui dites pas que je vous l'ai dit.",
   "Dans la forêt d'Ouien vivent des sylvains. Ils sont polis, mais ils ne t'aiment pas.",
 ];

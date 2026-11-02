@@ -149,10 +149,10 @@ export const QUETES: Quete[] = [
   {
     id: 'brigands-tronville',
     titre: 'Les brigands de la route de Tronville',
-    donneur: 'ville:valtordu:chateau',
-    qui: 'Hubert Jeanfort, seigneur de Valtordu',
+    donneur: 'ville:valtordu:garde',
+    qui: 'Le sergent Melchior, au poste de garde',
     proposition:
-      "« Des brigands détroussent les marchands de pulls sur la route de Tronville, au nord-est. Mes gardes sont occupés à garder. Ramène-moi la preuve que ces vauriens ne nuiront plus, et le château saura se montrer reconnaissant. »",
+      "Le sergent Melchior soupire : « Des brigands détroussent les marchands de pulls sur la route de Tronville, au nord-est. Mes gardes sont occupés à garder, et le château ne nous envoie plus personne. Ramène-moi la preuve que ces vauriens ne nuiront plus, et la caisse du poste saura se montrer reconnaissante. »",
     etapes: [
       {
         ou: 'monde:tronville',
@@ -163,17 +163,15 @@ export const QUETES: Quete[] = [
         donne: 'foulard-brigand',
       },
       {
-        ou: 'ville:valtordu:chateau',
-        objectif: 'Rapporter le foulard du chef des brigands au seigneur Hubert Jeanfort.',
-        action: 'Présenter le foulard au seigneur',
-        recit: "Hubert Jeanfort examine le foulard avec dégoût. « C'est bien eux. Valtordu te remercie. » Un intendant te compte ta récompense, en vérifiant deux fois chaque pièce.",
+        ou: 'ville:valtordu:garde',
+        objectif: 'Rapporter le foulard du chef des brigands au sergent Melchior, au poste de garde.',
+        action: 'Présenter le foulard au sergent Melchior',
+        recit: "Melchior examine le foulard avec dégoût. « C'est bien eux. Valtordu te remercie. » Il ouvre la caisse du poste et te compte ta récompense, en vérifiant deux fois chaque pièce. Firmin applaudit, sans quitter l'étal du boucher des yeux.",
         reprend: 'foulard-brigand',
       },
     ],
     recompense: { or: 40, xp: 60, texte: '40 PO' },
     niveau: 2,
-    // Pendant l'affaire des impôts, le seigneur ne reçoit personne.
-    condition: (p) => p.quetes['impots-valtordu'] !== 'acceptee',
   },
   {
     // Scénario officiel « Rendez-nous nos impôts ! » (POC), pour des aventuriers de bas niveau.
