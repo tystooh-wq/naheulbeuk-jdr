@@ -483,10 +483,15 @@ export const ecranMonde = (app: HTMLElement, p: Partie, s: Sorties) => {
     const ouvert = vue === 'lieu' && !!fenetre;
     app.innerHTML = `<div class="page page-ville">
       ${bandeau(p, vue, 'Carte')}
-      <div class="scene ${ouvert ? 'popup-ouverte' : ''}" id="scene">
+      ${
+        // Les onglets (personnage, groupe, quêtes, journal) prennent la place de la carte.
+        vue === 'lieu'
+          ? `<div class="scene ${ouvert ? 'popup-ouverte' : ''}" id="scene">
         ${carte()}
         ${fenetreHtml()}
-      </div>
+      </div>`
+          : ''
+      }
       ${vue === 'lieu' && !fenetre ? `<p class="note">Glisse la carte pour la déplacer. Clique sur un lieu pour voir l'itinéraire, ou sur ta position pour y agir.</p>` : ''}
       ${panneau}
       ${enregistre ? '' : '<p class="alerte">Ce navigateur ne permet pas de sauvegarder : ta partie sera perdue si tu fermes la page.</p>'}

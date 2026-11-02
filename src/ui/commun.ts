@@ -37,7 +37,7 @@ import { lancer } from '../rules/des';
 import { caracMagie, ea, eaMax, soinLeger, sortsConnus } from '../rules/magie';
 import { valeursTir } from '../rules/tir';
 import { modEsquive } from '../rules/combat';
-import { animerDes, de, echapper } from './outils';
+import { animerDes, competences, de, echapper, liste } from './outils';
 
 // Éléments partagés par la ville et la carte du monde : bandeau du héros, sac, journal, vitesse.
 
@@ -123,11 +123,10 @@ export const bandeau = (p: Partie, vue: string, nomCarte: string) => {
     </div>
     <div class="onglets">
       <button class="secondaire petit ${vue === 'lieu' ? 'actif' : ''}" data-vue="lieu">${nomCarte}</button>
-      <button class="secondaire petit ${vue === 'sac' ? 'actif' : ''}" data-vue="sac">Sac et équipement</button>
+      <button class="secondaire petit ${vue === 'sac' ? 'actif' : ''}" data-vue="sac">Personnage et sac</button>
       <button class="secondaire petit ${vue === 'groupe' ? 'actif' : ''}" data-vue="groupe">Groupe${p.compagnons?.length ? ` <span class="pastille">${p.compagnons.length}</span>` : ''}</button>
       <button class="secondaire petit ${vue === 'quetes' ? 'actif' : ''}" data-vue="quetes">Quêtes${quetesEnCours(p) ? ` <span class="pastille">${quetesEnCours(p)}</span>` : ''}</button>
       <button class="secondaire petit ${vue === 'journal' ? 'actif' : ''}" data-vue="journal">Journal</button>
-      <button class="secondaire petit" id="fiche">Fiche</button>
     </div>
   </div>`;
 };
@@ -183,8 +182,19 @@ export const panneauSac = (p: Partie, message?: string) => {
   const t = valeursTir(p);
   const ids = [...new Set(p.sac)];
   const esquive = modEsquive(v.pr) === null ? null : v.ad + modEsquive(v.pr)!;
+  const f = calculerFiche(p.perso);
+  const identite = [f.nomVersionHB ?? f.origine.nom, f.metier.id === 'aucun' ? 'sans métier' : f.metier.nom.toLowerCase()].join(', ');
   return `<div class="panneau">
-    <h2>Sac et équipement</h2>
+    <div class="fiche-entete">
+      <div>
+        <div class="nom-heros">${echapper(p.perso.nom)}</div>
+        <div>${echapper(p.perso.sexe)} · ${echapper(identite)} · niveau ${niveau(p)}</div>
+      </div>
+      <div style="text-align:right">
+        <div><b>${formatOr(p.or)}</b></div>
+        <div><b>${p.perso.destin}</b> point${p.perso.destin > 1 ? 's' : ''} de destin · ${p.xp ?? 0} XP</div>
+      </div>
+    </div>
     <h3>Caractéristiques</h3>
     <div class="valeurs">
       ${caracsDuHeros(p)
@@ -201,6 +211,20 @@ export const panneauSac = (p: Partie, message?: string) => {
       <div><b>${echapper(v.degats)}</b><span>Dégâts</span></div>
       <div><b>${v.pr}</b><span>Protection</span></div>
       ${t ? `<div><b>${t.ad}</b><span>Tir (AD)</span></div>` : ''}
+      <div><b>${f.rm}</b><span>Résistance magie</span></div>
+      <div><b>${f.prMax === null ? 'Libre' : `PR ${f.prMax}`}</b><span>Armure max</span></div>
+    </div>
+    <div class="colonnes">
+      <div>
+        <h3>Compétences</h3>
+        ${competences([...f.competences.naissance, ...f.competences.heritees, ...f.competences.choisies])}
+      </div>
+      <div>
+        <h3>Restrictions</h3>
+        ${liste(f.restrictions)}
+        ${f.bonus.length ? `<h3>Particularités</h3>${liste(f.bonus)}` : ''}
+        <p><b>Charge maximale :</b> ${echapper(f.charge)}</p>
+      </div>
     </div>
     ${poupee(p)}
     <h3 style="margin-top:16px">Dans le sac</h3>

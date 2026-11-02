@@ -434,10 +434,15 @@ export const ecranVille = (app: HTMLElement, p: Partie, sorties: SortiesVille, a
     const panneau = vue === 'sac' ? panneauSac(p, visite.message) : vue === 'groupe' ? panneauGroupe(p, visite.message) : vue === 'journal' ? panneauJournal(p) : vue === 'quetes' ? panneauJournalQuetes(p) : '';
     app.innerHTML = `<div class="page page-ville">
       ${bandeau(p, vue, c.nom)}
-      <div class="scene ${ouvert ? 'popup-ouverte' : ''}" id="scene">
+      ${
+        // Les onglets (personnage, groupe, quêtes, journal) prennent la place du plan.
+        vue === 'lieu'
+          ? `<div class="scene ${ouvert ? 'popup-ouverte' : ''}" id="scene">
         ${plan()}
         ${ouvert ? popupLieu() : ''}
-      </div>
+      </div>`
+          : ''
+      }
       ${panneauDemandesSoin()}
       ${vieLignes.length ? `<ul class="reactions">${vieLignes.map((x) => `<li>${echapper(x)}</li>`).join('')}</ul>` : ''}
       ${vue === 'lieu' && !popup ? `<p class="note">Clique sur un lieu pour t'y rendre. Tu es à <b>${echapper(lieu(p.lieu).nom)}</b> : clique sur son repère pour y entrer.</p>` : ''}

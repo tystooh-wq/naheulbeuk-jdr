@@ -532,7 +532,7 @@ export const ecranDonjon = (app: HTMLElement, p: Partie, s: SortiesDonjon) => {
     app.innerHTML = `<div class="page page-donjon ${dj.niveaux ? 'donjon-plans' : ''}">
       ${bandeau(p, vue, 'Donjon')}
       <h1 class="titre-donjon">${echapper(dj.nom)}</h1>
-      <div class="donjon-colonnes"><div class="donjon-carte">${carte()}</div><div class="donjon-salle">${panneau}</div></div>
+      ${vue === 'lieu' ? `<div class="donjon-colonnes"><div class="donjon-carte">${carte()}</div><div class="donjon-salle">${panneau}</div></div>` : panneau}
     </div>`;
     lier();
   };
