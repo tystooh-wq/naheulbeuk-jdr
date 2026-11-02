@@ -3,6 +3,9 @@ import imgP1 from '../assets/tableau/p1.webp';
 import imgP2 from '../assets/tableau/p2.webp';
 import imgP3 from '../assets/tableau/p3.webp';
 import imgP4 from '../assets/tableau/p4.webp';
+import imgExclamation from '../assets/tableau/exclamation.webp';
+import imgTampon from '../assets/tableau/tampon.webp';
+import imgCoche from '../assets/tableau/coche.webp';
 import { lancer } from '../rules/des';
 import { quetesRefusees, villeDe } from '../rules/reputation';
 import { dansHoraire, donjon, donjonIci } from '../rules/donjons';
@@ -106,21 +109,39 @@ const PARCHEMINS = [imgP1, imgP2, imgP4, imgP3];
 
 /** Le tableau d'affichage : un parchemin épinglé par quête (nom au survol), vide s'il n'y a rien. */
 export const tableauQuetes = (p: Partie, ou: string): string => {
-  const { proposees, ici, refus } = quetesDuLieu(p, ou);
-  const items = [
-    ...proposees.map((q) => ({ q, suite: false })),
-    ...ici.map(({ quete: q }) => ({ q, suite: true })),
-  ];
-  const parchemins = items
-    .map(
-      ({ q, suite }, i) =>
-        `<button class="parchemin ${suite ? 'suite' : ''}" style="--r:${[-6, 4, -2, 7, -4, 3][i % 6]}deg;background-image:url(${PARCHEMINS[i % PARCHEMINS.length]})" data-ouvrir-quete="${q.id}" title="${echapper(q.titre)}${suite ? ' (quête en cours)' : ''}" aria-label="${echapper(q.titre)}${suite ? ' (quête en cours)' : ''}"></button>`,
-    )
+  const { refus } = quetesDuLieu(p, ou);
+  const parchemins = epingles(p, ou)
+    .map(({ q, etat }, i) => {
+      const titre = `${q.titre}${etat === 'en-cours' ? ' (en cours)' : etat === 'a-rendre' ? ' (accomplie, à rendre)' : ''}`;
+      const signe =
+        etat === 'nouvelle'
+          ? `<img class="signe signe-nouvelle" src="${imgExclamation}" alt="" />`
+          : etat === 'en-cours'
+            ? `<img class="signe signe-tampon" src="${imgTampon}" alt="" />`
+            : `<img class="signe signe-coche" src="${imgCoche}" alt="" />`;
+      return `<button class="parchemin ${etat}" style="--r:${[-6, 4, -2, 7, -4, 3][i % 6]}deg;background-image:url(${PARCHEMINS[i % PARCHEMINS.length]})" data-ouvrir-quete="${q.id}" title="${echapper(titre)}" aria-label="${echapper(titre)}">${signe}</button>`;
+    })
     .join('');
   return `<div class="tableau-quetes" style="background-image:url(${imgPanneau})">
     <div class="liege">${parchemins || '<p class="vide">Rien d\'épinglé pour le moment.</p>'}</div>
     <p class="legende-tableau">📜 Tableau d'affichage${refus ? ' · <span class="note">ta réputation fait fuir les donneurs de quêtes</span>' : ''}</p>
   </div>`;
+};
+
+type EtatEpingle = 'nouvelle' | 'en-cours' | 'a-rendre';
+
+/**
+ * Ce qui est épinglé au tableau : les quêtes proposées ici, celles qu'on a prises ici (en cours, ou accomplies
+ * et à rendre : il ne reste que la dernière étape, ici), et celles dont une étape se joue ici. Rendues : décrochées.
+ */
+const epingles = (p: Partie, ou: string): { q: Quete; etat: EtatEpingle }[] => {
+  const { proposees, ici } = quetesDuLieu(p, ou);
+  const etatDe = (q: Quete): EtatEpingle => {
+    const i = etapeEnCours(p, q.id);
+    return i === q.etapes.length - 1 && q.etapes[i].ou === ou && q.etapes.length > 1 ? 'a-rendre' : 'en-cours';
+  };
+  const prises = QUETES.filter((q) => p.quetes[q.id] === 'acceptee' && (q.donneur === ou || ici.some((x) => x.quete.id === q.id)));
+  return [...proposees.map((q) => ({ q, etat: 'nouvelle' as const })), ...prises.map((q) => ({ q, etat: etatDe(q) }))];
 };
 
 /** Le détail d'une quête du tableau, pour la fenêtre qui s'ouvre au clic sur son parchemin. */
@@ -129,7 +150,17 @@ export const detailQuete = (p: Partie, ou: string, id: string, epreuveEnCours?: 
   const q = proposees.find((x) => x.id === id);
   if (q) return carteProposee(p, q);
   const e = ici.find((x) => x.quete.id === id);
-  return e ? carteEtape(p, e.quete, e.etape, epreuveEnCours) : '';
+  if (e) return carteEtape(p, e.quete, e.etape, epreuveEnCours);
+  // Prise ici, mais l'étape du moment se joue ailleurs : le rappel de ce qu'il reste à faire.
+  const prise = QUETES.find((x) => x.id === id && p.quetes[x.id] === 'acceptee');
+  if (!prise) return '';
+  const i = etapeEnCours(p, id);
+  return `<div class="detail-choix quete en-cours">
+          <h3>${echapper(prise.titre)} <img class="tampon-detail" src="${imgTampon}" alt="En cours" /></h3>
+          <p class="note">${echapper(prise.qui)} · étape ${i + 1}/${prise.etapes.length}</p>
+          <p>➤ ${echapper(prise.etapes[i].objectif)}</p>
+          <p class="note">Récompense : ${echapper(prise.recompense.texte)}${prise.recompense.xp ? `, ${prise.recompense.xp} XP` : ''}.</p>
+        </div>`;
 };
 
 /** Entrer dans un donjon, par chacune de ses portes (la taverne n'ouvre qu'à certaines heures). */

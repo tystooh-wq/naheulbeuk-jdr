@@ -907,6 +907,36 @@ button.petit.actif {
   transition: rotate 0.15s, translate 0.15s, scale 0.15s;
 }
 
+.parchemin .signe {
+  position: absolute;
+  left: 50%;
+  top: 56%;
+  translate: -50% -50%;
+  pointer-events: none;
+}
+
+.parchemin .signe-nouvelle {
+  height: 52%;
+  width: auto;
+}
+
+.parchemin .signe-tampon {
+  width: 92%;
+  rotate: -14deg;
+  opacity: 0.85;
+}
+
+.parchemin .signe-coche {
+  width: 66%;
+}
+
+.tampon-detail {
+  height: 1.3em;
+  vertical-align: middle;
+  rotate: -8deg;
+  margin-left: 6px;
+}
+
 .parchemin > span {
   position: absolute;
   left: 0;
