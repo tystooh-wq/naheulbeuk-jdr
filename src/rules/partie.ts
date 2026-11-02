@@ -81,6 +81,12 @@ export interface EtatCompagnon {
   du?: number;
   /** Jour de sa dernière bonne soirée en ville (voir vie-en-ville.ts). */
   soiree?: number;
+  /** Ses blessures graves, gardées après le combat comme celles du héros (jusqua : jour de guérison). */
+  blessures?: (BlessureGrave & { jusqua?: number; soignee?: boolean })[];
+  /** Sa bourse : ses parts du butin, pour payer ses soins. */
+  bourse?: number;
+  /** Jour où le héros a refusé de compléter ses soins (il ne redemande pas le même jour). */
+  soinRefuse?: number;
 }
 
 /** Les compagnons se reposent en même temps que le héros (jamais au-delà de leur maximum, et au moins 1 PV). */

@@ -1,4 +1,7 @@
 import {
+  blessuresCompagnon,
+  bourseDe,
+  prenom,
   appreciation,
   APPRECIATION_MAX,
   compagnon,
@@ -145,8 +148,10 @@ export const barrePV = (ev: number, max: number) => {
 };
 
 /** Les blessures graves du héros, en court : nom, malus, guérison. */
-export const listeBlessuresHeros = (p: Partie) =>
-  blessuresActives(p)
+export const listeBlessuresHeros = (p: Partie) => listeBlessures(blessuresActives(p));
+
+const listeBlessures = (liste: ReturnType<typeof blessuresActives>) =>
+  liste
     .map(
       (b) =>
         `<li><b>${echapper(b.nom)}</b> <span class="note">${echapper([...Object.entries(b.mods).map(([k, v]) => `${k} ${v}`), ...(b.mv !== undefined ? [`déplacement ${Math.round(b.mv * 100)} %`] : [])].join(', '))} · ${
@@ -159,15 +164,25 @@ export const listeBlessuresHeros = (p: Partie) =>
 const recapGroupe = (p: Partie) => {
   const g = groupe(p);
   const graves = blessuresActives(p);
+  const badge = (n: number) => `<span class="badge-blessure">🩹 ${n} blessure${n > 1 ? 's' : ''} grave${n > 1 ? 's' : ''}</span>`;
+  const blesses = g.filter((e) => blessuresCompagnon(p, e).length);
   const ligne = (nom: string, ev: number, max: number, destin: number, extra = '') =>
     `<tr><th scope="row">${echapper(nom)}</th><td>${barrePV(ev, max)}</td><td class="nombre">${ev}/${max}</td><td class="nombre" title="Points de destin">✦ ${destin}</td><td>${extra}</td></tr>`;
   return `<table class="recap-groupe">
       <thead><tr><th scope="col">Qui</th><th scope="col">Vie</th><th scope="col" class="nombre">PV</th><th scope="col" class="nombre">Destin</th><th scope="col">État</th></tr></thead>
       <tbody>
-      ${ligne(p.perso.nom, p.ev, evMax(p), p.perso.destin, graves.length ? `<span class="badge-blessure">🩹 ${graves.length} blessure${graves.length > 1 ? 's' : ''} grave${graves.length > 1 ? 's' : ''}</span>` : '<span class="note">en forme</span>')}
-      ${g.map((e) => ligne(compagnon(e.id).perso.nom.split(' ')[0], e.ev, e.evMax, destinCompagnon(e), e.ev < e.evMax ? '<span class="note">blessé</span>' : '<span class="note">en forme</span>')).join('')}
+      ${ligne(p.perso.nom, p.ev, evMax(p), p.perso.destin, graves.length ? badge(graves.length) : '<span class="note">en forme</span>')}
+      ${g
+        .map((e) => {
+          const n = blessuresCompagnon(p, e).length;
+          return ligne(prenom(e.id), e.ev, e.evMax, destinCompagnon(e), n ? badge(n) : e.ev < e.evMax ? '<span class="note">blessé</span>' : '<span class="note">en forme</span>');
+        })
+        .join('')}
       </tbody></table>
-    ${graves.length ? `<div class="blessures-groupe"><b>Blessures graves de ${echapper(p.perso.nom.split(' ')[0])}</b><ul class="blessures">${listeBlessuresHeros(p)}</ul></div>` : ''}`;
+    ${graves.length ? `<div class="blessures-groupe"><b>Blessures graves de ${echapper(p.perso.nom.split(' ')[0])}</b><ul class="blessures">${listeBlessuresHeros(p)}</ul></div>` : ''}
+    ${blesses
+      .map((e) => `<div class="blessures-groupe"><b>Blessures graves de ${echapper(prenom(e.id))}</b> <span class="note">(sa bourse : ${bourseDe(e)} PO ; il se fera soigner dans la prochaine grande ville)</span><ul class="blessures">${listeBlessures(blessuresCompagnon(p, e))}</ul></div>`)
+      .join('')}`;
 };
 
 /** Fiches dépliées dans l'onglet Groupe (gardées d'un affichage à l'autre). */
@@ -185,7 +200,7 @@ export const panneauGroupe = (p: Partie, message?: string) => {
         ? g
             .map(
               (e) => `<details class="compagnon fiche-groupe" data-fiche-compagnon="${e.id}" ${fichesOuvertes.has(e.id) ? 'open' : ''}>
-            <summary><b>${echapper(compagnon(e.id).perso.nom)}</b> <span class="note">${echapper(compagnon(e.id).titre)} · ❤ ${e.ev}/${e.evMax} · ✦ ${destinCompagnon(e)} · ${echapper(humeur(e))}</span></summary>
+            <summary><b>${echapper(compagnon(e.id).perso.nom)}</b> <span class="note">${echapper(compagnon(e.id).titre)} · ❤ ${e.ev}/${e.evMax} · ✦ ${destinCompagnon(e)} · 💰 ${bourseDe(e)} PO · ${echapper(humeur(e))}</span></summary>
             ${boutonPayer(p, e) ? `<p>${boutonPayer(p, e)}</p>` : ''}
             ${enVille(p, e)}
             ${relationHtml(p, e)}

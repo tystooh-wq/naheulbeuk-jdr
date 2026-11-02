@@ -852,17 +852,123 @@ button.petit.actif {
   padding: 4px 6px 12px;
 }
 
-.annexe-lieu {
-  margin-top: 14px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+/* Le tableau d'affichage : un panneau de liège, des parchemins punaisés. */
+.tableau-quetes {
+  margin: 16px 6px 0;
+  padding: 10px;
+  background: #6b4a2b;
+  border: 6px solid #4a311b;
+  border-radius: 4px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45), inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+  rotate: 0.8deg;
 }
 
-.annexe-lieu h3 {
-  margin: 0 0 6px;
+.liege {
+  min-height: 92px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 10px 6px;
+  background: radial-gradient(circle at 20% 30%, #c79a5f 0 2px, transparent 3px) 0 0 / 14px 14px, radial-gradient(circle at 70% 60%, #a8763f 0 1.5px, transparent 2.5px) 0 0 / 11px 11px, #b98a52;
+  border-radius: 2px;
 }
 
-.annexe-lieu h3 + * {
-  margin-top: 0;
+.liege .vide {
+  margin: auto;
+  color: #4a311b;
+  font-style: italic;
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+.parchemin {
+  position: relative;
+  width: 54px;
+  height: 66px;
+  min-height: 0;
+  padding: 14px 0 0;
+  border: 1px solid #b89a63;
+  border-radius: 3px 3px 10px 4px;
+  background: linear-gradient(180deg, #fbf1d6, #ead6a4);
+  color: var(--rouge);
+  font-size: 1.1rem;
+  box-shadow: 2px 4px 6px rgba(0, 0, 0, 0.4);
+  rotate: var(--r, 0deg);
+  cursor: pointer;
+  transition: rotate 0.15s, translate 0.15s;
+}
+
+.parchemin::after {
+  content: '';
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 12px;
+  height: 14px;
+  background: repeating-linear-gradient(180deg, rgba(90, 60, 30, 0.35) 0 1px, transparent 1px 4px);
+}
+
+.parchemin.suite {
+  color: #1f5a8a;
+}
+
+.parchemin:hover,
+.parchemin:focus-visible {
+  rotate: 0deg;
+  translate: 0 -3px;
+  background: linear-gradient(180deg, #fffaf0, #f0dfb4);
+}
+
+.punaise {
+  position: absolute;
+  top: 4px;
+  left: 50%;
+  width: 10px;
+  height: 10px;
+  margin-left: -5px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #f07a6a, #9b1c12);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.legende-tableau {
+  margin: 8px 0 0;
+  color: #f3e3c3;
+  font-size: 0.85rem;
+  text-align: center;
+}
+
+.legende-tableau .note {
+  color: #f3e3c3;
+}
+
+/* Le parchemin décroché : sa quête, par-dessus la fenêtre du lieu. */
+.popup-quete {
+  position: absolute;
+  inset: 0;
+  z-index: 8;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 4% 8%;
+  background: rgba(43, 29, 14, 0.45);
+}
+
+.parchemin-ouvert {
+  width: min(560px, 100%);
+  max-height: 100%;
+  overflow-y: auto;
+  background: linear-gradient(180deg, #fbf1d6, #f1e2bb);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55);
+}
+
+.parchemin-ouvert .detail-choix {
+  border: none;
+  background: none;
+  margin: 0;
+  padding: 0 40px 0 0;
 }
 
 .carte-lieu .entete-lieu {
@@ -923,9 +1029,17 @@ button.petit.actif {
     order: 1;
   }
 
-  .annexe-lieu {
+  .tableau-quetes {
     order: 2;
-    margin-top: 12px;
+    margin: 12px 0 0;
+  }
+
+  .popup-quete {
+    position: fixed;
+    z-index: 60;
+    padding: 16px;
+    align-items: center;
+    background: rgba(43, 29, 14, 0.7);
   }
 
   .carte-lieu {

@@ -33,7 +33,8 @@ import { bandeau, jaugeReputation, lierSac, lierVitesse, ligneObjet, panneauGrou
 import { ecranCombat, pertes, vengeTexte } from './combat';
 import { ecranMort } from './mort';
 import { aTalent, bonusSituation, texteBonus } from '../rules/talents';
-import { lierQuetes, marqueQuete, panneauJournalQuetes, panneauQuetes } from './quetes';
+import { payerSoins, refuserSoins, soinsEnVille, type DemandeSoin } from '../rules/soins-compagnons';
+import { aDesQuetes, detailQuete, entreesDonjonLibre, lierQuetes, marqueQuete, panneauJournalQuetes, tableauQuetes } from './quetes';
 import { animerDes, de, echapper } from './outils';
 import { marchander, type Marchandage } from '../rules/marchandage';
 import { arrondirOr, formatOr } from '../rules/monnaie';
@@ -115,6 +116,8 @@ export const ecranVille = (app: HTMLElement, p: Partie, sorties: SortiesVille, a
   let visite: Visite = { message: accueilMessage };
   let vue: 'lieu' | 'sac' | 'groupe' | 'journal' | 'quetes' = 'lieu';
   let epreuveQuete: string | undefined;
+  /** Le parchemin du tableau d'affichage ouvert (détail de la quête). */
+  let queteOuverte: string | undefined;
   /** Le droit d'entrée (Chnafon, Jambfer) : la porte réclame son dû avant tout. */
   const taxe = () => {
     // Déjà en ville (ailleurs qu'à la porte) : on est passé, le garde ne court pas après nous.
@@ -243,7 +246,6 @@ export const ecranVille = (app: HTMLElement, p: Partie, sorties: SortiesVille, a
   };
 
   const actionsLieu = (l: Lieu): string => {
-    const quetes = panneauQuetes(p, ou(l), epreuveQuete);
     const parts: string[] = [];
     switch (l.type) {
       case 'porte': {
@@ -311,21 +313,26 @@ export const ecranVille = (app: HTMLElement, p: Partie, sorties: SortiesVille, a
         break;
       }
       case 'emplois':
-        if (!quetes) parts.push(`<p class="note">Rien pour toi pour le moment. Repasse plus tard, ou va voir ailleurs si on a besoin de toi.</p>`);
+        if (!aDesQuetes(p, ou(l))) parts.push(`<p class="note">Rien pour toi pour le moment. Repasse plus tard, ou va voir ailleurs si on a besoin de toi.</p>`);
         break;
     }
     if (l.action) parts.push(`<p><button class="secondaire" id="action-lieu">${echapper(l.action.bouton)}</button></p>`);
-    return parts.join('') + (l.boutique ? panneauBoutique(l) : '');
+    return parts.join('') + entreesDonjonLibre(p, ou(l)) + panneauEmbauche(p, ou(l), l.type === 'bar' || l.type === 'auberge') + (l.boutique ? panneauBoutique(l) : '');
   };
 
-  /** Quêtes et recrutement : une fenêtre à part, sous l'image du lieu. */
-  const annexeLieu = (l: Lieu): string => {
-    const quetes = panneauQuetes(p, ou(l), epreuveQuete);
-    const embauche = panneauEmbauche(p, ou(l), l.type === 'bar' || l.type === 'auberge');
-    if (!quetes && !embauche) return '';
-    return `<div class="panneau annexe-lieu">
-      ${quetes ? `<h3>📜 Quêtes</h3>${quetes}` : ''}
-      ${embauche ? `<h3>🤝 Recrutement</h3>${embauche}` : ''}
+  /** Le détail d'une quête du tableau d'affichage, par-dessus la fenêtre du lieu. */
+  const popupQuete = (l: Lieu): string => {
+    if (!queteOuverte) return '';
+    const detail = detailQuete(p, ou(l), queteOuverte, epreuveQuete);
+    if (!detail) {
+      queteOuverte = undefined;
+      return '';
+    }
+    return `<div class="popup-quete" id="popup-quete" role="dialog" aria-label="Détail de la quête">
+      <div class="panneau parchemin-ouvert">
+        <div class="barre-fermer"><button class="secondaire petit fermer" id="fermer-quete" aria-label="Remettre le parchemin sur le tableau">✕</button></div>
+        ${detail}
+      </div>
     </div>`;
   };
 
@@ -338,7 +345,7 @@ export const ecranVille = (app: HTMLElement, p: Partie, sorties: SortiesVille, a
   const popupLieu = () => {
     const l = lieu(p.lieu);
     return `<div class="popup-lieu" id="popup" role="dialog" aria-labelledby="titre-lieu">
-      <div class="colonne-lieu">${illustration(l)}${annexeLieu(l)}</div>
+      <div class="colonne-lieu">${illustration(l)}${tableauQuetes(p, ou(l))}</div>
       <div class="panneau carte-lieu" id="panneau">
         <div class="barre-fermer"><button class="secondaire petit fermer" id="fermer-lieu" aria-label="Fermer et revenir au plan">✕</button></div>
         <div class="entete-lieu">
@@ -352,6 +359,7 @@ export const ecranVille = (app: HTMLElement, p: Partie, sorties: SortiesVille, a
         ${panneauIdeesLieu(p, `${c.id}:${l.id}`)}
         <p>${boutonAutrement({ type: 'lieu', id: `${c.id}:${l.id}`, titre: `${l.nom} (${c.nom})` })}</p>
       </div>
+      ${popupQuete(l)}
     </div>`;
   };
 
@@ -389,6 +397,25 @@ export const ecranVille = (app: HTMLElement, p: Partie, sorties: SortiesVille, a
   // --- Affichage et événements ---------------------------------------------------------
 
   let vieLignes: string[] = [];
+  // Grande ville : les compagnons blessés filent chez le guérisseur (ou font passer le chapeau).
+  const soins = p.arrive ? soinsEnVille(p, c) : { lignes: [], demandes: [] };
+  vieLignes = soins.lignes;
+  let demandesSoin: DemandeSoin[] = soins.demandes;
+  const panneauDemandesSoin = () =>
+    demandesSoin.length
+      ? `<div class="panneau demandes-soin">${demandesSoin
+          .map(
+            (d, i) => `<div class="demande-soin">
+          <p><b>🩹 ${echapper(prenom(d.id))}</b> voudrait se faire soigner chez le guérisseur (${echapper(d.lieu)}) : ${echapper(d.soins.map((s) => s.nom.toLowerCase()).join(', '))}, pour <b>${d.prix} PO</b>. Il n'a que ${d.sienne} PO.</p>
+          <ul class="dons">${d.dons
+            .map((x) => `<li>${echapper(prenom(x.id))} ${x.montant > 0 ? `met ${x.montant} PO au pot.` : 'regarde ailleurs et ne donne rien.'}</li>`)
+            .join('')}</ul>
+          <p class="actions-lieu"><button data-payer-soin="${i}" ${p.or < d.reste ? 'disabled' : ''}>Compléter : ${d.reste} PO</button>
+            <button class="secondaire" data-refuser-soin="${i}">Le laisser avec ses blessures</button></p>
+        </div>`,
+          )
+          .join('')}</div>`
+      : '';
   const render = () => {
     if (!p.arrive) return ecranArrivee();
     vieLignes = [...vieLignes, ...vivreEnVille(p, c)].slice(-4);
@@ -400,6 +427,7 @@ export const ecranVille = (app: HTMLElement, p: Partie, sorties: SortiesVille, a
         ${plan()}
         ${ouvert ? popupLieu() : ''}
       </div>
+      ${panneauDemandesSoin()}
       ${vieLignes.length ? `<ul class="reactions">${vieLignes.map((x) => `<li>${echapper(x)}</li>`).join('')}</ul>` : ''}
       ${vue === 'lieu' && !popup ? `<p class="note">Clique sur un lieu pour t'y rendre. Tu es à <b>${echapper(lieu(p.lieu).nom)}</b> : clique sur son repère pour y entrer.</p>` : ''}
       ${panneau}
@@ -439,6 +467,7 @@ export const ecranVille = (app: HTMLElement, p: Partie, sorties: SortiesVille, a
       p.lieu = id;
       visite = {};
       epreuveQuete = undefined;
+      queteOuverte = undefined;
       sauver();
       entrer();
     };
@@ -488,6 +517,39 @@ export const ecranVille = (app: HTMLElement, p: Partie, sorties: SortiesVille, a
     sur('#fermer-lieu', () => {
       popup = false;
       render();
+    });
+    sur('[data-payer-soin]', (el) => {
+      const d = demandesSoin[Number(el.dataset.payerSoin)];
+      const r = payerSoins(p, d);
+      if (r.startsWith('Il te manque')) return;
+      demandesSoin = demandesSoin.filter((x) => x !== d);
+      vieLignes = [...vieLignes, r].slice(-4);
+      sauver();
+      render();
+    });
+    sur('[data-refuser-soin]', (el) => {
+      const d = demandesSoin[Number(el.dataset.refuserSoin)];
+      demandesSoin = demandesSoin.filter((x) => x !== d);
+      vieLignes = [...vieLignes, refuserSoins(p, d)].slice(-4);
+      sauver();
+      render();
+    });
+    sur('[data-ouvrir-quete]', (el) => {
+      queteOuverte = el.dataset.ouvrirQuete;
+      epreuveQuete = undefined;
+      render();
+    });
+    sur('#fermer-quete', () => {
+      queteOuverte = undefined;
+      epreuveQuete = undefined;
+      render();
+    });
+    app.querySelector('#popup-quete')?.addEventListener('click', (e) => {
+      if (e.target === e.currentTarget) {
+        queteOuverte = undefined;
+        epreuveQuete = undefined;
+        render();
+      }
     });
     // Un clic à côté des cartes, sur le plan assombri, ferme aussi la fenêtre.
     app.querySelector('#popup')?.addEventListener('click', (e) => {
@@ -631,6 +693,7 @@ export const ecranVille = (app: HTMLElement, p: Partie, sorties: SortiesVille, a
       {
         message: (html) => {
           epreuveQuete = undefined;
+          queteOuverte = undefined;
           message(html);
         },
         combat: (r: Rencontre, apres) =>
@@ -655,6 +718,12 @@ export const ecranVille = (app: HTMLElement, p: Partie, sorties: SortiesVille, a
   if (echapActif) document.removeEventListener('keydown', echapActif);
   echapActif = (e: KeyboardEvent) => {
     if (e.key === 'Escape' && popup && vue === 'lieu' && app.querySelector('#plan') && app.querySelector('#popup')) {
+      // Le parchemin ouvert se referme d'abord.
+      if (queteOuverte) {
+        queteOuverte = undefined;
+        epreuveQuete = undefined;
+        return render();
+      }
       popup = false;
       render();
     }

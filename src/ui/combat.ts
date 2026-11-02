@@ -618,7 +618,7 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
     }
     if (hh.famille === 'mains-nues' && p.equipe.arme && !c.armesCassees?.includes('arme') && c.fin !== 'defaite') notes.push('Tu ramasses ton arme.');
     for (const x of c.combattants.filter((y) => y.compagnon && y.blessures?.length))
-      notes.push(`${x.nom} est gravement blessé (${x.blessures!.map((b) => b.nom.toLowerCase()).join(', ')}), mais il serre les dents.`);
+      notes.push(`${x.nom} est gravement blessé (${x.blessures!.map((b) => b.nom.toLowerCase()).join(', ')}) : ça ne partira pas avec la fin du combat.`);
     const fin = c.fin!;
     const xp = fin === 'defaite' || fin === 'reddition' ? 0 : xpGagnee(c);
     // Le héros tombé mais vengé : ses compagnons n'ont pas perdu, ils n'ont rien à lui reprocher.

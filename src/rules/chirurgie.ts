@@ -41,23 +41,35 @@ export interface SoinGrave {
 }
 
 /** Ce que ce guérisseur peut faire pour les blessures graves du héros, et ce qu'il faut aller faire soigner ailleurs. */
-export const soinsGraves = (p: Partie, ou: string, prixSoin: number) => {
-  blessuresActives(p);
+export const soinsGraves = (p: Partie, ou: string, prixSoin: number) => soinsDe(blessuresActives(p), p.jour, ou, prixSoin);
+
+/** Pareil pour une liste de blessures (celles d'un compagnon). */
+export const soinsDe = (blessures: (BlessureGrave & { jusqua?: number; soignee?: boolean })[], jour: number, ou: string, prixSoin: number) => {
   const specialiste = SPECIALISTES.find((s) => s.ou === ou);
   const possibles: SoinGrave[] = [];
   const ailleurs: string[] = [];
-  (p.blessures ?? []).forEach((b, index) => {
+  blessures.forEach((b, index) => {
     const k = cleDe(b);
     if (k && k in PRIX_REPARATION) {
       if (specialiste) possibles.push({ index, nom: b.nom, type: 'reparer', prix: Math.round(PRIX_REPARATION[k] * specialiste.facteur) });
       else ailleurs.push(b.nom);
-    } else if (b.jusqua !== undefined && !b.soignee && b.jusqua - p.jour >= 2) possibles.push({ index, nom: b.nom, type: 'remettre', prix: 10 * prixSoin });
+    } else if (b.jusqua !== undefined && !b.soignee && b.jusqua - jour >= 2) possibles.push({ index, nom: b.nom, type: 'remettre', prix: 10 * prixSoin });
   });
   return { possibles, ailleurs, specialiste };
 };
 
 /** Où aller pour ce qui ne se soigne pas ici. */
 export const adressesSpecialistes = () => SPECIALISTES.map((s) => `${s.lieu}, à ${s.ville}`);
+
+/** Applique un soin à une liste de blessures (sans rien payer) ; renvoie la liste à jour. */
+export const appliquerSoin = <T extends BlessureGrave & { jusqua?: number; soignee?: boolean }>(blessures: T[], s: SoinGrave, jour: number): T[] => {
+  const b = blessures[s.index];
+  if (!b || b.nom !== s.nom) return blessures;
+  if (s.type === 'reparer') return blessures.filter((_, i) => i !== s.index);
+  b.jusqua = jour + Math.ceil((b.jusqua! - jour) / 2);
+  b.soignee = true;
+  return blessures;
+};
 
 /** Le guérisseur s'occupe de la blessure. Renvoie le texte du soin, ou le refus. */
 export const soignerGrave = (p: Partie, s: SoinGrave): string => {

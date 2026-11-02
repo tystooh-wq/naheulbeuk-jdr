@@ -31,54 +31,98 @@ export interface ActionsQuete {
 }
 
 /** Ce que le héros peut faire ici pour ses quêtes : en accepter, ou avancer celles en cours. */
-export const panneauQuetes = (p: Partie, ou: string, epreuveEnCours?: string): string => {
+/** Ce qu'il y a à faire ici : quêtes proposées, étapes en cours, donjon libre, refus pour mauvaise réputation. */
+const quetesDuLieu = (p: Partie, ou: string) => {
   const proposees = quetesProposees(p, ou);
   const ici = etapesIci(p, ou);
   const d = donjonIci(ou);
   // Un donjon sans quête (ou déjà fini) reste visitable.
-  const donjonLibre = d && !ici.some((x) => x.etape.donjon === d.id) && !QUETES.some((q) => q.etapes.some((e) => e.donjon === d.id) && p.quetes[q.id] !== 'terminee');
+  const donjonLibre = d && !ici.some((x) => x.etape.donjon === d.id) && !QUETES.some((q) => q.etapes.some((e) => e.donjon === d.id) && p.quetes[q.id] !== 'terminee') ? d : undefined;
   const ville = villeDe(ou);
-  const refus = ville && quetesRefusees(p, ville) && QUETES.some((q) => q.donneur === ou && !p.quetes[q.id]);
-  if (!proposees.length && !ici.length && !donjonLibre && !refus) return '';
-  return `<div class="quetes-lieu">
-    ${refus ? '<p class="note">On te regarde de travers : ta réputation est telle que personne ici ne te confiera de travail.</p>' : ''}
-    ${proposees
-      .map(
-        (q) => `<div class="detail-choix quete">
+  const refus = !!ville && quetesRefusees(p, ville) && QUETES.some((q) => q.donneur === ou && !p.quetes[q.id]);
+  return { proposees, ici, donjonLibre, refus };
+};
+
+const carteProposee = (p: Partie, q: Quete) => `<div class="detail-choix quete">
           <h3>❗ ${echapper(q.titre)}</h3>
           <p class="note">${echapper(q.qui)}${q.niveau && niveau(p) < q.niveau ? ` · conseillé à partir du niveau ${q.niveau}` : ''}</p>
           <p>${echapper(q.proposition)}</p>
           <p class="note">Récompense : ${echapper(q.recompense.texte)}${q.recompense.xp ? `, ${q.recompense.xp} XP` : ''}.</p>
           <p><button data-accepter="${q.id}" ${q.prix && p.or < q.prix ? 'disabled' : ''}>${q.prix ? `Payer ${formatOr(q.prix)} et accepter` : 'Accepter'}</button></p>
-        </div>`,
-      )
-      .join('')}
-    ${ici
-      .map(({ quete: q, etape: e }) => {
-        let bouton = `<button data-etape="${q.id}">${echapper(e.action)}</button>`;
-        if (e.combat) bouton = `<button data-etape="${q.id}">⚔ ${echapper(e.action)}</button>`;
-        if (e.donjon) {
-          const dj = donjon(e.donjon);
-          bouton = dj.entrees ? boutonsEntree(p, dj) : `<button data-entrer-donjon="${e.donjon}">♖ ${echapper(e.action)}</button>`;
-        }
-        const manque = e.requiert?.(p);
-        if (manque) bouton = `<button disabled>${echapper(e.action)}</button> <span class="note">${echapper(manque)}</span>`;
-        if (e.epreuve)
-          bouton =
-            epreuveEnCours === q.id
-              ? `<div class="recit lancer-joueur">Épreuve de ${NOM_CARAC[e.epreuve.carac]} : il faut faire <b>${valeurEpreuveQuete(p, e.epreuve)} ou moins</b> sur le D20.
-                  <div>${de('?', 'a-lancer" id="de-quete')}<button id="lancer-quete" data-quete="${q.id}">Lancer le D20</button></div></div>`
-              : `<button data-epreuve="${q.id}">${echapper(e.action)}</button>`;
-        return `<div class="detail-choix quete en-cours">
+        </div>`;
+
+const carteEtape = (p: Partie, q: Quete, e: Quete['etapes'][number], epreuveEnCours?: string) => {
+  let bouton = `<button data-etape="${q.id}">${echapper(e.action)}</button>`;
+  if (e.combat) bouton = `<button data-etape="${q.id}">⚔ ${echapper(e.action)}</button>`;
+  if (e.donjon) {
+    const dj = donjon(e.donjon);
+    bouton = dj.entrees ? boutonsEntree(p, dj) : `<button data-entrer-donjon="${e.donjon}">♖ ${echapper(e.action)}</button>`;
+  }
+  const manque = e.requiert?.(p);
+  if (manque) bouton = `<button disabled>${echapper(e.action)}</button> <span class="note">${echapper(manque)}</span>`;
+  if (e.epreuve)
+    bouton =
+      epreuveEnCours === q.id
+        ? `<div class="recit lancer-joueur">Épreuve de ${NOM_CARAC[e.epreuve.carac]} : il faut faire <b>${valeurEpreuveQuete(p, e.epreuve)} ou moins</b> sur le D20.
+            <div>${de('?', 'a-lancer" id="de-quete')}<button id="lancer-quete" data-quete="${q.id}">Lancer le D20</button></div></div>`
+        : `<button data-epreuve="${q.id}">${echapper(e.action)}</button>`;
+  return `<div class="detail-choix quete en-cours">
           <h3>➤ ${echapper(q.titre)}</h3>
           <p>${echapper(e.objectif)}</p>
           ${e.combat ? `<p class="note">Il faudra se battre : ${e.combat.nombre} × ${echapper(e.combat.ligne.nom)}.</p>` : ''}
           <p>${bouton}</p>
         </div>`;
-      })
-      .join('')}
-    ${donjonLibre ? boutonsEntree(p, d) : ''}
+};
+
+export const panneauQuetes = (p: Partie, ou: string, epreuveEnCours?: string): string => {
+  const { proposees, ici, donjonLibre, refus } = quetesDuLieu(p, ou);
+  if (!proposees.length && !ici.length && !donjonLibre && !refus) return '';
+  return `<div class="quetes-lieu">
+    ${refus ? '<p class="note">On te regarde de travers : ta réputation est telle que personne ici ne te confiera de travail.</p>' : ''}
+    ${proposees.map((q) => carteProposee(p, q)).join('')}
+    ${ici.map(({ quete: q, etape: e }) => carteEtape(p, q, e, epreuveEnCours)).join('')}
+    ${donjonLibre ? boutonsEntree(p, donjonLibre) : ''}
   </div>`;
+};
+
+/** Y a-t-il quelque chose sur le tableau d'affichage de ce lieu ? */
+export const aDesQuetes = (p: Partie, ou: string) => {
+  const { proposees, ici } = quetesDuLieu(p, ou);
+  return proposees.length + ici.length > 0;
+};
+
+/** Le donjon de ce lieu, quand aucune quête ne s'en occupe : ses portes vont dans la fenêtre du lieu. */
+export const entreesDonjonLibre = (p: Partie, ou: string) => {
+  const { donjonLibre } = quetesDuLieu(p, ou);
+  return donjonLibre ? boutonsEntree(p, donjonLibre) : '';
+};
+
+/** Le tableau d'affichage : un parchemin épinglé par quête (nom au survol), vide s'il n'y a rien. */
+export const tableauQuetes = (p: Partie, ou: string): string => {
+  const { proposees, ici, refus } = quetesDuLieu(p, ou);
+  const items = [
+    ...proposees.map((q) => ({ q, suite: false })),
+    ...ici.map(({ quete: q }) => ({ q, suite: true })),
+  ];
+  const parchemins = items
+    .map(
+      ({ q, suite }, i) =>
+        `<button class="parchemin ${suite ? 'suite' : ''}" style="--r:${[-6, 4, -2, 7, -4, 3][i % 6]}deg" data-ouvrir-quete="${q.id}" title="${echapper(q.titre)}${suite ? ' (quête en cours)' : ''}" aria-label="${echapper(q.titre)}${suite ? ' (quête en cours)' : ''}"><i class="punaise" aria-hidden="true"></i><span aria-hidden="true">${suite ? '➤' : '❗'}</span></button>`,
+    )
+    .join('');
+  return `<div class="tableau-quetes">
+    <div class="liege">${parchemins || '<p class="vide">Rien d\'épinglé pour le moment.</p>'}</div>
+    <p class="legende-tableau">📜 Tableau d'affichage${refus ? ' · <span class="note">ta réputation fait fuir les donneurs de quêtes</span>' : ''}</p>
+  </div>`;
+};
+
+/** Le détail d'une quête du tableau, pour la fenêtre qui s'ouvre au clic sur son parchemin. */
+export const detailQuete = (p: Partie, ou: string, id: string, epreuveEnCours?: string): string => {
+  const { proposees, ici } = quetesDuLieu(p, ou);
+  const q = proposees.find((x) => x.id === id);
+  if (q) return carteProposee(p, q);
+  const e = ici.find((x) => x.quete.id === id);
+  return e ? carteEtape(p, e.quete, e.etape, epreuveEnCours) : '';
 };
 
 /** Entrer dans un donjon, par chacune de ses portes (la taverne n'ouvre qu'à certaines heures). */

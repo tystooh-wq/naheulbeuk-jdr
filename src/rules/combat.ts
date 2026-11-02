@@ -1130,8 +1130,11 @@ export const bilanCompagnons = (c: Combat, p: Partie, rng?: Rng): string[] => {
   for (const e of [...(p.compagnons ?? [])]) {
     const x = c.combattants.find((y) => y.compagnon === e.id);
     if (!x) continue;
-    if (x.ev > 0) e.ev = x.ev;
-    else recits.push(tomber(p, e.id, rng));
+    if (x.ev > 0) {
+      e.ev = x.ev;
+      // Ses blessures graves restent, comme celles du héros.
+      for (const b of x.blessures ?? []) e.blessures = [...(e.blessures ?? []), { ...b, jusqua: b.jours === undefined ? undefined : p.jour + b.jours }];
+    } else recits.push(tomber(p, e.id, rng));
   }
   return recits;
 };

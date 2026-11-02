@@ -301,7 +301,17 @@ export const compagnon = (id: string): DefCompagnon => {
 export const ficheCompagnon = (id: string): Fiche => calculerFiche(compagnon(id).perso);
 
 /** Une partie vue depuis le compagnon (sa fiche, son équipement, ses PV), pour réutiliser les règles du héros. */
-export const vueCompagnon = (p: Partie, e: EtatCompagnon): Partie => ({ ...p, perso: compagnon(e.id).perso, equipe: compagnon(e.id).equipe, ev: e.ev, talents: {} });
+export const vueCompagnon = (p: Partie, e: EtatCompagnon): Partie => ({ ...p, perso: compagnon(e.id).perso, equipe: compagnon(e.id).equipe, ev: e.ev, talents: {}, blessures: blessuresCompagnon(p, e) });
+
+/** Ses blessures graves encore actives (celles qui sont guéries disparaissent). */
+export const blessuresCompagnon = (p: Partie, e: EtatCompagnon) => {
+  const maintenant = p.jour + p.heure / 24;
+  if (e.blessures?.some((b) => b.jusqua !== undefined && b.jusqua <= maintenant)) e.blessures = e.blessures.filter((b) => b.jusqua === undefined || b.jusqua > maintenant);
+  return e.blessures ?? [];
+};
+
+/** Sa bourse : à son arrivée, la moitié de son prix d'embauche (10 PO s'il est venu pour rien). */
+export const bourseDe = (e: EtatCompagnon) => (e.bourse ??= Math.round((compagnon(e.id).prix ?? 20) / 2));
 
 export const valeursCompagnon = (p: Partie, e: EtatCompagnon) => valeursCombat(vueCompagnon(p, e));
 
@@ -488,7 +498,7 @@ export const partDue = (p: Partie, e: EtatCompagnon) => {
 export const partButin = (p: Partie) => Math.max(0, ...groupe(p).map((e) => partDue(p, e)));
 
 /** Il a un faible pour l'or : plus il est cupide, plus une part oubliée lui reste en travers. */
-const appetit = (e: EtatCompagnon) => (a(e, 'cupide') ? 2 : 0) + (a(e, 'honneur') ? 1 : 0);
+export const appetit = (e: EtatCompagnon) => (a(e, 'cupide') ? 2 : 0) + (a(e, 'honneur') ? 1 : 0);
 
 /** Donne à ce compagnon sa part. Renvoie la ligne à afficher, ou le refus. */
 export const payerPart = (p: Partie, e: EtatCompagnon): string => {
@@ -500,6 +510,7 @@ export const payerPart = (p: Partie, e: EtatCompagnon): string => {
   }
   if (p.or < part) return `Il te manque ${arrondirOr(part - p.or)} PO pour payer ${prenom(e.id)}.`;
   p.or = arrondirOr(p.or - part);
+  e.bourse = arrondirOr(bourseDe(e) + part);
   e.du = 0;
   recompter(p);
   noter(p, `donne sa part à ${prenom(e.id)} : ${part} PO.`);
