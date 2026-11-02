@@ -114,7 +114,7 @@ export const tableauQuetes = (p: Partie, ou: string): string => {
   const parchemins = items
     .map(
       ({ q, suite }, i) =>
-        `<button class="parchemin ${suite ? 'suite' : ''}" style="--r:${[-6, 4, -2, 7, -4, 3][i % 6]}deg;background-image:url(${PARCHEMINS[i % PARCHEMINS.length]})" data-ouvrir-quete="${q.id}" title="${echapper(q.titre)}${suite ? ' (quête en cours)' : ''}" aria-label="${echapper(q.titre)}${suite ? ' (quête en cours)' : ''}"><span aria-hidden="true">${suite ? '➤' : '❗'}</span></button>`,
+        `<button class="parchemin ${suite ? 'suite' : ''}" style="--r:${[-6, 4, -2, 7, -4, 3][i % 6]}deg;background-image:url(${PARCHEMINS[i % PARCHEMINS.length]})" data-ouvrir-quete="${q.id}" title="${echapper(q.titre)}${suite ? ' (quête en cours)' : ''}" aria-label="${echapper(q.titre)}${suite ? ' (quête en cours)' : ''}"></button>`,
     )
     .join('');
   return `<div class="tableau-quetes" style="background-image:url(${imgPanneau})">
