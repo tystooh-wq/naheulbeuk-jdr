@@ -315,7 +315,18 @@ export const ecranVille = (app: HTMLElement, p: Partie, sorties: SortiesVille, a
         break;
     }
     if (l.action) parts.push(`<p><button class="secondaire" id="action-lieu">${echapper(l.action.bouton)}</button></p>`);
-    return quetes + parts.join('') + panneauEmbauche(p, ou(l), l.type === 'bar' || l.type === 'auberge') + (l.boutique ? panneauBoutique(l) : '');
+    return parts.join('') + (l.boutique ? panneauBoutique(l) : '');
+  };
+
+  /** Quêtes et recrutement : une fenêtre à part, sous l'image du lieu. */
+  const annexeLieu = (l: Lieu): string => {
+    const quetes = panneauQuetes(p, ou(l), epreuveQuete);
+    const embauche = panneauEmbauche(p, ou(l), l.type === 'bar' || l.type === 'auberge');
+    if (!quetes && !embauche) return '';
+    return `<div class="panneau annexe-lieu">
+      ${quetes ? `<h3>📜 Quêtes</h3>${quetes}` : ''}
+      ${embauche ? `<h3>🤝 Recrutement</h3>${embauche}` : ''}
+    </div>`;
   };
 
   // En attendant les illustrations, le cadre montre le plan agrandi autour du lieu.
@@ -327,7 +338,7 @@ export const ecranVille = (app: HTMLElement, p: Partie, sorties: SortiesVille, a
   const popupLieu = () => {
     const l = lieu(p.lieu);
     return `<div class="popup-lieu" id="popup" role="dialog" aria-labelledby="titre-lieu">
-      ${illustration(l)}
+      <div class="colonne-lieu">${illustration(l)}${annexeLieu(l)}</div>
       <div class="panneau carte-lieu" id="panneau">
         <div class="barre-fermer"><button class="secondaire petit fermer" id="fermer-lieu" aria-label="Fermer et revenir au plan">✕</button></div>
         <div class="entete-lieu">

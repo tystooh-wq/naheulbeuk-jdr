@@ -111,6 +111,12 @@ export const bandeau = (p: Partie, vue: string, nomCarte: string) => {
       <span title="Bourse (1 PO = 100 PA = 1000 PC)">● <b>${formatOr(p.or)}</b></span>
       ${eaMax(p) ? `<span title="Énergie astrale (points astraux)">✧ <b>${ea(p)}</b>/${eaMax(p)} PA</span>` : ''}
       <span title="Points de destin">✦ <b>${p.perso.destin}</b></span>
+      ${(() => {
+        const graves = blessuresActives(p);
+        return graves.length
+          ? `<button class="petit badge-blessure" data-vue="groupe" title="${echapper(graves.map((b) => b.nom).join(', '))} (détail dans l'onglet Groupe)">🩹 ${graves.length} blessure${graves.length > 1 ? 's' : ''} grave${graves.length > 1 ? 's' : ''}</button>`
+          : '';
+      })()}
       <span title="Niveau et expérience (prochain niveau à ${PALIERS_XP[niveau(p)] ?? '—'} XP)">★ niv. <b>${niveau(p)}</b> · ${p.xp ?? 0} XP</span>
       ${niveauEnAttente(p) ? `<button class="petit" id="monter-niveau">⬆ Passer niveau ${niveau(p) + 1} !</button>` : ''}
       <span class="temps"><span title="${echapper(periode(p.jour))}" id="horloge">${horloge(p)}</span>${boutonsVitesse()}</span>

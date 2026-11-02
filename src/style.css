@@ -844,6 +844,27 @@ button.petit.actif {
   grid-template-rows: minmax(0, 1fr);
 }
 
+/* Colonne de gauche : l'image du lieu, puis les quêtes et le recrutement. */
+.colonne-lieu {
+  max-height: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 4px 6px 12px;
+}
+
+.annexe-lieu {
+  margin-top: 14px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+}
+
+.annexe-lieu h3 {
+  margin: 0 0 6px;
+}
+
+.annexe-lieu h3 + * {
+  margin-top: 0;
+}
+
 .carte-lieu .entete-lieu {
   padding-right: 40px;
 }
@@ -886,6 +907,25 @@ button.petit.actif {
   .illustration {
     margin: 0 auto 12px;
     max-width: 320px;
+  }
+
+  /* Sur téléphone : l'image, puis le lieu, puis les quêtes et le recrutement. */
+  .popup-lieu {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .colonne-lieu {
+    display: contents;
+  }
+
+  .carte-lieu {
+    order: 1;
+  }
+
+  .annexe-lieu {
+    order: 2;
+    margin-top: 12px;
   }
 
   .carte-lieu {
@@ -2301,4 +2341,103 @@ ul.pertes { margin: 6px 0 0; padding-left: 1.1em; list-style: none; }
   bottom: 12px;
   right: 12px;
   z-index: 5;
+}
+
+/* --- Récap du groupe et blessures graves --------------------------------------- */
+
+.barre-pv {
+  display: inline-block;
+  width: 100%;
+  min-width: 70px;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--desactive);
+  overflow: hidden;
+  vertical-align: middle;
+}
+
+.barre-pv > span {
+  display: block;
+  height: 100%;
+  background: var(--vert);
+}
+
+.barre-pv.moyenne > span {
+  background: #c08a2a;
+}
+
+.barre-pv.basse > span {
+  background: var(--rouge);
+}
+
+.recap-groupe {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 4px 0 12px;
+  font-size: 0.92rem;
+}
+
+.recap-groupe th,
+.recap-groupe td {
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--bordure);
+  text-align: left;
+}
+
+.recap-groupe td:nth-child(2) {
+  width: 35%;
+}
+
+.recap-groupe .nombre {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.badge-blessure {
+  color: var(--rouge);
+  font-weight: bold;
+  white-space: nowrap;
+}
+
+button.badge-blessure {
+  min-height: 0;
+  line-height: 1.2;
+  align-self: center;
+  padding: 3px 8px;
+  font-size: 0.8rem;
+  background: var(--carte);
+  border: 1px solid var(--rouge);
+  color: var(--rouge);
+}
+
+.blessures-groupe {
+  border-left: 3px solid var(--rouge);
+  padding: 4px 10px;
+  margin-bottom: 12px;
+}
+
+.blessures-groupe ul {
+  margin: 4px 0 0;
+}
+
+details.fiche-groupe {
+  border: 1px solid var(--bordure);
+  border-radius: 4px;
+  padding: 6px 10px;
+  margin: 8px 0;
+}
+
+details.fiche-groupe > summary {
+  cursor: pointer;
+}
+
+@media (max-width: 700px) {
+  .recap-groupe td:nth-child(2) {
+    width: 25%;
+  }
+  .recap-groupe th:nth-child(5),
+  .recap-groupe td:nth-child(5) {
+    display: none;
+  }
 }

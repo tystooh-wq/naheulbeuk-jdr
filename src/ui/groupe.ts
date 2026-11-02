@@ -30,7 +30,7 @@ import { dateCourte } from '../rules/calendrier';
 import { cite } from '../rules/cites';
 import { occupation } from '../rules/vie-en-ville';
 import { objet } from '../rules/objets';
-import type { EtatCompagnon, Partie } from '../rules/partie';
+import { blessuresActives, evMax, formatHeure, type EtatCompagnon, type Partie } from '../rules/partie';
 import { echapper } from './outils';
 
 // Le groupe du héros : la fiche de chaque compagnon (onglet « Groupe »), et l'embauche des mercenaires.
@@ -138,22 +138,59 @@ const enVille = (p: Partie, e: EtatCompagnon) => {
   return o ? `<p class="note">📍 En ville : ${echapper(o.texte)}, à ${echapper(o.lieu.nom)}.</p>` : '';
 };
 
+/** Une barre de points de vie (rouge sous 30 %). */
+export const barrePV = (ev: number, max: number) => {
+  const pct = Math.max(0, Math.min(100, Math.round((ev / Math.max(1, max)) * 100)));
+  return `<span class="barre-pv ${pct <= 30 ? 'basse' : pct <= 60 ? 'moyenne' : ''}" title="${ev}/${max} PV"><span style="width:${pct}%"></span></span>`;
+};
+
+/** Les blessures graves du héros, en court : nom, malus, guérison. */
+export const listeBlessuresHeros = (p: Partie) =>
+  blessuresActives(p)
+    .map(
+      (b) =>
+        `<li><b>${echapper(b.nom)}</b> <span class="note">${echapper([...Object.entries(b.mods).map(([k, v]) => `${k} ${v}`), ...(b.mv !== undefined ? [`déplacement ${Math.round(b.mv * 100)} %`] : [])].join(', '))} · ${
+          b.jusqua === undefined ? 'permanent' : `guérit le ${dateCourte(Math.floor(b.jusqua))}${b.jusqua % 1 ? ` vers ${formatHeure(Math.round((b.jusqua % 1) * 24))}` : ''}`
+        }</span></li>`,
+    )
+    .join('');
+
+/** Le récapitulatif de l'état du groupe : PV, destin, blessures graves. */
+const recapGroupe = (p: Partie) => {
+  const g = groupe(p);
+  const graves = blessuresActives(p);
+  const ligne = (nom: string, ev: number, max: number, destin: number, extra = '') =>
+    `<tr><th scope="row">${echapper(nom)}</th><td>${barrePV(ev, max)}</td><td class="nombre">${ev}/${max}</td><td class="nombre" title="Points de destin">✦ ${destin}</td><td>${extra}</td></tr>`;
+  return `<table class="recap-groupe">
+      <thead><tr><th scope="col">Qui</th><th scope="col">Vie</th><th scope="col" class="nombre">PV</th><th scope="col" class="nombre">Destin</th><th scope="col">État</th></tr></thead>
+      <tbody>
+      ${ligne(p.perso.nom, p.ev, evMax(p), p.perso.destin, graves.length ? `<span class="badge-blessure">🩹 ${graves.length} blessure${graves.length > 1 ? 's' : ''} grave${graves.length > 1 ? 's' : ''}</span>` : '<span class="note">en forme</span>')}
+      ${g.map((e) => ligne(compagnon(e.id).perso.nom.split(' ')[0], e.ev, e.evMax, destinCompagnon(e), e.ev < e.evMax ? '<span class="note">blessé</span>' : '<span class="note">en forme</span>')).join('')}
+      </tbody></table>
+    ${graves.length ? `<div class="blessures-groupe"><b>Blessures graves de ${echapper(p.perso.nom.split(' ')[0])}</b><ul class="blessures">${listeBlessuresHeros(p)}</ul></div>` : ''}`;
+};
+
+/** Fiches dépliées dans l'onglet Groupe (gardées d'un affichage à l'autre). */
+const fichesOuvertes = new Set<string>();
+
 export const panneauGroupe = (p: Partie, message?: string) => {
   const g = groupe(p);
   return `<div class="panneau">
     <h2>Groupe</h2>
+    ${recapGroupe(p)}
     ${panneauPartage(p, true)}
     ${message ? `<div class="recit">${message}</div>` : ''}
     ${
       g.length
         ? g
             .map(
-              (e) => `<section class="compagnon">
-            <h3>${echapper(compagnon(e.id).perso.nom)} <span class="note">${echapper(compagnon(e.id).titre)} · ❤ ${e.ev}/${e.evMax} · ✦ ${destinCompagnon(e)} point${destinCompagnon(e) > 1 ? 's' : ''} de destin</span>${boutonPayer(p, e)}</h3>
+              (e) => `<details class="compagnon fiche-groupe" data-fiche-compagnon="${e.id}" ${fichesOuvertes.has(e.id) ? 'open' : ''}>
+            <summary><b>${echapper(compagnon(e.id).perso.nom)}</b> <span class="note">${echapper(compagnon(e.id).titre)} · ❤ ${e.ev}/${e.evMax} · ✦ ${destinCompagnon(e)} · ${echapper(humeur(e))}</span></summary>
+            ${boutonPayer(p, e) ? `<p>${boutonPayer(p, e)}</p>` : ''}
             ${enVille(p, e)}
             ${relationHtml(p, e)}
             <details><summary>Sa fiche</summary>${ficheHtml(p, e.id, e)}</details>
-            <p><button class="secondaire petit" data-renvoyer="${e.id}">Se séparer de ${echapper(compagnon(e.id).perso.nom.split(' ')[0])}</button></p></section>`,
+            <p><button class="secondaire petit" data-renvoyer="${e.id}">Se séparer de ${echapper(compagnon(e.id).perso.nom.split(' ')[0])}</button></p></details>`,
             )
             .join('')
         : '<p class="note">Tu voyages seul. Des compagnons peuvent te rejoindre au fil des quêtes et des rencontres, ou contre de l\'or dans les tavernes.</p>'
@@ -183,6 +220,13 @@ export const panneauEmbauche = (p: Partie, ou: string, taverne = false) => {
 };
 
 export const lierGroupe = (app: HTMLElement, p: Partie, message: (html: string) => void) => {
+  app.querySelectorAll<HTMLDetailsElement>('details[data-fiche-compagnon]').forEach((d) =>
+    d.addEventListener('toggle', () => {
+      const id = d.dataset.ficheCompagnon!;
+      if (d.open) fichesOuvertes.add(id);
+      else fichesOuvertes.delete(id);
+    }),
+  );
   const etat = (id: string) => groupe(p).find((e) => e.id === id)!;
   const liste = (l: string[]) => (l.length ? `<ul class="reactions">${l.map((x) => `<li>${echapper(x)}</li>`).join('')}</ul>` : '');
   app.querySelectorAll<HTMLElement>('[data-discuter]').forEach((b) =>
