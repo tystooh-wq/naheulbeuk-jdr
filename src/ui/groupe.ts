@@ -1,4 +1,5 @@
 import {
+  eaMaxCompagnon,
   blessuresCompagnon,
   bourseDe,
   prenom,
@@ -200,7 +201,7 @@ export const panneauGroupe = (p: Partie, message?: string) => {
         ? g
             .map(
               (e) => `<details class="compagnon fiche-groupe" data-fiche-compagnon="${e.id}" ${fichesOuvertes.has(e.id) ? 'open' : ''}>
-            <summary><b>${echapper(compagnon(e.id).perso.nom)}</b> <span class="note">${echapper(compagnon(e.id).titre)} · ❤ ${e.ev}/${e.evMax} · ✦ ${destinCompagnon(e)} · 💰 ${bourseDe(e)} PO · ${echapper(humeur(e))}</span></summary>
+            <summary><b>${echapper(compagnon(e.id).perso.nom)}</b> <span class="note">${echapper(compagnon(e.id).titre)} · ❤ ${e.ev}/${e.evMax}${eaMaxCompagnon(e) ? ` · ✧ ${Math.min(eaMaxCompagnon(e), e.ea ?? eaMaxCompagnon(e))}/${eaMaxCompagnon(e)} PA` : ''} · ✦ ${destinCompagnon(e)} · 💰 ${bourseDe(e)} PO · ${echapper(humeur(e))}</span></summary>
             ${boutonPayer(p, e) ? `<p>${boutonPayer(p, e)}</p>` : ''}
             ${enVille(p, e)}
             ${relationHtml(p, e)}

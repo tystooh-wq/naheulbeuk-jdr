@@ -2,7 +2,7 @@ import { calculerFiche, cleCompetence } from './creation';
 import { lancer, type Rng } from './des';
 import { lancerExpression, mainGauche, valeursCombat, type EtatCompagnon, type Partie } from './partie';
 import { singulier, type LigneRencontre, type Rencontre } from './rencontres';
-import { tirCompagnon, tomber, vueCompagnon, type Ordre } from './compagnons';
+import { sortsCompagnon, tirCompagnon, tomber, vueCompagnon, type Ordre } from './compagnons';
 import { fouiller, type Fouille } from './butin';
 import { objet } from './objets';
 import {
@@ -76,6 +76,8 @@ export interface Combattant {
   opportunite?: number;
   /** Armé d'un arc ou d'une arbalète : il tire tant que personne n'est à son contact. */
   tireur?: { ad: number; degats: string; recharge?: number; attente?: number };
+  /** Un compagnon mage : son énergie astrale et les sorts de combat qu'il sait lancer. */
+  magie?: { ea: number; sorts: SortAllie[] };
   /** Compétences du héros qui jouent en combat (voir talents.ts). */
   talents?: {
     vicieux?: boolean;
@@ -284,11 +286,26 @@ const tireurDe = (notes: string, degats: string, ad: number) => {
   return { ad: a, degats: d ?? degats.replace('*', ''), recharge: /arbalète/i.test(notes) ? 4 : 2 };
 };
 
+/** Un sort de combat qu'un allié lance seul (valeur d'épreuve et dégâts déjà calculés pour lui). */
+export interface SortAllie {
+  nom: string;
+  cout: number;
+  valeur: number;
+  degats: string;
+  zone?: boolean;
+}
+
 /** Un compagnon du héros, avec sa fiche et son équipement. */
 export const creerCompagnon = (p: Partie, e: EtatCompagnon): Combattant => {
   const x = creerHeros(vueCompagnon(p, e), `c-${e.id}`, e.evMax);
   const t = tirCompagnon(p, e);
-  return { ...x, compagnon: e.id, tireur: t ? { ad: t.ad, degats: t.degats, recharge: t.recharge } : undefined };
+  const sorts = sortsCompagnon(p, e);
+  return {
+    ...x,
+    compagnon: e.id,
+    tireur: t ? { ad: t.ad, degats: t.degats, recharge: t.recharge } : undefined,
+    magie: sorts ? { ea: sorts.ea, sorts: sorts.sorts } : undefined,
+  };
 };
 
 const depuisLignes = (groupes: { ligne: LigneRencontre; nombre: number }[], camp: Camp, prefixe: string): Combattant[] => {
@@ -347,7 +364,8 @@ const placer = (c: Combat, approche: number) => {
     });
   const amis = c.combattants.filter((x) => x.camp === 'heros');
   // Les tireurs restent en retrait, les autres en première ligne.
-  ranger([...amis.filter((x) => !x.tireur || x.id === 'heros'), ...amis.filter((x) => x.tireur && x.id !== 'heros')], 1, -1);
+  const enRetrait = (x: Combattant) => x.id !== 'heros' && (!!x.tireur || !!x.magie);
+  ranger([...amis.filter((x) => !enRetrait(x)), ...amis.filter(enRetrait)], 1, -1);
   ranger(ennemis(c), Math.min(c.largeur - 1, 2 + PAS * approche), 1);
   for (const x of c.combattants) x.face = { x: x.camp === 'heros' ? 1 : -1, y: 0 };
 };
@@ -479,6 +497,8 @@ export interface Plan {
   tir?: boolean;
   /** Le tireur recharge son arme : il passe son tour. */
   recharge?: boolean;
+  /** Le mage lance ce sort (rang dans x.magie.sorts) sur la cible. */
+  sort?: number;
 }
 
 /** Les dégâts infligés font monter la menace de l'attaquant aux yeux de sa victime. */
@@ -505,6 +525,21 @@ export const planifier = (c: Combat, x: Combattant): Plan => {
     const h = c.combattants.find((y) => y.id === 'heros');
     const menaces = h ? contacts(c, h).filter((y) => y.camp !== x.camp) : [];
     if (menaces.length) opp = menaces;
+  }
+  // Un mage qui a de quoi lancer un sort le lance (tourbillon si trois ennemis se tiennent groupés).
+  if (x.magie) {
+    const dispo = x.magie.sorts.map((so, i) => ({ so, i })).filter(({ so }) => so.cout <= x.magie!.ea);
+    if (dispo.length) {
+      const proches = contacts(c, x).filter((y) => opp.includes(y));
+      const groupes = opp.map((o) => ({ o, n: 1 + opp.filter((y) => y !== o && ecart(y, o) === 1).length })).sort((a, b) => b.n - a.n);
+      const zone = dispo.find(({ so }) => so.zone);
+      if (zone && groupes[0].n >= 3) return { cible: groupes[0].o.id, sort: zone.i };
+      const simple = dispo.find(({ so }) => !so.zone);
+      if (simple) {
+        const cible = (proches.length ? proches : opp).sort((a, b) => a.ev - b.ev)[0];
+        return { cible: cible.id, sort: simple.i };
+      }
+    }
   }
   if (ord?.ordre === 'distance') {
     const proches = contacts(c, x);
@@ -1092,15 +1127,15 @@ export const tirer = (
 };
 
 /** Dégâts d'un sort sur une cible : au D6, doublés sur une réussite critique, moins l'armure. */
-export const toucherParSort = (c: Combat, idCible: string, degats: string, critique: boolean, rng?: Rng): Action => {
+export const toucherParSort = (c: Combat, idCible: string, degats: string, critique: boolean, rng?: Rng, attaquant = 'heros'): Action => {
   const cible = combattant(c, idCible);
   const j = lancerExpression(degats, rng);
   const total = critique ? j.total * 2 : j.total;
   const blessure = Math.max(0, total - cible.pr);
   cible.ev -= blessure;
-  menacer(cible, 'heros', blessure);
+  menacer(cible, attaquant, blessure);
   return {
-    attaquant: 'heros',
+    attaquant,
     cible: idCible,
     de: 0,
     valeur: 0,
@@ -1109,6 +1144,31 @@ export const toucherParSort = (c: Combat, idCible: string, degats: string, criti
     sort: true,
     degats: { des: j.des, total, pr: cible.pr, blessure },
   };
+};
+
+/**
+ * Un allié mage lance un sort (mêmes règles que le héros : 1 critique, effets doublés ; échec, moitié des PA ;
+ * 20, le sort lui explose au visage, 1D). Renvoie le récit et les actions de dégâts.
+ */
+export const lancerSortAllie = (c: Combat, x: Combattant, i: number, idCible: string, de: number, rng?: Rng): { texte: string; actions: Action[] } => {
+  const so = x.magie!.sorts[i];
+  const issue = de === 1 ? 'critique' : de === 20 ? 'maladresse' : de <= so.valeur ? 'reussi' : 'rate';
+  const cout = issue === 'rate' ? Math.max(1, Math.floor(so.cout / 2)) : so.cout;
+  x.magie!.ea = Math.max(0, x.magie!.ea - cout);
+  const debut = `${x.nom} incante ${so.nom} (D20 : ${de}, il faut ${so.valeur})`;
+  if (issue === 'maladresse') {
+    const b = lancerExpression('1D', rng).total;
+    x.ev -= b;
+    verifier(c);
+    return { texte: `${debut} : maladresse ! Le sort lui explose au visage, −${b} PV.`, actions: [] };
+  }
+  if (issue === 'rate') return { texte: `${debut} : raté, ${cout} PA perdus.`, actions: [] };
+  const visee = combattant(c, idCible);
+  const cibles = [visee, ...(so.zone ? ennemis(c).filter((e) => e.etat === 'actif' && e !== visee && ecart(e, visee) === 1) : [])];
+  const actions = cibles.map((e) => toucherParSort(c, e.id, so.degats, issue === 'critique', rng, x.id));
+  verifier(c);
+  const detail = actions.map((a) => `${combattant(c, a.cible).nom} −${a.degats!.blessure} PV`).join(', ');
+  return { texte: `${debut}${issue === 'critique' ? ' : critique, dégâts doublés' : ''} : ${detail}.`, actions };
 };
 
 /** Un monstre très blessé (3 PV ou moins) panique : 1 à 3 sur le D6, il prend la fuite. */
@@ -1130,6 +1190,7 @@ export const bilanCompagnons = (c: Combat, p: Partie, rng?: Rng): string[] => {
   for (const e of [...(p.compagnons ?? [])]) {
     const x = c.combattants.find((y) => y.compagnon === e.id);
     if (!x) continue;
+    if (x.magie) e.ea = x.magie.ea;
     if (x.ev > 0) {
       e.ev = x.ev;
       // Ses blessures graves restent, comme celles du héros.

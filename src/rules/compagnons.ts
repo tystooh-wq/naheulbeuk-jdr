@@ -2,6 +2,7 @@ import { lancer, type Rng } from './des';
 import { calculerFiche, type Fiche, type Personnage } from './creation';
 import { objet } from './objets';
 import { arrondirOr } from './monnaie';
+import { degatsSort, sortsConnus, valeurSort } from './magie';
 import { noter, valeursCombat, type Equipement, type EtatCompagnon, type Partie } from './partie';
 
 // Les compagnons : des personnages complets (origine, métier, caractéristiques, compétences, équipement),
@@ -314,6 +315,21 @@ export const blessuresCompagnon = (p: Partie, e: EtatCompagnon) => {
 export const bourseDe = (e: EtatCompagnon) => (e.bourse ??= Math.round((compagnon(e.id).prix ?? 20) / 2));
 
 export const valeursCompagnon = (p: Partie, e: EtatCompagnon) => valeursCombat(vueCompagnon(p, e));
+
+/** Son énergie astrale maximale (0 s'il ne pratique pas la magie). */
+export const eaMaxCompagnon = (e: EtatCompagnon) => ficheCompagnon(e.id).ea;
+
+/** Un compagnon mage : son énergie astrale et ses sorts de combat, calculés avec ses caractéristiques. */
+export const sortsCompagnon = (p: Partie, e: EtatCompagnon) => {
+  const v = vueCompagnon(p, e);
+  const max = eaMaxCompagnon(e);
+  const sorts = sortsConnus(v).filter((s) => s.enCombat && s.degats);
+  if (!max || !sorts.length) return undefined;
+  return {
+    ea: Math.min(max, e.ea ?? max),
+    sorts: sorts.map((s) => ({ nom: s.nom, cout: s.cout, valeur: valeurSort(v, s), degats: degatsSort(v, s), zone: s.zone })),
+  };
+};
 
 /** Son arme à distance, s'il en a une : il tire tant que personne n'est à son contact (flèches non comptées). */
 export const tirCompagnon = (p: Partie, e: EtatCompagnon) => {

@@ -403,7 +403,7 @@ export const ecranMonde = (app: HTMLElement, p: Partie, s: Sorties) => {
     const refus = empechement(p, t, 'bivouac', zoneEn(position()));
     return refus
       ? `<p class="note">${echapper(refus)}</p>`
-      : `<p><button class="secondaire" id="camping">⛺ ${echapper(t.libelle)} (épreuve d'ingéniosité +3 : +2 PV, +4 PA)</button></p>`;
+      : `<p><button class="secondaire" id="camping">⛺ ${echapper(t.libelle)} (épreuve d'ingéniosité +3 : PV doublés, +4 PA)</button></p>`;
   };
 
   const fenetreNuit = (f: Extract<Fenetre, { type: 'nuit' }>) => {

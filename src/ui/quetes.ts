@@ -124,8 +124,8 @@ export const tableauQuetes = (p: Partie, ou: string): string => {
     })
     .join('');
   return `<div class="tableau-quetes" style="background-image:url(${imgPanneau})">
-    <div class="liege">${parchemins || '<p class="vide">Rien d\'épinglé pour le moment.</p>'}</div>
-    <p class="legende-tableau">📜 Tableau d'affichage${refus ? ' · <span class="note">ta réputation fait fuir les donneurs de quêtes</span>' : ''}</p>
+    <div class="liege">${parchemins}</div>
+    ${refus ? '<p class="legende-tableau">Ta réputation fait fuir les donneurs de quêtes.</p>' : ''}
   </div>`;
 };
 

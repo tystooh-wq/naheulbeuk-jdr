@@ -87,11 +87,17 @@ export interface EtatCompagnon {
   bourse?: number;
   /** Jour où le héros a refusé de compléter ses soins (il ne redemande pas le même jour). */
   soinRefuse?: number;
+  /** Énergie astrale d'un compagnon mage (absente : réservoir plein). */
+  ea?: number;
 }
 
 /** Les compagnons se reposent en même temps que le héros (jamais au-delà de leur maximum, et au moins 1 PV). */
 export const reposCompagnons = (p: Partie, points: number) => {
-  for (const c of p.compagnons ?? []) c.ev = Math.max(1, Math.min(c.evMax, c.ev + points));
+  for (const c of p.compagnons ?? []) {
+    c.ev = Math.max(1, Math.min(c.evMax, c.ev + points));
+    // Le mage reprend aussi de l'énergie astrale (deux fois ce qu'il récupère en PV ; choix maison). Plein : on efface.
+    if (c.ea !== undefined) c.ea += points * 2;
+  }
 };
 
 /** Un voyage en cours sur la carte du monde, interrompu (nuit, rencontre) ou en marche. */
@@ -564,10 +570,10 @@ export const bivouaquer = (p: Partie): { rendu: number; confort: 'mauvais' | 'no
   if (mange) p.sac.splice(i, 1);
   let points = { mauvais: 2, normal: 4 }[confort] + (matelas ? 8 : 0);
   if (!mange) points = Math.floor(points / 2);
-  // Compétences : Cuistot (+1 PV au repas), camping réussi (+2 PV, +4 PA).
+  // Compétences : Cuistot (+1 PV au repas), camping réussi (PV doublés, +4 PA ; choix de Sedy).
   if (mange && aCompetence(calculerFiche(p.perso), 'Cuistot')) points += 1;
   const qualite = !!p.campQualite;
-  if (qualite) points += 2;
+  if (qualite) points *= 2;
   p.campQualite = undefined;
   if (p.heure >= 6) p.jour += 1;
   p.heure = 6;

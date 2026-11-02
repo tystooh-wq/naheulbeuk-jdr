@@ -24,6 +24,7 @@ import {
   tenterFuite,
   tirer,
   toucherParSort,
+  lancerSortAllie,
   tourSuivant,
   valeurDefense,
   verifier,
@@ -746,9 +747,20 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
         await attendre(450);
       }
       const cible = plan.cible ? combattant(c, plan.cible) : undefined;
-      if (!cible || (!plan.tir && !contacts(c, x).some((y) => y.id === cible.id))) {
+      if (!cible || (!plan.tir && plan.sort === undefined && !contacts(c, x).some((y) => y.id === cible.id))) {
         if (!plan.vers) message(`${x.nom} attend son heure.`);
         tourSuivant(c);
+        continue;
+      }
+      // Un compagnon mage lance son sort (il lance ses dés lui-même, comme les autres alliés).
+      if (plan.sort !== undefined && x.magie) {
+        render();
+        await attendre(500);
+        const r = lancerSortAllie(c, x, plan.sort, cible.id, lancer(20));
+        message(`✧ ${r.texte} (${x.magie.ea} PA restants)`);
+        render();
+        await attendre(1100);
+        apres();
         continue;
       }
       if (plan.tir) {

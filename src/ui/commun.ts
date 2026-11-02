@@ -100,7 +100,6 @@ export const jaugeReputation = (p: Partie, ville: string, nomVille: string, comp
 
 // --- Bandeau du héros -------------------------------------------------------------
 
-const quetesEnCours = (p: Partie) => Object.values(p.quetes).filter((e) => e === 'acceptee').length;
 
 export const bandeau = (p: Partie, vue: string, nomCarte: string) => {
   const f = calculerFiche(p.perso);
@@ -124,8 +123,8 @@ export const bandeau = (p: Partie, vue: string, nomCarte: string) => {
     <div class="onglets">
       <button class="secondaire petit ${vue === 'lieu' ? 'actif' : ''}" data-vue="lieu">${nomCarte}</button>
       <button class="secondaire petit ${vue === 'sac' ? 'actif' : ''}" data-vue="sac">Personnage et sac</button>
-      <button class="secondaire petit ${vue === 'groupe' ? 'actif' : ''}" data-vue="groupe">Groupe${p.compagnons?.length ? ` <span class="pastille">${p.compagnons.length}</span>` : ''}</button>
-      <button class="secondaire petit ${vue === 'quetes' ? 'actif' : ''}" data-vue="quetes">Quêtes${quetesEnCours(p) ? ` <span class="pastille">${quetesEnCours(p)}</span>` : ''}</button>
+      <button class="secondaire petit ${vue === 'groupe' ? 'actif' : ''}" data-vue="groupe">Groupe</button>
+      <button class="secondaire petit ${vue === 'quetes' ? 'actif' : ''}" data-vue="quetes">Quêtes</button>
       <button class="secondaire petit ${vue === 'journal' ? 'actif' : ''}" data-vue="journal">Journal</button>
     </div>
   </div>`;

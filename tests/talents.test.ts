@@ -72,13 +72,13 @@ describe('compétences', () => {
     expect(empechement(p, t, 'ville')).toMatch(/aujourd/);
   });
 
-  it('Camping réussi : +2 PV à la nuit', () => {
+  it('Camping réussi : PV de la nuit doublés', () => {
     const a = nouvellePartie(perso(['Camping tout-terrain']));
     const b = nouvellePartie(perso([]));
     a.ev = b.ev = 5;
     utiliserTalent(a, 'camping', 1);
     expect(a.campQualite).toBe(true);
-    expect(bivouaquer(a).rendu).toBe(bivouaquer(b).rendu + 2);
+    expect(bivouaquer(a).rendu).toBe(bivouaquer(b).rendu * 2);
   });
 
   it('chaque compétence a un statut lisible', () => {

@@ -230,11 +230,11 @@ export const TALENTS_ACTIFS: TalentActif[] = [
     resoudre: (p, de) => {
       if (de === 1 || (de !== 20 && de <= ingeniosite(p) + 3)) {
         p.campQualite = true;
-        return 'Un coin plat, à l\'abri du vent, un bon feu : la nuit rendra 2 PV et 4 PA de plus.';
+        return 'Un coin plat, à l\'abri du vent, un bon feu : la nuit rendra deux fois plus de PV (et 4 PA de plus pour qui manie la magie).';
       }
       return 'Les branches tombent, le feu fume : ce sera un bivouac ordinaire.';
     },
-    aide: "Épreuve d'ingéniosité +3 : la nuit rend +2 PV et +4 PA.",
+    aide: "Épreuve d'ingéniosité +3 : la nuit rend deux fois plus de PV, et +4 PA.",
   },
 ];
 
