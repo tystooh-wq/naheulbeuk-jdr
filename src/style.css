@@ -1687,6 +1687,26 @@ button.combattant:hover {
   background: #7fc3ff;
   box-shadow: 0 0 0 2px rgba(127, 195, 255, 0.45);
 }
+.onglet-etage {
+  position: relative;
+}
+.repere-quete-seul {
+  position: absolute;
+  width: 0;
+  height: 0;
+  z-index: 1;
+}
+.repere-quete-seul .marque-quete {
+  top: -9px;
+  right: auto;
+  left: -9px;
+}
+.legende-donjon .marque-quete {
+  position: static;
+  display: inline-grid;
+  animation: none;
+  vertical-align: middle;
+}
 .legende .marque-quete {
   position: static;
   margin-right: 4px;

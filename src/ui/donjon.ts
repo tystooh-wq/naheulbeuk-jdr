@@ -73,7 +73,7 @@ import { bandeau, lierSac, lierVitesse, panneauGroupe, panneauJournal, panneauSa
 import { ecranCombat, pertes, vengeTexte, type BilanCombat } from './combat';
 import { boutonAutrement, lierIdeesLieu, panneauIdeesLieu } from './idees';
 import { animerDes, de, echapper } from './outils';
-import { lierQuetes, panneauJournalQuetes, panneauQuetes } from './quetes';
+import { lierQuetes, marqueQuete, panneauJournalQuetes, panneauQuetes } from './quetes';
 import { sauvegarderPartie } from './sauvegarde';
 import { ecranMort } from './mort';
 import { aTalent, bonusSituation, texteBonus } from '../rules/talents';
@@ -176,7 +176,7 @@ const miniCarte = (d: Donjon, e: EtatDonjon, p: Partie) => {
         const peut = ouvertes.includes(s.id) || loin.has(s.id);
         return `<button class="salle salle-${etat} ${peut ? 'ouverte' : ''}" style="left:${s.x * CASE + 8}px;top:${s.y * CASE + 8}px;width:${CASE - 16}px;height:${CASE - 16}px"
           ${cible(s.id, vue ? echapper(s.nom) : 'Salle inconnue', ouvertes, loin)} aria-label="${vue ? echapper(s.nom) : 'Salle inconnue'}">
-          <span>${vue ? icone(d, e, s.id, p) : '?'}</span><em>${vue ? echapper(s.nom) : '???'}</em>
+          <span>${vue ? icone(d, e, s.id, p) : '?'}</span><em>${vue ? echapper(s.nom) : '???'}</em>${marqueSalle(d, p, s.id)}
         </button>`;
       })
       .join('')}
@@ -205,6 +205,12 @@ const brouillard = (niveau: string, vues: string[], devinees: string[]) => {
     </defs>
     <rect width="${W}" height="${H}" fill="#1d150e" mask="url(#vu-${niveau})" />
   </svg>`;
+};
+
+/** Le repère de quête d'une salle : ❗ quête proposée, ➤ étape de quête en cours. */
+const marqueSalle = (d: Donjon, p: Partie, id: string) => {
+  const q = marqueQuete(p, `donjon:${d.id}:${id}`);
+  return q ? `<b class="marque-quete marque-${q}" title="${q === 'nouvelle' ? 'Quête proposée' : 'Étape de quête'}">${q === 'nouvelle' ? '!' : '➤'}</b>` : '';
 };
 
 const planEtage = (d: Donjon, e: EtatDonjon, p: Partie, niveau: string) => {
@@ -240,8 +246,13 @@ const planEtage = (d: Donjon, e: EtatDonjon, p: Partie, niveau: string) => {
         const etat = !vue ? 'inconnue' : id === e.salle ? 'ici' : bloquee(e, s, p) ? 'danger' : 'videe';
         const peut = ouvertes.includes(id) || loin.has(id);
         return `<button class="repere-salle salle-${etat} ${peut ? 'ouverte' : ''}" style="left:${s.px}%;top:${s.py}%" ${cible(id, vue ? echapper(s.nom) : 'Salle inconnue', ouvertes, loin)}
-          aria-label="${vue ? echapper(s.nom) : 'Salle inconnue'}">${id === e.salle ? '🧍' : vue ? icone(d, e, id, p) : '?'}</button>`;
+          aria-label="${vue ? echapper(s.nom) : 'Salle inconnue'}">${id === e.salle ? '🧍' : vue ? icone(d, e, id, p) : '?'}${marqueSalle(d, p, id)}</button>`;
       })
+      .join('')}
+    ${d.salles
+      // Une étape de quête dans une salle pas encore découverte : le repère seul, pour savoir où chercher.
+      .filter((s) => s.niveau === niveau && !e.vues.includes(s.id) && !devinees.has(s.id) && marqueSalle(d, p, s.id))
+      .map((s) => `<span class="repere-quete-seul" style="left:${s.px}%;top:${s.py}%" title="Étape de quête (salle pas encore découverte)">${marqueSalle(d, p, s.id)}</span>`)
       .join('')}
   </div>`;
 };
@@ -497,15 +508,20 @@ export const ecranDonjon = (app: HTMLElement, p: Partie, s: SortiesDonjon) => {
     const dj = d();
     const e = p.donjon!;
     if (!dj.niveaux) return `<div class="cadre-mini">${miniCarte(dj, e, p)}</div>
-      <p class="note legende-donjon">⇲ entrée · ⚔ combat · ⚠ piège · ♨ repos · ♛ salle finale · ? inconnu. Clique sur une salle voisine pour y aller, ou sur une salle déjà nettoyée pour la rejoindre d'un coup.</p>`;
+      <p class="note legende-donjon">⇲ entrée · ⚔ combat · ⚠ piège · ♨ repos · ♛ salle finale · ? inconnu · <b class="marque-quete marque-etape">➤</b> étape de quête. Clique sur une salle voisine pour y aller, ou sur une salle déjà nettoyée pour la rejoindre d'un coup.</p>`;
     const etageIci = salle(dj, e.salle).niveau!;
     const etage = etageVu ?? etageIci;
     const connus = dj.niveaux.filter((n) => n.id === etageIci || e.vues.some((v) => salle(dj, v).niveau === n.id));
     return `<div class="etages">${connus
-      .map((n) => `<button class="${n.id === etage ? '' : 'secondaire'}" data-etage="${n.id}">${n.id === etageIci ? '🧍 ' : ''}${echapper(n.nom)}</button>`)
+      .map((n) => {
+        // L'étage où une quête attend : son onglet porte le repère.
+        const q = dj.salles.filter((x) => x.niveau === n.id).map((x) => marqueQuete(p, `donjon:${dj.id}:${x.id}`));
+        const m = q.includes('etape') ? 'etape' : q.includes('nouvelle') ? 'nouvelle' : '';
+        return `<button class="${n.id === etage ? '' : 'secondaire'} onglet-etage" data-etage="${n.id}">${n.id === etageIci ? '🧍 ' : ''}${echapper(n.nom)}${m ? `<b class="marque-quete marque-${m}">${m === 'nouvelle' ? '!' : '➤'}</b>` : ''}</button>`;
+      })
       .join('')}</div>
       ${planEtage(dj, e, p, etage)}
-      <p class="note legende-donjon">🧍 toi · ⚔ combat · ⚠ piège · ☺ quelqu'un · 🍺 taverne · 🛒 boutique · ♨ repos · ⇲ sortie · ? inconnu. Clique sur une salle voisine pour y aller, ou sur une salle déjà nettoyée pour la rejoindre d'un coup.</p>
+      <p class="note legende-donjon">🧍 toi · ⚔ combat · ⚠ piège · ☺ quelqu'un · 🍺 taverne · 🛒 boutique · ♨ repos · ⇲ sortie · ? inconnu · <b class="marque-quete marque-nouvelle">!</b> quête proposée · <b class="marque-quete marque-etape">➤</b> étape de quête. Clique sur une salle voisine pour y aller, ou sur une salle déjà nettoyée pour la rejoindre d'un coup.</p>
       ${ddn() ? panneauHautsFaits() : ''}`;
   };
 
