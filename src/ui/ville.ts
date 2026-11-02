@@ -30,7 +30,7 @@ import { cite, lieuCite, longueurCite, pointCite, trajetCite } from '../rules/ci
 import type { Lieu, TypeLieu } from '../rules/waldorg';
 import type { Rencontre } from '../rules/rencontres';
 import { bandeau, jaugeReputation, lierSac, lierVitesse, ligneObjet, panneauGroupe, panneauJournal, panneauSac, vitesse } from './commun';
-import { ecranCombat, pertes } from './combat';
+import { ecranCombat, pertes, vengeTexte } from './combat';
 import { ecranMort } from './mort';
 import { aTalent, bonusSituation, texteBonus } from '../rules/talents';
 import { lierQuetes, marqueQuete, panneauJournalQuetes, panneauQuetes } from './quetes';
@@ -608,7 +608,8 @@ export const ecranVille = (app: HTMLElement, p: Partie, sorties: SortiesVille, a
           if (bilan.fin === 'victoire') return message(`Victoire (+${bilan.xp} XP).${pertes(bilan)}`);
           if (bilan.fin === 'fuite') return message('Tu prends tes jambes à ton cou.');
           noter(p, 'tombe au combat.');
-          ecranMort(app, p, 'Tout devient noir… Tu t\'effondres au milieu du combat.', (texte) => message(texte), sorties.finDePartie);
+          const venge = bilan.venge ? ` ${vengeTexte(bilan)}` : '';
+          ecranMort(app, p, 'Tout devient noir… Tu t\'effondres au milieu du combat.', (texte) => message(echapper(texte) + venge), sorties.finDePartie);
         }),
     );
 
@@ -626,7 +627,9 @@ export const ecranVille = (app: HTMLElement, p: Partie, sorties: SortiesVille, a
             if (bilan.fin === 'victoire') return message(`Victoire (+${bilan.xp} XP). ${echapper(apres())}${pertes(bilan)}`);
             if (bilan.fin === 'fuite') return message('Tu prends tes jambes à ton cou. Tu pourras revenir finir le travail.');
             noter(p, 'tombe au combat.');
-            ecranMort(app, p, 'Tout devient noir… Tu t\'effondres au milieu du combat.', (texte) => message(texte), sorties.finDePartie);
+            // Les compagnons ont gagné : la quête avance quand même.
+            const venge = bilan.venge ? ` ${vengeTexte(bilan)} ${echapper(apres())}` : '';
+            ecranMort(app, p, 'Tout devient noir… Tu t\'effondres au milieu du combat.', (texte) => message(echapper(texte) + venge), sorties.finDePartie);
           }),
         donjon: (id, par) => sorties.entrerDonjon(id, par),
       },

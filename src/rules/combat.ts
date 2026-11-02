@@ -37,6 +37,10 @@ export type ModeDefense = 'parade' | 'esquive';
 
 export interface Combattant {
   id: string;
+  /** Menace : les PV que chaque adversaire lui a fait perdre (un ennemi garde sa cible tant qu'un autre ne le menace pas nettement plus). */
+  menace?: Record<string, number>;
+  /** La cible qu'il a choisie (ennemis) : il s'y tient d'un assaut à l'autre. */
+  visee?: string;
   nom: string;
   camp: Camp;
   /** Case du terrain (colonne, ligne). */
@@ -477,6 +481,15 @@ export interface Plan {
   recharge?: boolean;
 }
 
+/** Les dégâts infligés font monter la menace de l'attaquant aux yeux de sa victime. */
+const menacer = (cible: Combattant, attaquant: string, pv: number) => {
+  if (pv <= 0) return;
+  cible.menace = { ...cible.menace, [attaquant]: (cible.menace?.[attaquant] ?? 0) + pv };
+};
+
+/** Pour changer de cible, un ennemi doit être nettement plus menacé par un autre (+30 % et au moins 3 PV d'écart). */
+export const changeDeCible = (actuelle: number, autre: number) => autre >= actuelle * 1.3 && autre - actuelle >= 3;
+
 export const planifier = (c: Combat, x: Combattant): Plan => {
   // Un tireur qui recharge, sans personne au contact, ne bouge pas.
   if (x.tireur?.attente && !contacts(c, x).length) return { recharge: true };
@@ -504,13 +517,24 @@ export const planifier = (c: Combat, x: Combattant): Plan => {
     [...cs].sort((a, b) => (x.camp === 'ennemi' ? Number(b.id === 'heros') - Number(a.id === 'heros') : 0) || a.ev - b.ev)[0];
   const proches = contacts(c, x);
   const vises = proches.filter((y) => opp.includes(y));
+  // Un ennemi garde sa cible (celle qu'il frappe déjà), sauf si un autre au contact le menace nettement plus.
+  if (vises.length && x.camp === 'ennemi') {
+    const m = (y: Combattant) => x.menace?.[y.id] ?? 0;
+    const pire = [...vises].sort((a, b) => m(b) - m(a))[0];
+    const actuelle = vises.find((y) => y.id === x.visee);
+    const choix = actuelle ? (changeDeCible(m(actuelle), m(pire)) ? pire : actuelle) : m(pire) > 0 ? pire : choisir(vises);
+    x.visee = choix.id;
+    return { cible: choix.id };
+  }
   if (vises.length) return { cible: choisir(vises).id };
   // Au contact d'un autre que celui qu'on lui a désigné : il ne peut pas filer, il frappe ce qu'il a devant lui.
   if (proches.length) return { cible: choisir(proches).id };
   if (x.tireur) return { cible: [...opp].sort((a, b) => ecart(x, a) - ecart(x, b))[0].id, tir: true };
   // Sinon il marche vers l'adversaire le plus proche qui n'a pas déjà trois ennemis sur le dos.
   const libres = opp.filter((o) => contacts(c, o).length < AU_CONTACT);
-  const cibles = (libres.length ? libres : opp).sort((a, b) => ecart(x, a) - ecart(x, b));
+  // Un ennemi va d'abord vers sa cible du moment (s'il en a une), sinon vers le plus proche.
+  const prio = (o: Combattant) => (x.camp === 'ennemi' && o.id === x.visee ? -100 : 0);
+  const cibles = (libres.length ? libres : opp).sort((a, b) => prio(a) - prio(b) || ecart(x, a) - ecart(x, b));
   const cases = [...casesAccessibles(c, x).keys()].map((k) => k.split(',').map(Number));
   for (const o of cibles) {
     const aCote = cases.filter(([cx, cy]) => ecart({ x: cx, y: cy }, o) === 1).sort((a, b) => ecart({ x: a[0], y: a[1] }, x) - ecart({ x: b[0], y: b[1] }, x));
@@ -955,6 +979,7 @@ export const attaquer = (
     action.degats.blessure += poison.total;
   }
   cible.ev -= action.degats.blessure;
+  menacer(cible, a.id, action.degats.blessure);
   if (k.deces) tuer(cible, action.effets);
   return action;
 };
@@ -1061,6 +1086,7 @@ export const tirer = (
   const blessure = Math.max(0, j.total - pr);
   action.degats = { des: j.des, total: j.total, pr, blessure, bonus: k.bonus || undefined };
   cible.ev -= blessure;
+  menacer(cible, a.id, blessure);
   if (k.deces) tuer(cible, action.effets);
   return action;
 };
@@ -1072,6 +1098,7 @@ export const toucherParSort = (c: Combat, idCible: string, degats: string, criti
   const total = critique ? j.total * 2 : j.total;
   const blessure = Math.max(0, total - cible.pr);
   cible.ev -= blessure;
+  menacer(cible, 'heros', blessure);
   return {
     attaquant: 'heros',
     cible: idCible,

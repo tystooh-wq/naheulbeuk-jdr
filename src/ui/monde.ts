@@ -32,7 +32,7 @@ import { lierQuetes, marqueQuete, panneauJournalQuetes, panneauQuetes } from './
 import { arrondirOr, formatOr } from '../rules/monnaie';
 import { bandeau, jaugeReputation, lierSac, lierVitesse, majHorloge, panneauGroupe, panneauJournal, panneauSac, vitesse } from './commun';
 import { animerDes, de, echapper } from './outils';
-import { ecranCombat, listeBlessures, pertes, type BilanCombat } from './combat';
+import { ecranCombat, listeBlessures, pertes, vengeTexte, type BilanCombat } from './combat';
 import { panneauPartage, partageDuSoir } from './groupe';
 import { cite, CITES } from '../rules/cites';
 import { EVENEMENT_PROVOQUER } from './encyclopedie';
@@ -64,7 +64,7 @@ type Fenetre =
   | { type: 'evenement'; ev: Evenement; resultat?: Resultat; choix?: number; idee?: IdeeJouee }
   | { type: 'nuit'; resultat?: string; camping?: 'epreuve' | string }
   | { type: 'reprise' }
-  | { type: 'mort' };
+  | { type: 'mort'; apres?: string };
 
 /** Une idée de joueur validée, choisie à la place des choix écrits : on lance le dé, puis on lit le résultat. */
 interface IdeeJouee {
@@ -787,7 +787,8 @@ export const ecranMonde = (app: HTMLElement, p: Partie, s: Sorties) => {
           ecranCombat(app, p, r, (bilan) => {
             if (bilan.fin === 'defaite') {
               p.ev = 0;
-              fenetre = { type: 'mort' };
+              // Les compagnons ont gagné : la quête avance quand même.
+              fenetre = { type: 'mort', apres: bilan.venge ? `${vengeTexte(bilan)} ${echapper(apres())}` : undefined };
               sauver();
               return render();
             }
@@ -836,7 +837,7 @@ export const ecranMonde = (app: HTMLElement, p: Partie, s: Sorties) => {
       ecranCombat(app, p, r, (bilan) => {
         if (bilan.fin === 'defaite') {
           p.ev = 0;
-          fenetre = { type: 'mort' };
+          fenetre = { type: 'mort', apres: bilan.venge ? vengeTexte(bilan) : undefined };
         } else
           fenetre = {
             type: 'lieu',
@@ -865,7 +866,7 @@ export const ecranMonde = (app: HTMLElement, p: Partie, s: Sorties) => {
       const f = fenetre;
       ecranCombat(app, p, f.issue?.surprise ? { ...f.r, surprise: true } : f.r, (bilan) => {
         f.bilan = bilan;
-        fenetre = bilan.fin === 'defaite' ? { type: 'mort' } : f;
+        fenetre = bilan.fin === 'defaite' ? { type: 'mort', apres: bilan.venge ? vengeTexte(bilan) : undefined } : f;
         if (bilan.fin === 'defaite') p.ev = 0;
         sauver();
         render();
@@ -994,9 +995,11 @@ export const ecranMonde = (app: HTMLElement, p: Partie, s: Sorties) => {
       p.perso.destin -= 1;
       p.ev = Math.max(1, Math.floor(evMax(p) / 4));
       noter(p, `meurt… puis revient à la vie grâce à un point de destin.`);
-      fenetre = p.voyage ? { type: 'reprise' } : { type: 'lieu' };
+      const apres = fenetre?.type === 'mort' ? fenetre.apres : undefined;
+      fenetre = p.voyage ? { type: 'reprise' } : { type: 'lieu', message: apres };
       sauver();
       render();
+      if (apres && p.voyage) bulleRoute(apres.replace(/<[^>]+>/g, ''));
     });
     sur('#abandonner', () => s.finDePartie());
   };

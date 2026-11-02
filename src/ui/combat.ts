@@ -70,6 +70,12 @@ export const listeBlessures = (b: BilanCombat, balise = 'li') =>
 export const pertes = (b: BilanCombat) =>
   b.blessures?.length ? ` <span class="perte">Blessure${b.blessures.length > 1 ? 's' : ''} grave${b.blessures.length > 1 ? 's' : ''} : ${echapper(b.blessures.map((x) => x.nom.toLowerCase()).join(', '))}.</span>` : '';
 
+/** Ce que les compagnons ont fait pendant que le héros gisait (combat gagné sans lui). */
+export const vengeTexte = (b: BilanCombat) => {
+  const gains = [b.or ? `${b.or} PO` : '', ...b.objets.map((o) => objet(o).nom)].filter(Boolean);
+  return `Pendant que tu gisais, tes compagnons ont fini le travail${gains.length ? ` et fouillé les corps (${echapper(gains.join(', '))})` : ''}.${pertes(b)}`;
+};
+
 export interface BilanCombat {
   /** Reddition : le héros jette son arme devant des créatures pensantes (Donjon de Naheulbeuk : direction les cachots). */
   fin: 'victoire' | 'defaite' | 'fuite' | 'reddition';
@@ -85,6 +91,8 @@ export interface BilanCombat {
   recuperes?: string;
   /** Ce que le groupe en pense (appréciation des compagnons). */
   groupe?: string[];
+  /** Le héros est tombé, mais ses compagnons ont gagné : les ennemis sont vaincus et fouillés. */
+  venge?: boolean;
 }
 
 type Attente =
@@ -92,7 +100,7 @@ type Attente =
   /** Ambidextrie : la deuxième attaque, avec l'arme de la main gauche. */
   | { type: 'mainGauche' }
   | { type: 'defense'; attaquant: string; de: number }
-  | { type: 'fouille'; corps: string[]; reste: { fin: 'victoire'; xp: number; recuperes: string; notes: string[] } }
+  | { type: 'fouille'; corps: string[]; reste: { fin: 'victoire' | 'defaite'; xp: number; recuperes: string; notes: string[] } }
   | { type: 'fin'; bilan: BilanCombat }
   | null;
 
@@ -357,21 +365,21 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
         ? ` <span class="note">${echapper(enFuite.join(', '))} ${enFuite.length > 1 ? 'ont' : 'a'} pris la fuite avec ${enFuite.length > 1 ? 'leurs' : 'ses'} affaires : rien à fouiller de ce côté.</span>`
         : '';
       const nb = attente.corps.length;
-      return `<div class="a-toi bilan" data-lanceur><p><b>Victoire !</b> ${nb > 1 ? `${nb} corps sont à terre` : 'Un corps est à terre'}. Tu fouilles : lance ${poubelles ? 'deux D20 par corps (Fouiller dans les poubelles : le meilleur compte)' : 'un D20 par corps'} sur la table de butin. Plus c'est haut, mieux c'est.${fuite}</p>
+      return `<div class="a-toi bilan" data-lanceur><p>${c.vengeance ? '<b>Tes compagnons ont gagné !</b> Toi, tu gis par terre, mais ils fouillent les corps pour le groupe.' : '<b>Victoire !</b>'} ${nb > 1 ? `${nb} corps sont à terre` : 'Un corps est à terre'}. ${c.vengeance ? 'Pour eux,' : 'Tu fouilles :'} lance ${poubelles ? 'deux D20 par corps (Fouiller dans les poubelles : le meilleur compte)' : 'un D20 par corps'} sur la table de butin. Plus c'est haut, mieux c'est.${fuite}</p>
         <ul class="fouilles">${attente.corps
           .map((id) => `<li>${echapper(combattant(c, id).nom)} ${(poubelles ? ['?', '?'] : ['?']).map(() => de('?', 'fouille a-lancer')).join('')}</li>`)
           .join('')}</ul>
         <p><button id="lancer-fouille">🎲 Fouiller (lancer ${attente.corps.length * (poubelles ? 2 : 1)} D20)</button></p></div>`;
     }
     const b = attente.bilan;
-    const titre = { victoire: 'Victoire !', defaite: 'Tu tombes…', fuite: 'Tu as pris la fuite', reddition: 'Tu te rends' }[b.fin];
+    const titre = b.venge ? 'Tu tombes… mais le groupe gagne' : { victoire: 'Victoire !', defaite: 'Tu tombes…', fuite: 'Tu as pris la fuite', reddition: 'Tu te rends' }[b.fin];
     return `<div class="a-toi bilan"><p><b>${titre}</b></p>
       <ul>${b.xp ? `<li>${b.xp} points d'expérience</li>` : ''}<li>${
         b.perdu > 0 ? `${b.perdu} PV perdus dans la bagarre` : 'Pas une égratignure'
       }</li>${listeBlessures(b)}</ul>
       ${
         b.fouilles.length
-          ? `<p><b>Tu fouilles les corps</b> <span class="note">(ton D20 sur la table de butin)</span></p><ul class="fouilles">${b.fouilles
+          ? `<p><b>${b.venge ? 'Tes compagnons fouillent les corps' : 'Tu fouilles les corps'}</b> <span class="note">(ton D20 sur la table de butin)</span></p><ul class="fouilles">${b.fouilles
               .map(
                 (f) =>
                   `<li>${echapper(f.ennemi)} ${f.de ? de(f.de, 'petit') : ''} ${
@@ -577,7 +585,7 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
   const finir = () => {
     synchroniser();
     let notes: string[] = [];
-    if (c.vengeance) notes.push('Tes compagnons ont gagné le combat, mais trop tard pour toi.');
+    if (c.vengeance) notes.push('Tes compagnons ont gagné le combat, mais trop tard pour toi. Ils fouillent les corps pendant que tu gis.');
     reactions.push(...bilanCompagnons(c, p));
     // Ce que les compagnons pensent du combat : les coups reçus du héros, puis l'issue.
     for (const f of c.frappesAllies ?? []) reactions.push(...reagir(p, { type: 'frappe', id: f.id, grave: f.grave }));
@@ -635,9 +643,10 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
       p.equipe.distance = undefined;
     }
     // Victoire : c'est le joueur qui lance le D20 de fouille de chaque corps (table de butin de sa famille).
-    const corps = fin === 'victoire' ? ennemis(c).filter((x) => x.etat === 'mort' && tableButin(x.nom)).map((x) => x.id) : [];
+    // Héros vengé : ce sont les compagnons qui fouillent, mais le joueur lance toujours les dés.
+    const corps = fin === 'victoire' || c.vengeance ? ennemis(c).filter((x) => x.etat === 'mort' && tableButin(x.nom)).map((x) => x.id) : [];
     if (corps.length) {
-      attente = { type: 'fouille', corps, reste: { fin: 'victoire', xp, recuperes, notes } };
+      attente = { type: 'fouille', corps, reste: { fin: fin === 'victoire' ? 'victoire' : 'defaite', xp, recuperes, notes } };
       return render();
     }
     conclure(fin, xp, recuperes, notes, []);
@@ -669,7 +678,7 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
     p.sac.push(...objets);
     const recuperes = [recup, ...notes].filter(Boolean).join(' ');
     const blessures = (h().blessures ?? []).map((b) => ({ nom: b.nom, permanente: b.jours === undefined }));
-    const bilan: BilanCombat = { fin, xp, or, perdu: evDepart - p.ev, blessures, objets, fouilles, recuperes, groupe: reactions };
+    const bilan: BilanCombat = { fin, xp, or, perdu: evDepart - p.ev, blessures, objets, fouilles, recuperes, groupe: reactions, venge: c.vengeance || undefined };
     p.xp = (p.xp ?? 0) + xp;
     p.or += or;
     ajouterButin(p, or);
@@ -682,7 +691,9 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
           ? `s'enfuit en plein combat contre ${qui}.`
           : fin === 'reddition'
           ? `se rend à ${qui}.`
-          : `tombe sous les coups de ${qui}.`,
+          : c.vengeance
+            ? `tombe face à ${qui}, mais ses compagnons gagnent le combat${or ? ` (+${or} PO)` : ''}.`
+            : `tombe sous les coups de ${qui}.`,
     );
     attente = { type: 'fin', bilan };
     // Le combat est fini : les boutons du bilan (partage du butin…) doivent répondre.

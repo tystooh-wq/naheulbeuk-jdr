@@ -78,6 +78,24 @@ describe('mise en place', () => {
     expect(planifier(c, e).cible).not.toBe('heros');
   });
 
+  it("un ennemi garde sa cible tant que le héros ne le menace pas nettement plus", () => {
+    const c = creerCombat(nouvellePartie(perso), rencontre(9, 1));
+    const h = heros(c);
+    const e = c.combattants.find((x) => x.camp === 'ennemi')!;
+    const ami = { ...h, id: 'ami', nom: 'Ami' };
+    c.combattants.push(ami);
+    Object.assign(ami, { x: 4, y: 3 });
+    Object.assign(e, { x: 5, y: 3 });
+    Object.assign(h, { x: 6, y: 3 });
+    e.visee = 'ami';
+    expect(planifier(c, e).cible).toBe('ami');
+    e.menace = { heros: 2 };
+    expect(planifier(c, e).cible).toBe('ami');
+    e.menace = { heros: 6, ami: 2 };
+    expect(planifier(c, e).cible).toBe('heros');
+    expect(e.visee).toBe('heros');
+  });
+
   it('le bouc ne se pare pas, le scorpion empoisonne', () => {
     expect(creerEnnemis(rencontre(1, 1))[0]).toMatchObject({ imparable: true, nom: 'Bouc en colère' });
     expect(creerEnnemis(rencontre(4, 2))[0]).toMatchObject({ poison: true, degats: '1D-1' });

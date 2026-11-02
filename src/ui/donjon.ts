@@ -70,7 +70,7 @@ import { acheter, formatHeure, noter, passerTemps, soigner, type Partie } from '
 import { donjonTermine, progresserQuetes } from '../rules/quetes';
 import type { LigneRencontre, Rencontre } from '../rules/rencontres';
 import { bandeau, lierSac, lierVitesse, panneauGroupe, panneauJournal, panneauSac } from './commun';
-import { ecranCombat, pertes, type BilanCombat } from './combat';
+import { ecranCombat, pertes, vengeTexte, type BilanCombat } from './combat';
 import { boutonAutrement, lierIdeesLieu, panneauIdeesLieu } from './idees';
 import { animerDes, de, echapper } from './outils';
 import { lierQuetes, panneauJournalQuetes, panneauQuetes } from './quetes';
@@ -553,6 +553,12 @@ export const ecranDonjon = (app: HTMLElement, p: Partie, s: SortiesDonjon) => {
       const hauts = ddn() ? apresVictoire(p, vaincus(r)) : [];
       return dire(`Victoire (+${bilan.xp} XP${bilan.or ? `, ${formatOr(bilan.or)}` : ''}${bilan.objets.length ? `, ${bilan.objets.map((o) => objet(o).nom).join(', ')}` : ''}). ${victoire()}${hauts.map((h) => ` ${echapper(h)}.`).join('')}${pertes(bilan)}`);
     }
+    // Le héros est tombé, mais ses compagnons ont gagné : la salle est réglée et le butin ramassé.
+    if (bilan.venge) {
+      const suite = victoire();
+      scene = undefined;
+      return mourir(`${vengeTexte(bilan)} ${suite}`);
+    }
     scene = undefined;
     if (bilan.fin === 'fuite') {
       reculer();
@@ -745,7 +751,7 @@ export const ecranDonjon = (app: HTMLElement, p: Partie, s: SortiesDonjon) => {
       const res = sc.resultat!;
       const { rencontre, victoire } = res.combat!;
       ecranCombat(app, p, rencontre, (bilan) => {
-        if (bilan.fin !== 'victoire') return apresCombat(rencontre, bilan, () => '');
+        if (bilan.fin !== 'victoire' && !bilan.venge) return apresCombat(rencontre, bilan, () => '');
         const suite = victoire?.(p) ?? '';
         sc.resultat = { texte: 'Le combat est fini.', regle: res.regle };
         scene = sc;
@@ -863,7 +869,8 @@ export const ecranDonjon = (app: HTMLElement, p: Partie, s: SortiesDonjon) => {
     });
   };
 
-  const mourir = () => {
+  /** `apres` : ce qui s'est passé pendant que le héros gisait (compagnons vainqueurs), raconté au réveil. */
+  const mourir = (apres = '') => {
     const dj = d();
     scene = undefined;
     deEnCours = undefined;
@@ -880,7 +887,7 @@ export const ecranDonjon = (app: HTMLElement, p: Partie, s: SortiesDonjon) => {
           return s.sortir(texte);
         }
         const h = ddn() ? hautFait(p, 'providence') : null;
-        dire(`${echapper(texte)}${h ? ` ${echapper(h)}.` : ''}`);
+        dire(`${echapper(texte)}${h ? ` ${echapper(h)}.` : ''}${apres ? ` ${apres}` : ''}`);
       },
       s.finDePartie,
     );
