@@ -1,3 +1,8 @@
+import imgPanneau from '../assets/tableau/panneau.webp';
+import imgP1 from '../assets/tableau/p1.webp';
+import imgP2 from '../assets/tableau/p2.webp';
+import imgP3 from '../assets/tableau/p3.webp';
+import imgP4 from '../assets/tableau/p4.webp';
 import { lancer } from '../rules/des';
 import { quetesRefusees, villeDe } from '../rules/reputation';
 import { dansHoraire, donjon, donjonIci } from '../rules/donjons';
@@ -97,6 +102,8 @@ export const entreesDonjonLibre = (p: Partie, ou: string) => {
   return donjonLibre ? boutonsEntree(p, donjonLibre) : '';
 };
 
+const PARCHEMINS = [imgP1, imgP2, imgP4, imgP3];
+
 /** Le tableau d'affichage : un parchemin épinglé par quête (nom au survol), vide s'il n'y a rien. */
 export const tableauQuetes = (p: Partie, ou: string): string => {
   const { proposees, ici, refus } = quetesDuLieu(p, ou);
@@ -107,10 +114,10 @@ export const tableauQuetes = (p: Partie, ou: string): string => {
   const parchemins = items
     .map(
       ({ q, suite }, i) =>
-        `<button class="parchemin ${suite ? 'suite' : ''}" style="--r:${[-6, 4, -2, 7, -4, 3][i % 6]}deg" data-ouvrir-quete="${q.id}" title="${echapper(q.titre)}${suite ? ' (quête en cours)' : ''}" aria-label="${echapper(q.titre)}${suite ? ' (quête en cours)' : ''}"><i class="punaise" aria-hidden="true"></i><span aria-hidden="true">${suite ? '➤' : '❗'}</span></button>`,
+        `<button class="parchemin ${suite ? 'suite' : ''}" style="--r:${[-6, 4, -2, 7, -4, 3][i % 6]}deg;background-image:url(${PARCHEMINS[i % PARCHEMINS.length]})" data-ouvrir-quete="${q.id}" title="${echapper(q.titre)}${suite ? ' (quête en cours)' : ''}" aria-label="${echapper(q.titre)}${suite ? ' (quête en cours)' : ''}"><span aria-hidden="true">${suite ? '➤' : '❗'}</span></button>`,
     )
     .join('');
-  return `<div class="tableau-quetes">
+  return `<div class="tableau-quetes" style="background-image:url(${imgPanneau})">
     <div class="liege">${parchemins || '<p class="vide">Rien d\'épinglé pour le moment.</p>'}</div>
     <p class="legende-tableau">📜 Tableau d'affichage${refus ? ' · <span class="note">ta réputation fait fuir les donneurs de quêtes</span>' : ''}</p>
   </div>`;
