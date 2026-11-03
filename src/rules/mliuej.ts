@@ -198,15 +198,19 @@ export const RESEAU_MLIUEJ = {
     sanspeur: [25, 41], tebouray: [15, 38], houblon: [8, 30], rousses: [8, 50], titub: [24, 62], nains1: [28, 26], nains2: [38, 37], beuv: [40, 24],
     pontN: [47, 28], brassin: [56, 32], capsule: [58, 10], malt: [42, 10], defis: [63, 52], cuves: [66, 20], pontE: [72, 37], mortimer: [78, 40],
     blondes: [87, 45], levures: [92, 52], fermentation: [88, 22], stout: [88, 72],
+    // Les seuls passages sur l'eau du plan : le pont de l'Avenue du Brassin (sortie du bassin), la passerelle
+    // de la Rue Mortimer, et le bac aux pontons, sous l'enceinte de la Rue des Levures.
+    pontBassin: [52.7, 38.2], passerelle: [68.6, 32.5], bac: [86, 61.5], malt2: [44, 19],
   } as Record<string, [number, number]>,
   aretes: [
     ['est', 'odil'], ['odil', 'marche'], ['marche', 'ralatouf'], ['ralatouf', 'beq'], ['beq', 'ambree'], ['ambree', 'chaussette'], ['ambree', 'ouarge1'],
     ['ouarge1', 'ouarge2'], ['ouarge2', 'brunes'], ['brunes', 'bas'], ['ralatouf', 'bit1'], ['bit1', 'brunes'], ['ouarge1', 'bit1'], ['ouarge2', 'bit2'],
     ['bit2', 'cirrhose'], ['cirrhose', 'bouchon'], ['bouchon', 'chaussette'], ['bouchon', 'titub'], ['chaussette', 'fauxcol'], ['fauxcol', 'sanspeur'],
     ['sanspeur', 'tebouray'], ['tebouray', 'houblon'], ['tebouray', 'rousses'], ['fauxcol', 'titub'], ['sanspeur', 'nains1'], ['nains1', 'nains2'],
-    ['nains2', 'chaussette'], ['nains2', 'beuv'], ['beuv', 'pontN'], ['pontN', 'brassin'], ['beuv', 'malt'], ['brassin', 'capsule'], ['brassin', 'cuves'],
-    ['ambree', 'defis'], ['defis', 'ralatouf'], ['defis', 'pontE'], ['pontE', 'mortimer'], ['mortimer', 'blondes'], ['blondes', 'levures'],
-    ['mortimer', 'fermentation'], ['levures', 'stout'], ['stout', 'odil'], ['marche', 'stout'], ['brassin', 'pontE'],
+    ['nains2', 'chaussette'], ['nains2', 'beuv'], ['pontN', 'brassin'], ['malt', 'malt2'], ['malt2', 'pontN'], ['brassin', 'capsule'], ['brassin', 'cuves'],
+    ['brassin', 'pontBassin'], ['pontBassin', 'ambree'],
+    ['ambree', 'defis'], ['defis', 'ralatouf'], ['pontE', 'mortimer'], ['mortimer', 'blondes'], ['blondes', 'levures'],
+    ['mortimer', 'fermentation'], ['levures', 'bac'], ['bac', 'stout'], ['stout', 'odil'], ['marche', 'stout'], ['brassin', 'passerelle'], ['passerelle', 'pontE'],
   ] as [string, string][],
   acces: {
     porte: 'est', chateau: 'fauxcol', murgol: 'bas', zomblaf: 'capsule', ecole: 'bit2', 'temple-biere': 'chaussette', tabouret: 'bit1',

@@ -209,7 +209,7 @@ export const RUMEURS_CHNAFON = [
 /** Rues de Chnafon relevées sur le plan parchemin, en % (voir valtordu.ts pour le principe). */
 export const RESEAU_CHNAFON = {
   noeuds: {
-    ouest: [11, 52], vpuit: [16, 53], ech1: [27, 55], ech2: [39, 52], marche: [47, 52], marcheN: [47, 42], fr1: [37, 39], fr2: [53, 38],
+    ouest: [11, 52], vpuit: [16, 53], ech1: [27, 53.5], apic2: [22, 48], chev0: [45, 81], ech2: [39, 52], marche: [47, 52], marcheN: [47, 42], fr1: [37, 39], fr2: [53, 38],
     apicole: [25, 40], triumvirat: [20, 33], patates: [34, 28], poulet: [17, 23], chateauP: [47, 35], wyv: [60, 24], machin: [62, 39],
     apprentis: [76, 30], pech1: [74, 42], est: [90, 42], paf: [72, 51], archer: [79, 58], kalvan: [85, 62], tordue: [82, 74], marcheE: [58, 55],
     vieux1: [60, 63], vieux2: [73, 66], tabarnak: [29, 62], barb1: [40, 64], barb2: [33, 80], tabluk: [24, 69], kisbar: [19, 78], pal1: [48, 73],
@@ -221,8 +221,8 @@ export const RESEAU_CHNAFON = {
     ['fr2', 'machin'], ['chateauP', 'wyv'], ['wyv', 'apprentis'], ['machin', 'apprentis'], ['machin', 'pech1'], ['apprentis', 'pech1'], ['pech1', 'est'],
     ['marche', 'marcheE'], ['marcheE', 'paf'], ['paf', 'pech1'], ['paf', 'archer'], ['archer', 'kalvan'], ['kalvan', 'tordue'], ['marcheE', 'vieux1'],
     ['vieux1', 'vieux2'], ['vieux2', 'archer'], ['vieux2', 'tordue'], ['ech1', 'tabarnak'], ['tabarnak', 'barb1'], ['barb1', 'marche'],
-    ['barb1', 'barb2'], ['tabarnak', 'tabluk'], ['tabluk', 'kisbar'], ['barb2', 'pal1'], ['pal1', 'pal2'], ['pal2', 'tordue'], 
-    ['pal1', 'chevres'], ['chevres', 'pal2'], ['vpuit', 'apicole'],
+    ['barb1', 'barb2'], ['tabarnak', 'tabluk'], ['tabluk', 'kisbar'], ['pal1', 'pal2'], ['pal2', 'tordue'], 
+    ['vpuit', 'apic2'], ['apic2', 'apicole'], ['barb2', 'chev0'], ['chev0', 'pal1'], ['chev0', 'chevres'],
   ] as [string, string][],
   acces: {
     porte: 'ouest', chateau: 'chateauP', 'chaise-boiteuse': 'ech1', kraken: 'pech1', rat: 'kisbar', saltimbanques: 'marcheE', gigno: 'ech2',
