@@ -217,9 +217,29 @@ export const appliquerSort = (c: Combat, l: Lanceur, s: SortGrimoire, idCible: s
   return { lignes, actions };
 };
 
-/** Un long sort : le lanceur passe ses prochains tours à finir l'incantation. */
-export const occuperLanceur = (x: Combattant, s: SortGrimoire) => {
-  if (s.incantation > 1) x.incante = s.incantation - 1;
+/**
+ * Un long sort (règles : l'incantation dure N assauts). L'épreuve se fait au début : ratée, le lanceur n'attend pas ;
+ * réussie, il passe ses N − 1 tours suivants à incanter, et le sort part à la fin. Renvoie vrai si le sort attend.
+ */
+export const commencerIncantation = (x: Combattant, s: SortGrimoire, cible: string, issue: 'critique' | 'reussi', niveau: number, bonusInt: number) => {
+  if (s.incantation <= 1 || (s.effet.type === 'bonus' && s.effet.gratuit) || s.effet.type === 'frappe') return false;
+  x.incante = s.incantation - 1;
+  x.enCours = { sort: s.id, cible, issue, niveau, bonusInt };
+  return true;
+};
+
+/**
+ * La fin d'une incantation : le sort part. Si la cible est tombée entre-temps, il vise un autre ennemi
+ * (ou un autre allié) ; s'il n'y a plus personne, il se perd.
+ */
+export const finirIncantation = (c: Combat, x: Combattant, paDispo: number, rng?: Rng): ResultatSort & { nom: string } => {
+  const e = x.enCours!;
+  x.enCours = undefined;
+  const s = sortGrimoire(e.sort)!;
+  let cible = c.combattants.find((y) => y.id === e.cible && enLice(y))?.id;
+  if (!cible) cible = ciblesSort(c, x, s)[0]?.id;
+  if (!cible) return { nom: s.nom, lignes: [`${s.nom} part dans le vide : plus personne à viser.`], actions: [] };
+  return { nom: s.nom, ...appliquerSort(c, { x, niveau: e.niveau, bonusInt: e.bonusInt, paDispo }, s, cible, e.issue, rng) };
 };
 
 /**
@@ -242,9 +262,10 @@ export const lancerSortAllie = (c: Combat, x: Combattant, i: number, idCible: st
     return { texte: `${debut} : maladresse ! Le sort lui explose au visage, −${b} PV.`, actions: [] };
   }
   if (issue === 'rate') return { texte: `${debut} : raté, ${cout} PA perdus.`, actions: [] };
+  if (commencerIncantation(x, s, idCible, issue, x.magie!.niveau, x.magie!.bonusInt))
+    return { texte: `${debut}${issue === 'critique' ? ' : critique' : ' : réussi'}. L'incantation commence : le sort partira dans ${s.incantation - 1} tour${s.incantation > 2 ? 's' : ''}.`, actions: [] };
   const r = appliquerSort(c, { x, niveau: x.magie!.niveau, bonusInt: x.magie!.bonusInt, paDispo: x.magie!.ea }, s, idCible, issue, rng);
   x.magie!.ea = Math.max(0, x.magie!.ea - (r.paSoin ?? 0));
-  occuperLanceur(x, s);
   return { texte: `${debut}${issue === 'critique' ? ' : critique, effets doublés' : ''}. ${r.lignes.join(' ')}`, actions: r.actions, garde: r.garde };
 };
 

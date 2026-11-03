@@ -735,12 +735,13 @@ export const refusCamp = (p: Partie): string | null => {
   const s = salle(d, e.salle);
   if (!salleCalme(e, s, p)) return "La salle n'est pas sûre : règle d'abord ce qui s'y trouve.";
   if (/couloir|escalier|puits|passage|corridor|échelle|pont|trappe/i.test(s.nom)) return "Pas de quoi s'installer dans un lieu de passage : il faut une vraie salle.";
-  const proches = s.vers.filter((v) => {
-    const x = salle(d, v);
+  // Camper demande un étage nettoyé (Sedy, 3/11) : un monstre qui rôde encore à cet étage, et c'est non.
+  const etage = d.salles.filter((x) => x.niveau === s.niveau);
+  const rodent = etage.filter((x) => {
     const c = contenuIci(x, p).contenu;
     return c?.type === 'combat' && !reglee(e, x, p);
   });
-  if (proches.length) return 'Trop près des monstres : on les entend remuer dans une salle voisine.';
+  if (rodent.length) return `Des monstres rôdent encore à cet étage (${rodent.length} salle${rodent.length > 1 ? 's' : ''}) : impossible de dormir tranquille. Un casse-croûte ou une heure de repos, à la rigueur.`;
   return null;
 };
 

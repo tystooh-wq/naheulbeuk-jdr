@@ -83,8 +83,10 @@ export interface Combattant {
   rm?: number;
   /** Effets de sorts en cours (bonus, malus) : ce qu'ils ajoutent, et l'assaut où ils prennent fin. */
   effets?: EffetActif[];
-  /** Encore occupé à incanter un long sort : il passe ce nombre de tours. */
+  /** Encore occupé à incanter un long sort : il passe ce nombre de tours, puis le sort part. */
   incante?: number;
+  /** Le long sort en cours d'incantation (épreuve déjà réussie au début) : il part quand `incante` tombe à 0. */
+  enCours?: { sort: string; cible: string; issue: 'critique' | 'reussi'; niveau: number; bonusInt: number };
   /** Compétences du héros qui jouent en combat (voir talents.ts). */
   talents?: {
     vicieux?: boolean;

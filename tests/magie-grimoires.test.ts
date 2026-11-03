@@ -120,3 +120,24 @@ describe('sorts en combat', () => {
     expect(ea(p)).toBe(20);
   });
 });
+
+describe('incantations longues', () => {
+  it("l'épreuve se fait au début : réussie, le sort attend la fin de l'incantation ; ratée, on n'attend pas", async () => {
+    const { commencerIncantation, finirIncantation } = await import('../src/rules/sorts');
+    const p = nouvellePartie(perso({}));
+    const c = creerCombat(p, rencontre);
+    const h = heros(c);
+    const s = sortGrimoire('combat:tourbillon-de-wazaa')!;
+    expect(s.incantation).toBe(4);
+    const e = c.combattants.find((x) => x.camp === 'ennemi')!;
+    const ev = e.ev;
+    expect(commencerIncantation(h, s, e.id, 'reussi', 1, 0)).toBe(true);
+    expect(h.incante).toBe(3);
+    expect(e.ev).toBe(ev);
+    const r = finirIncantation(c, h, 0, () => 0.99);
+    expect(r.actions.length).toBeGreaterThan(0);
+    expect(h.enCours).toBeUndefined();
+    // Un sort d'un assaut part tout de suite.
+    expect(commencerIncantation(h, sortGrimoire('combat:boule-de-feu-mineure')!, e.id, 'reussi', 1, 0)).toBe(false);
+  });
+});

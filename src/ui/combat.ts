@@ -46,7 +46,7 @@ import { objet } from '../rules/objets';
 import { ajouterBlessure, blessuresActives, boirePotion, porte, valeursCombat, equiper, essaiEquiper, lancerExpression, mainGauche, niveau, noter, type Partie } from '../rules/partie';
 import { consommerProjectile, valeursTir } from '../rules/tir';
 import { bonusInt, ea, eaMax, enCombat, voieDe, lancerSort, nomEcole, refusRelique, resumeEffet, sort, sortAutomatique, sortsConnus, valeurSort, type Sort } from '../rules/magie';
-import { appliquerSort, ciblesSort, lancerSortAllie, occuperLanceur } from '../rules/sorts';
+import { appliquerSort, ciblesSort, commencerIncantation, finirIncantation, lancerSortAllie } from '../rules/sorts';
 import type { Rencontre } from '../rules/rencontres';
 import { aTalent } from '../rules/talents';
 import { ajouterButin, compagnon, obeit, ORDRES, reagir, valeurObeissance, volonte, xpGroupe, type Ordre } from '../rules/compagnons';
@@ -735,10 +735,24 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
       }
       if (x.incante) {
         x.incante -= 1;
-        message(`${x.nom} poursuit son incantation.`);
+        if (x.incante > 0 || !x.enCours) {
+          message(`${x.nom} poursuit son incantation (encore ${x.incante} tour${x.incante > 1 ? 's' : ''}).`);
+        } else {
+          // Fin de l'incantation : le sort part maintenant.
+          const pa = x.id === 'heros' ? ea(p) : (x.magie?.ea ?? 0);
+          const r = finirIncantation(c, x, pa);
+          if (r.paSoin) {
+            if (x.id === 'heros') p.ea = Math.max(0, ea(p) - r.paSoin);
+            else if (x.magie) x.magie.ea = Math.max(0, x.magie.ea - r.paSoin);
+          }
+          for (const l of r.lignes) c.journal.push(l);
+          for (const a of r.actions) if (a.degats?.blessure) touche = a.cible;
+          if (x.id === 'heros') p.ev = x.ev;
+          message(`✧ ${x.nom} achève l'incantation : ${r.nom}. ${r.lignes.join(' ')}`);
+        }
         render();
-        await attendre(700);
-        tourSuivant(c);
+        await attendre(x.enCours ? 700 : 1300);
+        apres();
         continue;
       }
       if (x.rate > 0) {
@@ -1002,7 +1016,11 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
       etape(zone, `<span class="verdict visible ${res.issue}">${echapper(res.texte)}</span>`);
       c.journal.push(`${h().nom} lance ${s.nom} : ${res.texte}`);
       let garde = false;
-      if (res.issue === 'critique' || res.issue === 'reussi') {
+      let attend = false;
+      if ((res.issue === 'critique' || res.issue === 'reussi') && commencerIncantation(h(), s, el.dataset.cibleSort!, res.issue, niveau(p), bonusInt(p))) {
+        attend = true;
+        c.journal.push(`${h().nom} commence l'incantation de ${s.nom}.`);
+      } else if (res.issue === 'critique' || res.issue === 'reussi') {
         const r = appliquerSort(c, { x: h(), niveau: niveau(p), bonusInt: bonusInt(p), paDispo: ea(p) }, s, el.dataset.cibleSort!, res.issue);
         if (r.paSoin) p.ea = Math.max(0, ea(p) - r.paSoin);
         for (const l of r.lignes) {
@@ -1012,10 +1030,9 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
         }
         for (const a of r.actions) if (a.degats?.blessure) touche = a.cible;
         garde = !!r.garde;
-        if (!garde) occuperLanceur(h(), s);
       }
       p.ev = h().ev;
-      etape(zone, `<span class="note">${ea(p)} PA restants${garde ? ' · le sort ne coûte pas ton action : à toi de frapper.' : s.incantation > 1 ? ` · incantation longue : tu passes ${s.incantation - 1} tour${s.incantation > 2 ? 's' : ''}.` : ''}</span>`);
+      etape(zone, `<span class="note">${ea(p)} PA restants${garde ? ' · le sort ne coûte pas ton action : à toi de frapper.' : attend ? ` · l'incantation commence : le sort partira dans ${s.incantation - 1} tour${s.incantation > 2 ? 's' : ''}.` : ''}</span>`);
       scene = zone.innerHTML;
       apres();
       if (garde && !c.fin) {
