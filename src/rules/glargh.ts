@@ -257,7 +257,7 @@ export const LIEUX_GLARGH: Lieu[] = [
     y: 93,
     quartier: 'Rue Thlieu',
     description: "Un magasin magique fréquenté surtout par les mages noirs du temple de Tzinntch, juste à côté. Idéal pour dénicher du matériel dangereux.",
-    boutique: { stock: ['potion-de-mana-des-bitos', 'potion-de-mana-rouge', 'baton-sorcier', 'dague-recourbee', 'potion-soin-forte'], prix: 1.1, rachat: 0.55, rachete: ['potion', 'arme'] },
+    boutique: { stock: ['potion-de-mana-des-bitos', 'potion-de-mana-rouge', 'baton-sorcier', 'dague-recourbee', 'potion-soin-forte', 'grimoire-combat', 'grimoire-feu', 'grimoire-thermo', 'grimoire-invocation'], prix: 1.1, rachat: 0.55, rachete: ['potion', 'arme'] },
   },
   {
     id: 'crom',
@@ -317,7 +317,7 @@ export const LIEUX_GLARGH: Lieu[] = [
     y: 77,
     quartier: 'Avenue des Grandes Beignes',
     description: "Un magasin réputé pour ses articles magiques. Le vendeur parle à voix basse, comme dans une bibliothèque.",
-    boutique: { stock: ['potion-soin', 'potion-soin-forte', 'potion-de-mana-des-bitos', 'potion-de-mana-rouge', 'baton-sorcier-perrave', 'baton-sorcier'], prix: 1, rachat: 0.5, rachete: ['potion', 'arme'] },
+    boutique: { stock: ['potion-soin', 'potion-soin-forte', 'potion-de-mana-des-bitos', 'potion-de-mana-rouge', 'baton-sorcier-perrave', 'baton-sorcier', 'grimoire-combat', 'grimoire-eau-glace', 'grimoire-air', 'grimoire-terre', 'grimoire-meta'], prix: 1, rachat: 0.5, rachete: ['potion', 'arme'] },
   },
   {
     id: 'echafauds',

@@ -2643,3 +2643,11 @@ button.lien:hover { text-decoration: underline; }
 .option-pause button {
   min-width: 15em;
 }
+
+/* Sorts du héros en combat : une liste compacte, puis le choix de la cible. */
+.sorts-heros summary { cursor: pointer; margin: 0.4rem 0; }
+.liste-sorts { display: flex; flex-direction: column; gap: 0.3rem; max-height: 22rem; overflow-y: auto; }
+button.sort-ligne { text-align: left; text-transform: none; font-variant: normal; letter-spacing: 0; font-size: 0.95rem; padding: 0.35rem 0.6rem; }
+button.sort-ligne .note { display: block; font-size: 0.85rem; }
+.ecole-sorts summary { cursor: pointer; font-weight: 600; margin: 0.3rem 0; }
+.ecole-sorts ul.sorts details summary { font-weight: normal; }

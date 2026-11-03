@@ -2,9 +2,10 @@ import { calculerFiche, cleCompetence } from './creation';
 import { lancer, type Rng } from './des';
 import { lancerExpression, mainGauche, valeursCombat, type EtatCompagnon, type Partie } from './partie';
 import { singulier, type LigneRencontre, type Rencontre } from './rencontres';
-import { equipeDe, prenom, sacDe, sortsCompagnon, tirCompagnon, tomber, vueCompagnon, type Ordre } from './compagnons';
+import { equipeDe, ficheCompagnon, prenom, sacDe, sortsCompagnon, tirCompagnon, tomber, vueCompagnon, type Ordre } from './compagnons';
 import { fouiller, type Fouille } from './butin';
 import { objet } from './objets';
+import { sortGrimoire, type SortGrimoire } from './grimoires';
 import {
   BLESSURES,
   PARADE_CRITIQUE,
@@ -76,8 +77,14 @@ export interface Combattant {
   opportunite?: number;
   /** Armé d'un arc ou d'une arbalète : il tire tant que personne n'est à son contact. */
   tireur?: { ad: number; degats: string; recharge?: number; attente?: number };
-  /** Un compagnon mage : son énergie astrale et les sorts de combat qu'il sait lancer. */
-  magie?: { ea: number; sorts: SortAllie[] };
+  /** Un compagnon qui manie la magie (mage, prêtre, paladin) : son énergie astrale et les sorts de combat qu'il sait lancer. */
+  magie?: { ea: number; sorts: SortAllie[]; niveau: number; bonusInt: number; voie: 'mage' | 'pretre' | 'paladin' };
+  /** Résistance à la magie (fiche ; les monstres : (COU + 20) ÷ 3). */
+  rm?: number;
+  /** Effets de sorts en cours (bonus, malus) : ce qu'ils ajoutent, et l'assaut où ils prennent fin. */
+  effets?: EffetActif[];
+  /** Encore occupé à incanter un long sort : il passe ce nombre de tours. */
+  incante?: number;
   /** Compétences du héros qui jouent en combat (voir talents.ts). */
   talents?: {
     vicieux?: boolean;
@@ -263,6 +270,7 @@ export const creerHeros = (p: Partie, id = 'heros', evMax?: number): Combattant 
     rupture: arme?.rupture,
     bourrePif,
     mv: mv < 1 ? Math.round(PAS * mv) : undefined,
+    rm: calculerFiche(p.perso).rm,
     mainGauche: deuxiemeArme(p),
     talents: {
       vicieux: aCompetence(p, 'Vicieux'),
@@ -286,14 +294,42 @@ const tireurDe = (notes: string, degats: string, ad: number) => {
   return { ad: a, degats: d ?? degats.replace('*', ''), recharge: /arbalète/i.test(notes) ? 4 : 2 };
 };
 
-/** Un sort de combat qu'un allié lance seul (valeur d'épreuve et dégâts déjà calculés pour lui). */
+/** Un sort de combat qu'un allié lance seul : le sort du grimoire, et sa valeur d'épreuve calculée pour lui. */
 export interface SortAllie {
-  nom: string;
-  cout: number;
+  id: string;
   valeur: number;
-  degats: string;
-  zone?: boolean;
+  /** Plus besoin d'épreuve à son niveau. */
+  auto: boolean;
 }
+
+/** Un bonus ou un malus de sort en cours sur un combattant. */
+export interface EffetActif {
+  nom: string;
+  /** Ce qui a été ajouté (retiré à la fin de l'effet). */
+  mods: { at?: number; prd?: number; pr?: number; cou?: number; degats?: number };
+  /** Assaut où l'effet s'arrête (99 et plus : jusqu'à la fin du combat). */
+  fin: number;
+  malus?: boolean;
+}
+
+/** Ajoute (ou retire) un bonus fixe à une formule de dégâts : « 1D+2 » + 1 = « 1D+3 ». */
+export const ajouterDegats = (degats: string, n: number) => {
+  const m = /^(.*?)([+-]\d+)?$/.exec(degats)!;
+  const total = Number(m[2] ?? 0) + n;
+  return `${m[1]}${total ? (total > 0 ? `+${total}` : `${total}`) : ''}`;
+};
+
+/** Applique les modificateurs d'un effet (signe +1) ou les retire (−1). */
+export const appliquerMods = (x: Combattant, mods: EffetActif['mods'], signe: 1 | -1) => {
+  if (mods.at) x.at += signe * mods.at;
+  if (mods.prd) x.prd += signe * mods.prd;
+  if (mods.pr) x.pr = Math.max(0, x.pr + signe * mods.pr);
+  if (mods.cou) x.cou += signe * mods.cou;
+  if (mods.degats) x.degats = ajouterDegats(x.degats, signe * mods.degats);
+};
+
+/** Résistance à la magie d'un combattant. */
+export const rmDe = (x: Combattant) => x.rm ?? Math.round((x.cou + 20) / 3);
 
 /** Un compagnon du héros, avec sa fiche et son équipement. */
 export const creerCompagnon = (p: Partie, e: EtatCompagnon): Combattant => {
@@ -304,7 +340,8 @@ export const creerCompagnon = (p: Partie, e: EtatCompagnon): Combattant => {
     ...x,
     compagnon: e.id,
     tireur: t ? { ad: t.ad, degats: t.degats, recharge: t.recharge } : undefined,
-    magie: sorts ? { ea: sorts.ea, sorts: sorts.sorts } : undefined,
+    magie: sorts,
+    rm: ficheCompagnon(e.id, e).rm,
   };
 };
 
@@ -364,7 +401,7 @@ const placer = (c: Combat, approche: number) => {
     });
   const amis = c.combattants.filter((x) => x.camp === 'heros');
   // Les tireurs restent en retrait, les autres en première ligne.
-  const enRetrait = (x: Combattant) => x.id !== 'heros' && (!!x.tireur || !!x.magie);
+  const enRetrait = (x: Combattant) => x.id !== 'heros' && (!!x.tireur || (!!x.magie && x.magie.voie !== 'paladin'));
   ranger([...amis.filter((x) => !enRetrait(x)), ...amis.filter(enRetrait)], 1, -1);
   ranger(ennemis(c), Math.min(c.largeur - 1, 2 + PAS * approche), 1);
   for (const x of c.combattants) x.face = { x: x.camp === 'heros' ? 1 : -1, y: 0 };
@@ -497,8 +534,10 @@ export interface Plan {
   tir?: boolean;
   /** Le tireur recharge son arme : il passe son tour. */
   recharge?: boolean;
-  /** Le mage lance ce sort (rang dans x.magie.sorts) sur la cible. */
+  /** Le lanceur lance ce sort (rang dans x.magie.sorts) sur la cible (un ennemi, ou un allié à soigner ou bénir). */
   sort?: number;
+  /** Une frappe bénie : le sort, puis le coup dans la foulée. */
+  frappe?: boolean;
 }
 
 /** Les dégâts infligés font monter la menace de l'attaquant aux yeux de sa victime. */
@@ -509,6 +548,74 @@ const menacer = (cible: Combattant, attaquant: string, pv: number) => {
 
 /** Pour changer de cible, un ennemi doit être nettement plus menacé par un autre (+30 % et au moins 3 PV d'écart). */
 export const changeDeCible = (actuelle: number, autre: number) => autre >= actuelle * 1.3 && autre - actuelle >= 3;
+
+/** Dégâts moyens d'une formule (« 2D+3 » : 10). */
+export const moyenne = (f: string) => {
+  const m = /^(\d*)D(?:6)?([+-]\d+)?$/i.exec(f.trim());
+  return m ? Number(m[1] || 1) * 3.5 + Number(m[2] ?? 0) : 0;
+};
+
+/** Un effet du même nom est-il déjà sur lui ? */
+const sousEffet = (x: Combattant, nom: string) => (x.effets ?? []).some((e) => e.nom === nom);
+
+/**
+ * L'IA d'un lanceur de sorts allié (mage, prêtre, paladin). Dans l'ordre :
+ * soigner un allié en danger (moins de 40 % de ses PV) ; au contact, une frappe bénie (paladin) ;
+ * à distance, bénir le groupe en début de combat, maudire ou entraver le plus coriace des ennemis quand ils sont
+ * plus nombreux, un sort de zone sur trois ennemis groupés, sinon le plus gros sort d'attaque sur le plus faible.
+ * Il garde de quoi soigner s'il est soigneur (prêtre).
+ */
+export const planSort = (c: Combat, x: Combattant, opp: Combattant[], ordre?: Ordre): Plan | undefined => {
+  const m = x.magie!;
+  const tous = m.sorts.map((so, i) => ({ so, i, s: sortGrimoire(so.id)! })).filter(({ s }) => s && s.cout !== null);
+  const abordables = tous.filter(({ s }) => (s.cout ?? 0) <= m.ea && (s.effet.type !== 'soin' || !s.effet.parPA || m.ea > 0));
+  if (!abordables.length) return undefined;
+  const allies = c.combattants.filter((y) => y.camp === x.camp && enLice(y));
+  const auContact = contacts(c, x).filter((y) => opp.includes(y));
+  const de = (t: SortGrimoire['effet']['type']) => abordables.filter(({ s }) => s.effet.type === t);
+  // 1. Soigner.
+  const blesses = allies.filter((y) => y.ev < y.evMax * 0.4).sort((a, b) => a.ev / a.evMax - b.ev / b.evMax);
+  const soins = de('soin').filter(({ s }) => s.effet.type === 'soin' && !s.effet.graves);
+  if (blesses.length && soins.length) {
+    const groupe = soins.find(({ s }) => s.effet.type === 'soin' && s.effet.groupe);
+    if (groupe && blesses.length >= 2) return { cible: x.id, sort: groupe.i };
+    const seul = soins.find(({ s }) => s.effet.type === 'soin' && !s.effet.groupe && (!s.effet.soi || blesses[0] === x));
+    if (seul) return { cible: blesses[0].id, sort: seul.i };
+  }
+  // Un soigneur garde de quoi soigner.
+  const reserve = m.voie === 'pretre' ? Math.min(...tous.filter(({ s }) => s.effet.type === 'soin').map(({ s }) => s.cout || 4), 99) : 0;
+  const offensifs = (t: SortGrimoire['effet']['type']) => de(t).filter(({ s }) => m.ea - (s.cout ?? 0) >= (reserve === 99 ? 0 : reserve));
+  // 2. Au contact : une frappe bénie, puis il frappe (le paladin ne lance rien d'autre dans la mêlée).
+  if (auContact.length) {
+    const frappe = de('frappe').find(({ s }) => !sousEffet(x, s.nom));
+    if (frappe) return { cible: auContact.sort((a, b) => a.ev - b.ev)[0].id, sort: frappe.i, frappe: true };
+    return undefined;
+  }
+  if (ordre === 'proteger') return undefined;
+  // 3. Bénir : le groupe, ou l'allié qui se bat (le héros d'abord), une fois par combat.
+  const premiere = allies.find((y) => y.id === 'heros' && y.etat === 'actif') ?? allies[0];
+  for (const { s, i } of offensifs('bonus')) {
+    if (s.effet.type !== 'bonus' || s.effet.gratuit) continue;
+    if (s.effet.cible === 'groupe' && allies.length >= 2 && !allies.some((y) => sousEffet(y, s.nom))) return { cible: x.id, sort: i };
+    if (s.effet.cible === 'allie' && premiere && !sousEffet(premiere, s.nom) && (s.effet.mods.pr || s.effet.mods.at || s.effet.mods.prd || s.effet.mods.degats)) return { cible: premiere.id, sort: i };
+  }
+  // 4. Maudire le plus coriace quand ils sont plus nombreux que nous (ou face à un gros morceau).
+  const coriace = [...opp].sort((a, b) => b.ev - a.ev)[0];
+  if (coriace && (opp.length > allies.length || coriace.ev >= 25) && !(coriace.effets ?? []).some((e) => e.malus)) {
+    const malus = offensifs('malus').find(({ s }) => s.effet.type === 'malus' && !s.effet.zone);
+    if (malus) return { cible: coriace.id, sort: malus.i };
+  }
+  // 5. Une zone sur trois ennemis groupés, sinon la plus grosse attaque sur le plus faible (qu'on achève).
+  const attaques = offensifs('degats').filter(({ s }) => s.effet.type === 'degats');
+  const groupes = opp.map((o) => ({ o, n: 1 + opp.filter((y) => y !== o && ecart(y, o) === 1).length })).sort((a, b) => b.n - a.n);
+  const zone = attaques.filter(({ s }) => s.effet.type === 'degats' && s.effet.zone).sort((a, b) => moyenne((b.s.effet as { des: string }).des) - moyenne((a.s.effet as { des: string }).des))[0];
+  if (zone && groupes[0]?.n >= 3) return { cible: groupes[0].o.id, sort: zone.i };
+  const simple = attaques
+    .filter(({ s }) => s.effet.type === 'degats' && !s.effet.zone)
+    .sort((a, b) => moyenne((b.s.effet as { des: string }).des) * (b.so.auto ? 20 : b.so.valeur) - moyenne((a.s.effet as { des: string }).des) * (a.so.auto ? 20 : a.so.valeur))[0];
+  if (simple) return { cible: [...opp].sort((a, b) => a.ev - b.ev)[0].id, sort: simple.i };
+  return undefined;
+};
 
 export const planifier = (c: Combat, x: Combattant): Plan => {
   // Un tireur qui recharge, sans personne au contact, ne bouge pas.
@@ -526,20 +633,10 @@ export const planifier = (c: Combat, x: Combattant): Plan => {
     const menaces = h ? contacts(c, h).filter((y) => y.camp !== x.camp) : [];
     if (menaces.length) opp = menaces;
   }
-  // Un mage qui a de quoi lancer un sort le lance (tourbillon si trois ennemis se tiennent groupés).
+  // Un allié qui manie la magie choisit un sort (soins, bénédictions, malédictions, attaques) selon la situation.
   if (x.magie) {
-    const dispo = x.magie.sorts.map((so, i) => ({ so, i })).filter(({ so }) => so.cout <= x.magie!.ea);
-    if (dispo.length) {
-      const proches = contacts(c, x).filter((y) => opp.includes(y));
-      const groupes = opp.map((o) => ({ o, n: 1 + opp.filter((y) => y !== o && ecart(y, o) === 1).length })).sort((a, b) => b.n - a.n);
-      const zone = dispo.find(({ so }) => so.zone);
-      if (zone && groupes[0].n >= 3) return { cible: groupes[0].o.id, sort: zone.i };
-      const simple = dispo.find(({ so }) => !so.zone);
-      if (simple) {
-        const cible = (proches.length ? proches : opp).sort((a, b) => a.ev - b.ev)[0];
-        return { cible: cible.id, sort: simple.i };
-      }
-    }
+    const plan = planSort(c, x, opp, ord?.ordre);
+    if (plan) return plan;
   }
   if (ord?.ordre === 'distance') {
     const proches = contacts(c, x);
@@ -1084,6 +1181,14 @@ export const tourSuivant = (c: Combat) => {
       }
     }
     for (const x of c.combattants) if (x.tireur?.attente) x.tireur.attente -= 1;
+    // Les effets de sorts qui arrivent à leur terme.
+    for (const x of c.combattants) {
+      const finis = (x.effets ?? []).filter((e) => e.fin <= c.assaut);
+      if (!finis.length) continue;
+      for (const e of finis) appliquerMods(x, e.mods, -1);
+      x.effets = x.effets!.filter((e) => e.fin > c.assaut);
+      if (x.etat === 'actif') c.journal.push(`${x.nom} : fin de ${finis.map((e) => e.nom).join(', ')}.`);
+    }
   }
 };
 
@@ -1127,11 +1232,11 @@ export const tirer = (
 };
 
 /** Dégâts d'un sort sur une cible : au D6, doublés sur une réussite critique, moins l'armure. */
-export const toucherParSort = (c: Combat, idCible: string, degats: string, critique: boolean, rng?: Rng, attaquant = 'heros'): Action => {
+export const toucherParSort = (c: Combat, idCible: string, degats: string, critique: boolean, rng?: Rng, attaquant = 'heros', ignoreArmure = false): Action => {
   const cible = combattant(c, idCible);
   const j = lancerExpression(degats, rng);
   const total = critique ? j.total * 2 : j.total;
-  const blessure = Math.max(0, total - cible.pr);
+  const blessure = Math.max(0, total - (ignoreArmure ? 0 : cible.pr));
   cible.ev -= blessure;
   menacer(cible, attaquant, blessure);
   return {
@@ -1142,33 +1247,8 @@ export const toucherParSort = (c: Combat, idCible: string, degats: string, criti
     issue: critique ? 'critique' : 'reussi',
     effets: [],
     sort: true,
-    degats: { des: j.des, total, pr: cible.pr, blessure },
+    degats: { des: j.des, total, pr: ignoreArmure ? 0 : cible.pr, blessure },
   };
-};
-
-/**
- * Un allié mage lance un sort (mêmes règles que le héros : 1 critique, effets doublés ; échec, moitié des PA ;
- * 20, le sort lui explose au visage, 1D). Renvoie le récit et les actions de dégâts.
- */
-export const lancerSortAllie = (c: Combat, x: Combattant, i: number, idCible: string, de: number, rng?: Rng): { texte: string; actions: Action[] } => {
-  const so = x.magie!.sorts[i];
-  const issue = de === 1 ? 'critique' : de === 20 ? 'maladresse' : de <= so.valeur ? 'reussi' : 'rate';
-  const cout = issue === 'rate' ? Math.max(1, Math.floor(so.cout / 2)) : so.cout;
-  x.magie!.ea = Math.max(0, x.magie!.ea - cout);
-  const debut = `${x.nom} incante ${so.nom} (D20 : ${de}, il faut ${so.valeur})`;
-  if (issue === 'maladresse') {
-    const b = lancerExpression('1D', rng).total;
-    x.ev -= b;
-    verifier(c);
-    return { texte: `${debut} : maladresse ! Le sort lui explose au visage, −${b} PV.`, actions: [] };
-  }
-  if (issue === 'rate') return { texte: `${debut} : raté, ${cout} PA perdus.`, actions: [] };
-  const visee = combattant(c, idCible);
-  const cibles = [visee, ...(so.zone ? ennemis(c).filter((e) => e.etat === 'actif' && e !== visee && ecart(e, visee) === 1) : [])];
-  const actions = cibles.map((e) => toucherParSort(c, e.id, so.degats, issue === 'critique', rng, x.id));
-  verifier(c);
-  const detail = actions.map((a) => `${combattant(c, a.cible).nom} −${a.degats!.blessure} PV`).join(', ');
-  return { texte: `${debut}${issue === 'critique' ? ' : critique, dégâts doublés' : ''} : ${detail}.`, actions };
 };
 
 /** Un monstre très blessé (3 PV ou moins) panique : 1 à 3 sur le D6, il prend la fuite. */

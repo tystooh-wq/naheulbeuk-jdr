@@ -79,7 +79,8 @@ describe('soins des compagnons', () => {
 
 describe('compagnon mage', () => {
   it('Berthe lance ses sorts de combat et dépense son énergie astrale', async () => {
-    const { creerCombat, planifier, lancerSortAllie, combattant } = await import('../src/rules/combat');
+    const { creerCombat, planifier, combattant } = await import('../src/rules/combat');
+    const { lancerSortAllie } = await import('../src/rules/sorts');
     const { TABLE_TERRES_SAUVAGES } = await import('../src/rules/rencontres');
     const p = nouvellePartie(perso);
     p.compagnons = [{ id: 'berthe', ev: 20, evMax: 20 }];
@@ -91,7 +92,7 @@ describe('compagnon mage', () => {
     const ea = b.magie!.ea;
     const r = lancerSortAllie(c, b, plan.sort!, plan.cible!, 2);
     expect(b.magie!.ea).toBeLessThan(ea);
-    expect(r.actions.length).toBe(1);
+    expect(r.texte).toContain('Berthe');
     expect(combattant(c, plan.cible!).ev).toBeLessThanOrEqual(combattant(c, plan.cible!).evMax);
   });
 });

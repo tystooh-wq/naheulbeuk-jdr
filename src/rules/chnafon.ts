@@ -181,7 +181,7 @@ export const LIEUX_CHNAFON: Lieu[] = [
     y: 63,
     quartier: 'Rue du Vieux Chnafon',
     description: 'Fournisseur des apprentis de l’école de magie : potions, bâtons de débutants, et beaucoup de pansements.',
-    boutique: { stock: ['potion-soin', 'potion-plaies', 'potion-de-mana-des-bitos', 'baton-sorcier-perrave', 'baton-sorcier'], prix: 1, rachat: 0.5, rachete: ['potion', 'arme'] },
+    boutique: { stock: ['potion-soin', 'potion-plaies', 'potion-de-mana-des-bitos', 'baton-sorcier-perrave', 'baton-sorcier', 'grimoire-feu', 'grimoire-eau-glace', 'grimoire-air', 'grimoire-terre'], prix: 1, rachat: 0.5, rachete: ['potion', 'arme'] },
   },
   {
     id: 'poissonnerie',

@@ -205,6 +205,8 @@ export const equipementDepart = (perso: Personnage): { sac: string[]; equipe: Eq
   let arme: string;
   if (m === 'mage') arme = classe === 'pauvre' ? 'baton-sorcier-perrave' : 'baton-sorcier';
   else if (m === 'menestrel') arme = classe === 'pauvre' ? 'baton' : 'dague-premiere';
+  // Prêtres : une arme contondante à une main, que tous les dieux acceptent (Youclidh : contondant ; Dlul : ni lame ni deux mains).
+  else if (m === 'pretre') arme = classe === 'pauvre' ? 'gourdin' : 'marteau-correct';
   else if (o === 'gnome') arme = 'dague-bleusaille';
   else if (o === 'nain' || o === 'demi-elfe-nain') arme = 'hache-bleusaille';
   else if (classe === 'pauvre') arme = 'gourdin';
@@ -217,6 +219,8 @@ export const equipementDepart = (perso: Personnage): { sac: string[]; equipe: Eq
   const extras: string[] = [];
   if (m === 'voleur') extras.push('outils-crochetage');
   if (m === 'menestrel') extras.push('instrument');
+  // Le paladin part avec la relique de son dieu (sans elle, pas de prodiges).
+  if (m === 'paladin') extras.push(`relique-${(perso.magie?.ecoles?.[0] ?? 'paladin-braav').replace('paladin-', '')}`);
   if (classe !== 'pauvre') extras.push('torche', 'corde');
   if (classe === 'riche') extras.push('potion-soin');
   // Ceux qui savent tirer, et en ont les moyens, partent avec un arc court et dix flèches.

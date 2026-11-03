@@ -34,7 +34,9 @@ const horloge = (p: Partie) => {
   return `${p.heure >= 20 || p.heure < 6 ? '☾' : '☼'} <b>${dateLongue(p.jour)}</b>, ${formatHeure(p.heure)}${f ? ` <span class="fete">· ${echapper(f)}</span>` : ''}`;
 };
 import { lancer } from '../rules/des';
-import { caracMagie, ea, eaMax, soinLeger, sortsConnus } from '../rules/magie';
+import { bonusInt, caracMagie, culteDe, ea, eaMax, ecolesDe, enCombat, etudierGrimoire, grimoiresAEtudier, refusRelique, resumeEffet, soignerHorsCombat, soinHorsCombat, sortAutomatique, sortsConnus, valeurSort, voieDe } from '../rules/magie';
+import { ecole } from '../rules/grimoires';
+import { groupe as groupeDe, prenom } from '../rules/compagnons';
 import { valeursTir } from '../rules/tir';
 import { modEsquive } from '../rules/combat';
 import { animerDes, competences, de, echapper, liste } from './outils';
@@ -261,22 +263,69 @@ export const panneauSac = (p: Partie, message?: string) => {
             .join('')}</ul><p class="note">Les malus d'AT, PRD, AD, COU et CHA sont déjà comptés ci-dessus.</p>`
         : ''
     }
-    ${
-      sortsConnus(p).length
-        ? `<h3>Sorts connus</h3><ul class="sorts">${sortsConnus(p)
-            .map(
-              (s) =>
-                `<li><b>${echapper(s.nom)}</b> <span class="note">(${echapper(s.ecole)}, niveau ${s.niveau})</span><br /><span class="note">${echapper(s.description)}</span>${
-                  s.soin ? ` <button class="secondaire petit" id="soin-magique">✨ Se soigner</button>` : ''
-                }</li>`,
-            )
-            .join('')}</ul>
-           <p class="note">MagiePhys ${caracMagie(p, 'MagiePhys')} · MagiePsy ${caracMagie(p, 'MagiePsy')}. Spécialité : magie de combat (choix provisoire, les autres écoles viendront).</p>`
-        : ''
-    }
+    ${panneauMagie(p)}
     ${panneauCompetences(p)}
     ${message ? `<div class="recit">${message}</div>` : ''}
   </div>`;
+};
+
+/** La magie du héros : sa voie, ses grimoires, ses sorts par école, les soins hors combat et l'étude de nouveaux grimoires. */
+const panneauMagie = (p: Partie) => {
+  const voie = voieDe(p.perso);
+  if (!voie) return '';
+  const sorts = sortsConnus(p);
+  const niv = niveau(p);
+  const culte = culteDe(p.perso);
+  const relique = refusRelique(p);
+  const entete =
+    voie === 'mage'
+      ? `Spécialité${ecolesDe(p.perso).length > 1 ? 's' : ''} : ${ecolesDe(p.perso).map((e) => echapper(ecole(e)?.nom ?? e)).join(', ')}${ecolesDe(p.perso).includes('invocation') ? '' : ' (plus la magie généraliste)'}.`
+      : `${voie === 'pretre' ? 'Prêtre' : 'Paladin'} de ${echapper(culte?.dieu ?? '?')}.${culte?.obligations?.length ? ` <span class="note">Obligations : ${echapper(culte.obligations.join(' ; '))}.</span>` : ''}${
+          relique ? ` <b>${echapper(relique)}</b>` : ''
+        }`;
+  const ecoles = [...new Set(sorts.map((s) => s.ecole))];
+  const soins = sorts.filter(soinHorsCombat);
+  const blesses = [
+    { id: 'heros', nom: 'toi', ev: p.ev, max: evMax(p) },
+    ...groupeDe(p).map((e) => ({ id: e.id, nom: prenom(e.id), ev: e.ev, max: e.evMax })),
+  ].filter((b) => b.ev < b.max);
+  const etudes = grimoiresAEtudier(p);
+  return `<h3>Magie</h3>
+    <p>${entete} <span class="note">EA ${ea(p)} / ${eaMax(p)} · MagiePhys ${caracMagie(p, 'MagiePhys')} · MagiePsy ${caracMagie(p, 'MagiePsy')}</span></p>
+    ${
+      soins.length && blesses.length
+        ? `<p class="actions-lieu">${soins
+            .flatMap((s) =>
+              blesses.map(
+                (b) =>
+                  `<button class="secondaire petit" data-soin-sort="${s.id}" data-soin-cible="${b.id}" ${relique || ea(p) <= 0 ? 'disabled' : ''}>✨ ${echapper(s.nom)} : ${echapper(b.nom)} (${b.ev}/${b.max} PV)</button>`,
+              ),
+            )
+            .join('')}</p>`
+        : ''
+    }
+    ${etudes
+      .map(
+        (g) =>
+          `<p class="actions-lieu"><button class="secondaire petit" data-etudier="${g.ecole}" ${g.refus ? `disabled title="${echapper(g.refus)}"` : ''}>📖 Étudier : ${echapper(ecole(g.ecole)?.nom ?? g.ecole)}</button>${g.refus ? ` <span class="note">${echapper(g.refus)}</span>` : ''}</p>`,
+      )
+      .join('')}
+    ${ecoles
+      .map(
+        (e) => `<details class="ecole-sorts"><summary>${echapper(ecole(e)?.nom ?? e)} (${sorts.filter((s) => s.ecole === e).length} sorts)</summary><ul class="sorts">${sorts
+          .filter((s) => s.ecole === e)
+          .map(
+            (s) =>
+              `<li><b>${echapper(s.nom)}</b> <span class="note">niveau ${s.niveau} · ${echapper(s.coutTexte || `${s.cout} PA`)} · ${
+                sortAutomatique(s, niv) ? 'sans épreuve' : `épreuve ${valeurSort(p, s)} ou moins`
+              } · ${echapper(enCombat(s) || soinHorsCombat(s) ? resumeEffet(s, niv, bonusInt(p)) : 'décrit seulement (pas encore joué par le jeu)')}</span><details><summary class="note">Le grimoire</summary><p class="note">${echapper(s.description)}</p>${
+                s.degatsTexte ? `<p class="note">${echapper(s.degatsTexte)}</p>` : ''
+              }</details></li>`,
+          )
+          .join('')}</ul></details>`,
+      )
+      .join('')}
+    <p class="note">Les sorts marqués « décrit seulement » (rituels, invocations, détections…) sont dans le grimoire, mais le jeu ne sait pas encore les jouer.</p>`;
 };
 
 const cadreDe = (p: Partie): Cadre => (p.donjon ? 'donjon' : p.zone === 'ville' ? 'ville' : 'monde');
@@ -327,12 +376,19 @@ export const lierSac = (app: HTMLElement, p: Partie, message: (html: string) => 
     desequiper(p, el.dataset.emplacement as CleEquipement);
     message('Rangé dans le sac.');
   });
-  sur('#soin-magique', () => {
-    const r = soinLeger(p);
+  sur('[data-soin-sort]', (el) => {
+    const s = sortsConnus(p).find((x) => x.id === el.dataset.soinSort)!;
+    const id = el.dataset.soinCible!;
+    const e = groupeDe(p).find((x) => x.id === id);
+    const cible = e
+      ? { nom: prenom(e.id), ev: e.ev, evMax: e.evMax, soigner: (n: number) => (e.ev += n) }
+      : { nom: 'toi', ev: p.ev, evMax: evMax(p), soigner: (n: number) => (p.ev += n) };
+    const r = soignerHorsCombat(p, s, cible);
     if (typeof r === 'string') return message(echapper(r));
-    noter(p, `se soigne par magie (+${r.rendu} PV).`);
-    message(`${de(r.de)} Tu poses la main sur ta blessure et murmures la formule. <b>+${r.rendu} PV</b> pour ${r.rendu} PA.`);
+    noter(p, `soigne par magie ${cible.nom === 'toi' ? 'ses blessures' : cible.nom} (+${r.rendu} PV).`);
+    message(`✨ ${echapper(r.texte)}`);
   });
+  sur('[data-etudier]', (el) => message(echapper(etudierGrimoire(p, el.dataset.etudier!))));
   sur('#monter-niveau', () => ouvrirNiveau(p, (texte) => message(texte)));
   sur('[data-talent]', (el) => {
     const t = TALENTS_ACTIFS.find((x) => x.id === el.dataset.talent)!;

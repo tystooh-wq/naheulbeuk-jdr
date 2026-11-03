@@ -194,6 +194,39 @@ export const OBJETS: Objet[] = [
   { id: 'matelas', nom: 'Matelas de camping', type: 'materiel', prix: 5, description: 'Améliore la récupération : +1 PV par heure de sommeil.' },
   { id: 'outils-crochetage', nom: 'Outils de crochetage', type: 'materiel', prix: 25, description: 'Pour les serrures récalcitrantes.', estime: true },
   { id: 'instrument', nom: 'Flûte en bois', type: 'materiel', prix: 20, description: 'Instrument qui produit un son correct.' },
+  // --- Magie : grimoires de spécialité (deuxième spécialité au niveau 5, troisième au niveau 10) et reliques des paladins ---
+  ...[
+    ['combat', 'de magie de combat'],
+    ['feu', 'de magie du feu'],
+    ['eau-glace', "de magie de l'eau et de la glace"],
+    ['air', "de magie de l'air"],
+    ['terre', 'de magie de la terre'],
+    ['thermo', 'de thermodynamique'],
+    ['meta', 'de métamorphoses'],
+    ['invocation', "d'invocation"],
+  ].map(([id, nom]): Objet => ({
+    id: `grimoire-${id}`,
+    nom: `Grimoire ${nom}`,
+    type: 'materiel',
+    prix: 400,
+    estime: true,
+    description: "Un épais grimoire de spécialité. Un mage de niveau 5 (puis 10) peut l'étudier pour apprendre une nouvelle spécialité.",
+  })),
+  ...[
+    ['braav', "Braav'", 'Un petit marteau d\'argent gravé du soleil de Braav\'.'],
+    ['dlul', 'Dlul', 'Un bonnet de nuit brodé, béni par les moines du sommeil.'],
+    ['khornettoh', 'Khornettoh', 'Une phalange humaine montée sur une chaîne rouillée.'],
+    ['slanoush', 'Slanoush', 'Un fouet de cuir rose à pompons.'],
+    ['niourgl', 'Niourgl', 'Une fiole de pus séché qui sent très fort.'],
+  ].map(([id, dieu, desc]): Objet => ({
+    id: `relique-${id}`,
+    nom: `Relique de ${dieu}`,
+    type: 'materiel',
+    prix: 100,
+    estime: true,
+    catalogueSeul: true,
+    description: `${desc} Un paladin de ${dieu} en a besoin pour accomplir ses prodiges.`,
+  })),
 ];
 
 // --- Le catalogue complet ----------------------------------------------------------

@@ -115,8 +115,8 @@ export const LIEUX: Lieu[] = [
     y: 54.8,
     quartier: 'Sud-Ouest',
     description:
-      "Le plus grand spécialiste des potions de la ville : bons prix, bonnes affaires. À Waldorg, la concurrence fait baisser le prix des potions d'un quart.",
-    boutique: { stock: ['potion-soin', 'potion-plaies', 'potion-soin-forte', 'potion-de-mana-des-bitos', 'potion-de-mana-rouge'], prix: 0.75, rachat: 0.5, rachete: ['potion'] },
+      "Le plus grand spécialiste des potions de la ville : bons prix, bonnes affaires. Dans l'arrière-boutique, les grimoires de spécialité des écoles de magie. À Waldorg, la concurrence fait baisser le prix des potions d'un quart.",
+    boutique: { stock: ['potion-soin', 'potion-plaies', 'potion-soin-forte', 'potion-de-mana-des-bitos', 'potion-de-mana-rouge', ...['combat', 'feu', 'eau-glace', 'air', 'terre', 'thermo', 'meta', 'invocation'].map((g) => `grimoire-${g}`)], prix: 0.75, rachat: 0.5, rachete: ['potion'] },
   },
   {
     id: 'lames',

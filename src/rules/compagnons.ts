@@ -2,7 +2,7 @@ import { lancer, type Rng } from './des';
 import { calculerFiche, type Fiche, type Personnage, type Progression } from './creation';
 import { objet } from './objets';
 import { arrondirOr } from './monnaie';
-import { degatsSort, sortsConnus, valeurSort } from './magie';
+import { bonusIntPerso, enCombat, sortAutomatique, sortsDePerso, valeurSortPerso, voieDe } from './magie';
 import { emplacementDe, equiper, niveauPour, noter, type CleEquipement, type GainNiveau, valeursCombat, type Equipement, type EtatCompagnon, type Partie } from './partie';
 
 // Les compagnons : des personnages complets (origine, métier, caractéristiques, compétences, équipement),
@@ -185,16 +185,50 @@ COMPAGNONS.push(
     titre: 'paladine en quête de justice',
     description: "Ysolde de Brumefosse, armure astiquée et regard sévère. Elle a juré de combattre le mal, et elle trouve qu'il y en a beaucoup, surtout autour de toi.",
     recrutement: 'De passage dans les auberges, en route vers une croisade quelconque.',
-    perso: perso('Ysolde de Brumefosse', 'Femme', 'humain', 'paladin', { COU: 12, INT: 11, CHA: 12, AD: 10, FO: 12 }, ['Premiers soins', 'Érudition', 'Chef de groupe']),
+    perso: { ...perso('Ysolde de Brumefosse', 'Femme', 'humain', 'paladin', { COU: 12, INT: 11, CHA: 12, AD: 10, FO: 12 }, ['Premiers soins', 'Érudition', 'Chef de groupe']), magie: { ecoles: ['paladin-braav'] } },
     equipe: { arme: 'marteau-masse-1-main-bonne-qualite', armure: 'plastron-cuir-renforce', bouclier: 'bouclier-de-base' },
-    sac: ['couverture', 'rations'],
+    sac: ['couverture', 'rations', 'relique-braav'],
     prix: 45,
     passage: true,
     personnalite: 'Droite, sévère, généreuse',
     motivations: ['Protéger les faibles', 'Prouver sa valeur à son ordre'],
     valeurs: ['honneur', 'bonte'],
     fidelite: 2,
-    idees: ["Le mal ne prend jamais de jour de congé. Moi non plus.", "Tu as encore racketté quelqu'un ? Non ? Bien.", "Une prière avant le combat, ça ne coûte rien."],
+    idees: ["Le mal ne prend jamais de jour de congé. Moi non plus.", "Tu as encore racketté quelqu'un ? Non ? Bien.", "Une prière avant le combat, ça ne coûte rien. Braav' veille."],
+  },
+  {
+    id: 'anselme',
+    titre: 'prêtre de Youclidh',
+    description:
+      "Frère Anselme Bonsavon, prêtre de Youclidh, déesse de la santé. Il soigne tout le monde, sermonne tout le monde sur l'hygiène, et se bat avec une masse parce que les lames, « ça fait des plaies ».",
+    recrutement: 'De passage dans les auberges, entre deux tournées de dispensaire.',
+    perso: { ...perso('Anselme Bonsavon', 'Homme', 'humain', 'pretre', { COU: 10, INT: 12, CHA: 13, AD: 10, FO: 10 }, ['Premiers soins', 'Cuistot', 'Fariboles']), magie: { ecoles: ['pretre-youclidh'] } },
+    equipe: { arme: 'marteau-correct', armure: 'veste-cuir' },
+    sac: ['couverture', 'rations'],
+    prix: 35,
+    passage: true,
+    personnalite: 'Bienveillant, maniaque, sermonneur',
+    motivations: ['Soigner les blessés de toute la Terre de Fangh', 'Convertir le monde au savon'],
+    valeurs: ['bonte', 'prudence'],
+    fidelite: 2,
+    idees: ["Tu t'es lavé les mains ? Je demande pour le prochain bandage.", "Youclidh guérit tout, sauf la bêtise. J'ai essayé.", "Une blessure propre est une blessure heureuse."],
+  },
+  {
+    id: 'morgaine',
+    titre: 'magicienne des glaces',
+    description:
+      "Morgaine Givrelune, elfe sylvaine, diplômée de l'école de Waldorg en magie de l'eau et de la glace. Froide, polie, et convaincue que tout problème se règle à −20 degrés.",
+    recrutement: 'De passage dans les auberges, en voyage d\'étude.',
+    perso: { ...perso('Morgaine Givrelune', 'Femme', 'elfe-sylvain', 'mage', { COU: 10, INT: 14, CHA: 12, AD: 12, FO: 8 }, ['Connaissances de la nature', 'Langues des monstres']), magie: { ecoles: ['eau-glace'] } },
+    equipe: { arme: 'baton-sorcier', armure: 'vetements-rembourres' },
+    sac: ['couverture', 'rations', 'potion-de-mana-des-bitos'],
+    prix: 60,
+    passage: true,
+    personnalite: 'Réservée, précise, un brin hautaine',
+    motivations: ['Étudier les glaces éternelles du nord', 'Écrire un traité qui fera date'],
+    valeurs: ['prudence', 'honneur'],
+    fidelite: 1,
+    idees: ["Le froid conserve. Les gens aussi, d'ailleurs.", "Je ne suis pas distante. Je suis à température.", "Recule. Non, plus. Voilà."],
   },
   {
     id: 'pipo',
@@ -251,7 +285,7 @@ COMPAGNONS.push(
     description: "Berthe Courtepaille, renvoyée de l'école de magie pour « excès d'enthousiasme pyrotechnique ». Elle connaît trois sorts et en rate deux.",
     recrutement: 'Son CV est épinglé sur la pancarte du Donjon Facile.',
     cv: "« Magicienne (presque diplômée). Allume les feux de camp, éclaire les couloirs. Pas responsable des sourcils brûlés. Tarif étudiant. »",
-    perso: perso('Berthe Courtepaille', 'Femme', 'humain', 'mage', { COU: 9, INT: 13, CHA: 10, AD: 10, FO: 9 }, ['Fariboles', 'Premiers soins', 'Pénible']),
+    perso: { ...perso('Berthe Courtepaille', 'Femme', 'humain', 'mage', { COU: 9, INT: 13, CHA: 10, AD: 10, FO: 9 }, ['Fariboles', 'Premiers soins', 'Pénible']), magie: { ecoles: ['feu'] } },
     equipe: { arme: 'baton', armure: 'vetements-rembourres' },
     sac: ['couverture', 'rations'],
     prix: 15,
@@ -334,15 +368,22 @@ export const valeursCompagnon = (p: Partie, e: EtatCompagnon) => valeursCombat(v
 /** Son énergie astrale maximale (0 s'il ne pratique pas la magie). */
 export const eaMaxCompagnon = (e: EtatCompagnon) => ficheCompagnon(e.id, e).ea;
 
-/** Un compagnon mage : son énergie astrale et ses sorts de combat, calculés avec ses caractéristiques. */
-export const sortsCompagnon = (p: Partie, e: EtatCompagnon) => {
-  const v = vueCompagnon(p, e);
+/** Un compagnon qui manie la magie : son énergie astrale et ses sorts de combat, calculés avec ses caractéristiques. */
+export const sortsCompagnon = (_p: Partie, e: EtatCompagnon) => {
+  const perso = persoDe(e);
+  const voie = voieDe(perso);
   const max = eaMaxCompagnon(e);
-  const sorts = sortsConnus(v).filter((s) => s.enCombat && s.degats);
-  if (!max || !sorts.length) return undefined;
+  const niv = niveauCompagnon(e);
+  // Un paladin sans relique n'a pas de prodiges.
+  if (voie === 'paladin' && ![...sacDe(e), ...Object.values(equipeDe(e))].some((o) => typeof o === 'string' && o.startsWith('relique'))) return undefined;
+  const sorts = sortsDePerso(perso, niv).filter(enCombat);
+  if (!voie || !max || !sorts.length) return undefined;
   return {
     ea: Math.min(max, e.ea ?? max),
-    sorts: sorts.map((s) => ({ nom: s.nom, cout: s.cout, valeur: valeurSort(v, s), degats: degatsSort(v, s), zone: s.zone })),
+    niveau: niv,
+    bonusInt: bonusIntPerso(perso),
+    voie,
+    sorts: sorts.map((s) => ({ id: s.id, valeur: valeurSortPerso(perso, s), auto: sortAutomatique(s, niv) })),
   };
 };
 

@@ -127,7 +127,9 @@ describe('magie', () => {
   it('un mage de niveau 1 connaît la boule de feu, le tourbillon et le soin ; un guerrier rien', () => {
     expect(sortsConnus(nouvellePartie(perso({})))).toHaveLength(0);
     const p = nouvellePartie(perso({ metierId: 'mage' }));
-    expect(sortsConnus(p).map((s) => s.id)).toEqual(['boule-de-feu-mineure', 'tourbillon-de-wazaa', 'soin-blessures-legeres']);
+    const ids = sortsConnus(p).map((s) => s.id);
+    expect(ids).toEqual(expect.arrayContaining(['combat:boule-de-feu-mineure', 'combat:tourbillon-de-wazaa', 'generaliste:soin-des-blessures-legeres']));
+    expect(sortsConnus(p).every((s) => s.niveau === 1)).toBe(true);
     expect(ea(p)).toBe(30);
     // MagiePhys = moyenne INT 13 / AD 12, arrondie au-dessus : 13 ; +3 pour la boule de feu.
     expect(valeurSort(p, sort('boule-de-feu-mineure'))).toBe(16);

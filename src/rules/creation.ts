@@ -110,6 +110,8 @@ export interface Personnage {
   jetsOr: number[][];
   /** Gains des passages de niveau (règles V4, 15). */
   progression?: Progression;
+  /** Mage : ses spécialités (grimoires) ; prêtre et paladin : le manuel de son dieu (voir grimoires.ts). */
+  magie?: { ecoles: string[] };
 }
 
 export interface Progression {

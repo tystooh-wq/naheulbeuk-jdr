@@ -15,13 +15,14 @@ import {
 import { descriptionCarac } from '../rules/descriptions';
 import { lancer, lancerPlusieurs, somme } from '../rules/des';
 import { METIERS, SANS_METIER } from '../rules/metiers';
+import { cultes, ecole, sortsDe, specialitesMage } from '../rules/grimoires';
 import { ORIGINES } from '../rules/origines';
 import { CARACS, NOM_CARAC, type Carac, type Scores } from '../rules/types';
 import { VILLE_DEPART } from '../rules/villes';
 import { animerDes, competence, competences, de, echapper, liste } from './outils';
 import { sauvegarder } from './sauvegarde';
 
-const ETAPES = ['Identité', 'Caractéristiques', 'Origine', 'Métier', 'Compétences', 'Ajustements', 'Destin et fortune'] as const;
+const ETAPES = ['Identité', 'Caractéristiques', 'Origine', 'Métier', 'Magie', 'Compétences', 'Ajustements', 'Destin et fortune'] as const;
 type Etape = (typeof ETAPES)[number];
 
 interface Brouillon {
@@ -44,6 +45,8 @@ interface Brouillon {
   origineId?: string;
   versionHB?: number;
   metierId?: string;
+  /** Mage : sa spécialité ; prêtre, paladin : le manuel de son dieu. */
+  ecole?: string;
   /** Une liste de compétences choisies par réserve. */
   choix: string[][];
   ajustements: Ajustements;
@@ -73,8 +76,9 @@ export const ecranCreation = (
     return r.guerrier || !!r.retraitAjout || r.ranger || r.ogre || r.adresse(b.ajustements);
   };
 
+  const voie = () => (b.metierId === 'mage' || b.metierId === 'pretre' || b.metierId === 'paladin' ? b.metierId : undefined);
   const etapesVisibles = (): Etape[] =>
-    ETAPES.filter((e) => e !== 'Ajustements' || !b.metierId || aDesAjustements());
+    ETAPES.filter((e) => (e !== 'Ajustements' || !b.metierId || aDesAjustements()) && (e !== 'Magie' || !!voie()));
 
   const personnageProvisoire = (): Personnage => ({
     version: 1,
@@ -89,6 +93,7 @@ export const ecranCreation = (
     destin: b.destin ?? 0,
     or: somme((b.jetsOr ?? []).flat()) * 10,
     jetsOr: b.jetsOr ?? [],
+    ...(voie() && b.ecole ? { magie: { ecoles: [b.ecole] } } : {}),
   });
 
   // --- Validation de chaque étape -------------------------------------------
@@ -103,6 +108,8 @@ export const ecranCreation = (
         return !!origine() && (!origine()!.versions || b.versionHB !== undefined);
       case 'Métier':
         return !!b.metierId;
+      case 'Magie':
+        return !!b.ecole;
       case 'Compétences': {
         const reserves = reservesCompetences(origine()!, metier()!, acquises());
         return reserves.every((r, i) => (b.choix[i] ?? []).length === Math.min(r.nombre, r.options.length));
@@ -136,6 +143,7 @@ export const ecranCreation = (
       Caractéristiques: etapeCaracs,
       Origine: etapeOrigine,
       Métier: etapeMetier,
+      Magie: etapeMagie,
       Compétences: etapeCompetences,
       Ajustements: etapeAjustements,
       'Destin et fortune': etapeFortune,
@@ -437,6 +445,7 @@ export const ecranCreation = (
       b.versionHB = undefined;
     }
     b.metierId = undefined;
+    b.ecole = undefined;
     b.choix = [];
     b.ajustements = {};
   };
@@ -510,6 +519,53 @@ export const ecranCreation = (
         if (btn.dataset.id === b.metierId) return;
         reinitialiserDepuis('metier');
         b.metierId = btn.dataset.id;
+        render();
+      }),
+    );
+  };
+
+  // --- Magie : spécialité du mage, dieu du prêtre ou du paladin -------------
+
+  const etapeMagie = () => {
+    const v = voie()!;
+    const choix = v === 'mage' ? specialitesMage() : cultes(v);
+    const e = b.ecole ? ecole(b.ecole) : undefined;
+    const apercu = e ? sortsDe(e.id, 2) : [];
+    const intro =
+      v === 'mage'
+        ? "Tout mage apprend la magie généraliste (soins, détection, ouvertures…) et une spécialité. Au niveau 5, puis au niveau 10, il pourra en étudier une autre, s'il trouve et achète le grimoire. Les spécialités grisées n'ont pas de grimoire dans les ressources."
+        : `${v === 'pretre' ? 'Le prêtre' : 'Le paladin'} sert un dieu, un seul : ses prodiges, ses avantages et ses obligations en dépendent.${v === 'paladin' ? ' Il part avec la relique de son dieu, sans laquelle il ne peut rien.' : ''}`;
+    return `
+      <h2>${v === 'mage' ? 'La spécialité' : 'Le dieu'}</h2>
+      <p>${echapper(intro)}</p>
+      <div class="grille">${choix
+        .map(
+          (x) => `<button class="carte ${x.id === b.ecole ? 'choisie' : ''} ${x.dispo ? '' : 'interdite'}" data-ecole="${x.id}" ${x.dispo ? '' : 'disabled'}>
+            <strong>${echapper(x.dieu ?? x.nom)}</strong>
+            <small>${echapper(x.dispo ? x.description : 'Grimoire absent des ressources')}</small>
+          </button>`,
+        )
+        .join('')}</div>
+      ${
+        e
+          ? `<div class="detail-choix">
+              <h3>${echapper(e.nom)}</h3>
+              <p>${echapper(e.description)}</p>
+              ${e.sansGeneraliste ? '<p class="note">Pas de magie généraliste pour l\'invocateur, et deux spécialités au plus.</p>' : ''}
+              ${e.unique ? '<p class="note">Une seule spécialité, pour toujours.</p>' : ''}
+              ${e.avantages?.length ? `<h3>Avantages</h3>${liste(e.avantages)}` : ''}
+              ${e.obligations?.length ? `<h3>Obligations</h3>${liste(e.obligations)}` : ''}
+              <h3>Premiers sorts (niveaux 1 et 2)</h3>
+              ${liste(apercu.map((s) => `${s.nom} (niveau ${s.niveau}, ${s.coutTexte || `${s.cout} PA`})`))}
+            </div>`
+          : ''
+      }`;
+  };
+
+  const lierMagie = () => {
+    app.querySelectorAll<HTMLButtonElement>('[data-ecole]').forEach((btn) =>
+      btn.addEventListener('click', () => {
+        b.ecole = btn.dataset.ecole;
         render();
       }),
     );
@@ -713,6 +769,7 @@ export const ecranCreation = (
     Caractéristiques: lierCaracs,
     Origine: lierOrigine,
     Métier: lierMetier,
+    Magie: lierMagie,
     Compétences: lierCompetences,
     Ajustements: lierAjustements,
     'Destin et fortune': lierFortune,

@@ -23,8 +23,6 @@ import {
   planifier,
   tenterFuite,
   tirer,
-  toucherParSort,
-  lancerSortAllie,
   tourSuivant,
   valeurDefense,
   verifier,
@@ -47,7 +45,8 @@ import { avecDe, lancer } from '../rules/des';
 import { objet } from '../rules/objets';
 import { ajouterBlessure, blessuresActives, boirePotion, porte, valeursCombat, equiper, essaiEquiper, lancerExpression, mainGauche, niveau, noter, type Partie } from '../rules/partie';
 import { consommerProjectile, valeursTir } from '../rules/tir';
-import { degatsSort, ea, eaMax, lancerSort, sort, sortsConnus, valeurSort, type Sort } from '../rules/magie';
+import { bonusInt, ea, eaMax, enCombat, voieDe, lancerSort, nomEcole, refusRelique, resumeEffet, sort, sortAutomatique, sortsConnus, valeurSort, type Sort } from '../rules/magie';
+import { appliquerSort, ciblesSort, lancerSortAllie, occuperLanceur } from '../rules/sorts';
 import type { Rencontre } from '../rules/rencontres';
 import { aTalent } from '../rules/talents';
 import { ajouterButin, compagnon, obeit, ORDRES, reagir, valeurObeissance, volonte, xpGroupe, type Ordre } from '../rules/compagnons';
@@ -132,6 +131,8 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
   let occupe = false;
   /** Berserker : PV temporaires gagnés (repris à la fin du combat). */
   let rage = 0;
+  /** Le sort choisi par le joueur, en attente de sa cible. */
+  let sortChoisi: string | null = null;
   let lachementFait = false;
   /** Ordres donnés ce combat : compagnon → assaut (un ordre par compagnon et par assaut), et la dernière réponse. */
   const ordresDonnes: Record<string, number> = {};
@@ -194,7 +195,7 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
     }>
       <b><i class="pion-mini ${classePion(x)}">${initiales(x)}</i> ${echapper(x.nom)}</b>
       <span class="jauge-ev ${pct <= 30 ? 'basse' : ''}"><span style="width:${pct}%"></span></span>
-      <span>❤ ${Math.max(0, x.ev)}/${x.evMax}${x.camp === 'heros' && eaMax(p) ? ` · ✦ ${ea(p)}/${eaMax(p)} PA` : ''}</span>
+      <span>❤ ${Math.max(0, x.ev)}/${x.evMax}${x.id === 'heros' && eaMax(p) ? ` · ✦ ${ea(p)}/${eaMax(p)} PA` : x.magie ? ` · ✦ ${x.magie.ea} PA` : ''}${x.effets?.length ? ` <span class="note" title="${echapper(x.effets.map((e) => e.nom).join(', '))}">✧${x.effets.length}</span>` : ''}</span>
       <span class="note">AT ${x.at} · PRD ${x.sansParade ? '—' : x.prd} · PR ${x.pr} · ${echapper(x.degats)}</span>
       ${statut.length ? `<span class="statut">${statut.join(' · ')}</span>` : ''}
     </${tag}>`;
@@ -307,19 +308,25 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
               <p class="note">${echapper(t.arme.nom)} : dégâts ${echapper(t.degats)}${t.details.length ? ` · AD ${echapper(t.details.join(', '))}` : ''}${tirImpossible ? ` · <b>${tirImpossible}</b>` : ''}</p>
             </div>`
           : '';
-      const sorts = sortsConnus(p).filter((s) => s.enCombat);
-      // On ne lance pas un sort avec un ennemi dans les pattes.
-      const boutonsSorts =
-        sorts.length && !cibles.length
-          ? `<p class="actions-lieu">${sorts
-              .flatMap((s) =>
-                loin.map(
-                  (e) =>
-                    `<button class="sort" data-sort="${s.id}" data-cible-sort="${e.id}" ${ea(p) < s.cout ? 'disabled' : ''}>✨ ${echapper(s.nom)} sur ${echapper(e.nom)}${s.zone ? ' et ses voisins' : ''} (${s.cout} PA, ${valeurSort(p, s)} ou moins)</button>`,
-                ),
+      const sorts = sortsConnus(p).filter(enCombat);
+      // Pas d'attaque ni de malédiction avec un ennemi dans les pattes ; soins, bénédictions et frappes bénies, si.
+      const possible = (s: Sort) => !cibles.length || !['degats', 'malus'].includes(s.effet.type);
+      const relique = refusRelique(p);
+      const choisi = sortChoisi ? sort(sortChoisi) : undefined;
+      const libelle = (s: Sort) =>
+        `${echapper(s.nom)} <span class="note">(${s.cout} PA, ${sortAutomatique(s, niveau(p)) ? 'sans épreuve' : `${valeurSort(p, s)} ou moins`} · ${echapper(resumeEffet(s, niveau(p), bonusInt(p)))}${s.incantation > 1 ? ` · ${s.incantation} assauts` : ''})</span>`;
+      const boutonsSorts = !sorts.length
+        ? ''
+        : choisi
+          ? `<div class="sorts-heros"><p><b>${echapper(choisi.nom)}</b> : sur qui ?</p><p class="actions-lieu">${ciblesSort(c, x, choisi)
+              .map((e) => `<button class="sort" data-sort="${choisi.id}" data-cible-sort="${e.id}">✨ ${e.id === x.id ? 'Sur toi' : echapper(e.nom)}${choisi.effet.type === 'degats' && choisi.effet.zone ? ' et ses voisins' : ''}</button>`)
+              .join('')}<button class="secondaire" data-annuler-sort>Annuler</button></p></div>`
+          : `<details class="sorts-heros"${cibles.length ? '' : ' open'}><summary>✨ Sorts (${ea(p)} / ${eaMax(p)} PA)${relique ? ` · <b>${echapper(relique)}</b>` : ''}</summary><div class="liste-sorts">${sorts
+              .map(
+                (s) =>
+                  `<button class="secondaire sort-ligne" data-choisir-sort="${s.id}" title="${echapper(nomEcole(s))}, niveau ${s.niveau}" ${ea(p) < (s.cout ?? 0) || !possible(s) || relique ? 'disabled' : ''}>${libelle(s)}</button>`,
               )
-              .join('')}</p>`
-          : '';
+              .join('')}</div></details>`;
       const g = mainGauche(p);
       const gaucheRefus = g && 'refus' in g ? g.refus : '';
       const bouger = c.deplace ? '' : `Tu peux d'abord avancer de ${PAS_HEROS} cases (cases claires du terrain). `;
@@ -726,6 +733,14 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
         tourSuivant(c);
         continue;
       }
+      if (x.incante) {
+        x.incante -= 1;
+        message(`${x.nom} poursuit son incantation.`);
+        render();
+        await attendre(700);
+        tourSuivant(c);
+        continue;
+      }
       if (x.rate > 0) {
         x.rate -= 1;
         message(`${x.nom} reprend ses esprits et n'attaque pas cet assaut.`);
@@ -767,16 +782,19 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
         tourSuivant(c);
         continue;
       }
-      // Un compagnon mage lance son sort (il lance ses dés lui-même, comme les autres alliés).
+      // Un compagnon lance son sort (il lance ses dés lui-même, comme les autres alliés).
       if (plan.sort !== undefined && x.magie) {
         render();
         await attendre(500);
         const r = lancerSortAllie(c, x, plan.sort, cible.id, lancer(20));
         message(`✧ ${r.texte} (${x.magie.ea} PA restants)`);
         render();
-        await attendre(1100);
-        apres();
-        continue;
+        await attendre(1300);
+        // Une frappe bénie : il frappe dans la foulée.
+        if (!(r.garde && plan.frappe && x.etat === 'actif' && cible.etat === 'actif' && contacts(c, x).some((y) => y.id === cible.id))) {
+          apres();
+          continue;
+        }
       }
       if (plan.tir) {
         render();
@@ -947,12 +965,30 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
       avancer();
     });
 
+    sur('[data-choisir-sort]', (el) => {
+      if (attente?.type !== 'action') return (occupe = false);
+      sortChoisi = el.dataset.choisirSort!;
+      occupe = false;
+      render();
+    });
+
+    sur('[data-annuler-sort]', () => {
+      sortChoisi = null;
+      occupe = false;
+      render();
+    });
+
     sur('[data-sort]', async (el) => {
       if (attente?.type !== 'action') return (occupe = false);
       const s: Sort = sort(el.dataset.sort!);
+      sortChoisi = null;
       attente = null;
       const d = lancer(20);
-      const zone = await lancerJoueur(`Tu incantes <b>${echapper(s.nom)}</b>… il faut ${valeurSort(p, s)} ou moins.`, d);
+      const auto = sortAutomatique(s, niveau(p));
+      const zone = await lancerJoueur(
+        `Tu ${voieDe(p.perso) === 'mage' ? 'incantes' : 'pries pour'} <b>${echapper(s.nom)}</b>… ${auto ? "à ton niveau, il part tout seul (sauf sur un 1 : critique)" : `il faut ${valeurSort(p, s)} ou moins`}.`,
+        d,
+      );
       p.ev = h().ev;
       const res = lancerSort(p, s, d);
       h().ev = p.ev;
@@ -963,27 +999,30 @@ export const ecranCombat = (app: HTMLElement, p: Partie, r: Rencontre, terminer:
         occupe = false;
         return render();
       }
-      etape(zone, `<span class="verdict visible ${res.issue}">${echapper(res.texte)}</span> <span class="note">(${ea(p)} PA restants)</span>`);
+      etape(zone, `<span class="verdict visible ${res.issue}">${echapper(res.texte)}</span>`);
       c.journal.push(`${h().nom} lance ${s.nom} : ${res.texte}`);
+      let garde = false;
       if (res.issue === 'critique' || res.issue === 'reussi') {
-        const visee = combattant(c, el.dataset.cibleSort!);
-        // Un sort de zone touche la cible et les ennemis collés à elle.
-        const cibles = [visee, ...(s.zone ? ennemis(c).filter((e) => e.etat === 'actif' && ecart(e, visee) === 1) : [])].map((e) => e.id);
-        await clicDegats(zone, `${degatsSort(p, s)}${s.zone ? ' par cible' : ''}${res.issue === 'critique' ? ', doublés' : ''}`);
-        for (const id of cibles) {
-          const a = toucherParSort(c, id, degatsSort(p, s), res.issue === 'critique');
-          const g = a.degats!;
-          const e = etape(
-            zone,
-            `${echapper(combattant(c, id).nom)} : ${g.des.map((x) => de(x, 'anim')).join('')}${res.issue === 'critique' ? ' ×2' : ''} = ${g.total}${g.pr ? `, moins ${g.pr} d'armure` : ''} : <span class="verdict rate">−${g.blessure} PV</span>`,
-          );
-          await reveler(e, 6, g.des, false);
-          c.journal.push(`${s.nom} touche ${combattant(c, id).nom} : −${g.blessure} PV.`);
-          touche = id;
+        const r = appliquerSort(c, { x: h(), niveau: niveau(p), bonusInt: bonusInt(p), paDispo: ea(p) }, s, el.dataset.cibleSort!, res.issue);
+        if (r.paSoin) p.ea = Math.max(0, ea(p) - r.paSoin);
+        for (const l of r.lignes) {
+          etape(zone, echapper(l));
+          c.journal.push(l);
+          await attendre(350);
         }
+        for (const a of r.actions) if (a.degats?.blessure) touche = a.cible;
+        garde = !!r.garde;
+        if (!garde) occuperLanceur(h(), s);
       }
+      p.ev = h().ev;
+      etape(zone, `<span class="note">${ea(p)} PA restants${garde ? ' · le sort ne coûte pas ton action : à toi de frapper.' : s.incantation > 1 ? ` · incantation longue : tu passes ${s.incantation - 1} tour${s.incantation > 2 ? 's' : ''}.` : ''}</span>`);
       scene = zone.innerHTML;
       apres();
+      if (garde && !c.fin) {
+        attente = { type: 'action' };
+        occupe = false;
+        return render();
+      }
       if (!c.fin) await attendre(600);
       avancer();
     });
