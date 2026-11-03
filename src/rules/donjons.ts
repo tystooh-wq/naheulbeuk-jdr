@@ -10,6 +10,7 @@ import type { Evenement } from './evenements';
 import { DDN } from './ddn-salles';
 import { CHATEAU_VALTORDU } from './chateau-valtordu';
 import { pauseEssai, quandReessayer, rater, reussir } from './essais';
+import { AHOKD, genererAhokd, OU_AHOKD } from './ahokd';
 
 // Donjons : une suite de salles reliées entre elles, montrées sur une mini-carte façon Darkest Dungeon.
 // On avance de salle en salle (dix minutes à chaque fois) ; chaque salle peut cacher un combat, un piège,
@@ -358,13 +359,20 @@ export const DONJONS: Donjon[] = [
   CHATEAU_VALTORDU,
 ];
 
+/** Les grottes d'Ahokd déjà tirées (une par graine). */
+const GROTTES = new Map<string, Donjon>();
+
 export const donjon = (id: string): Donjon => {
+  if (id === AHOKD || id.startsWith(`${AHOKD}:`)) {
+    if (!GROTTES.has(id)) GROTTES.set(id, genererAhokd(Number(id.split(':')[1] ?? 0), bete));
+    return GROTTES.get(id)!;
+  }
   const d = DONJONS.find((x) => x.id === id);
   if (!d) throw new Error(`Donjon inconnu : ${id}`);
   return d;
 };
 
-export const donjonIci = (ou: string) => DONJONS.find((d) => d.ou === ou);
+export const donjonIci = (ou: string) => (ou === OU_AHOKD ? donjon(AHOKD) : DONJONS.find((d) => d.ou === ou));
 
 export const salle = (d: Donjon, id: string): Salle => d.salles.find((s) => s.id === id)!;
 
@@ -379,6 +387,12 @@ export const purger = (e: EtatDonjon, jour: number) => {
 
 /** Entre dans un donjon. Les salles vidées et pillées depuis moins d'une semaine le restent ; le plan déjà vu aussi. */
 export const entrerDonjon = (p: Partie, id: string, par?: string): EtatDonjon => {
+  // La grotte d'Ahokd : on reprend l'expédition en cours, sinon on tire une nouvelle grotte.
+  if (id === AHOKD) {
+    const enCours = Object.keys(p.memoireDonjons ?? {}).find((k) => k.startsWith(`${AHOKD}:`) && !termine(p.memoireDonjons![k]));
+    for (const k of Object.keys(p.memoireDonjons ?? {})) if (k.startsWith(`${AHOKD}:`) && k !== enCours) delete p.memoireDonjons![k];
+    id = enCours ?? `${AHOKD}:${(Math.floor(p.jour) * 7919 + lancer(100000)) % 2147483647}`;
+  }
   const d = donjon(id);
   const entree = par && d.entrees?.some((x) => x.salle === par) ? par : d.entree;
   const m = p.memoireDonjons?.[id];
