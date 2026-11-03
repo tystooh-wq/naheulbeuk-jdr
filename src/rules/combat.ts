@@ -2,7 +2,7 @@ import { calculerFiche, cleCompetence } from './creation';
 import { lancer, type Rng } from './des';
 import { lancerExpression, mainGauche, valeursCombat, type EtatCompagnon, type Partie } from './partie';
 import { singulier, type LigneRencontre, type Rencontre } from './rencontres';
-import { sortsCompagnon, tirCompagnon, tomber, vueCompagnon, type Ordre } from './compagnons';
+import { equipeDe, prenom, sacDe, sortsCompagnon, tirCompagnon, tomber, vueCompagnon, type Ordre } from './compagnons';
 import { fouiller, type Fouille } from './butin';
 import { objet } from './objets';
 import {
@@ -1195,7 +1195,18 @@ export const bilanCompagnons = (c: Combat, p: Partie, rng?: Rng): string[] => {
       e.ev = x.ev;
       // Ses blessures graves restent, comme celles du héros.
       for (const b of x.blessures ?? []) e.blessures = [...(e.blessures ?? []), { ...b, jusqua: b.jours === undefined ? undefined : p.jour + b.jours }];
-    } else recits.push(tomber(p, e.id, rng));
+    } else {
+      recits.push(tomber(p, e.id, rng));
+      // Mort pour de bon : si le groupe tient le terrain, on récupère son équipement et son sac.
+      if (!p.compagnons?.includes(e) && (c.fin === 'victoire' || c.vengeance)) {
+        const affaires = [...Object.values(equipeDe(e)).filter((o): o is string => !!o), ...sacDe(e)];
+        if (affaires.length) {
+          p.sac.push(...affaires);
+          recits.push(`Le groupe récupère les affaires de ${prenom(e.id)} : ${affaires.map((o) => objet(o).nom).join(', ')}${e.bourse ? `, et sa bourse (${e.bourse} PO)` : ''}.`);
+        }
+        if (e.bourse) p.or += e.bourse;
+      }
+    }
   }
   return recits;
 };

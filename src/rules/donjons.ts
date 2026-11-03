@@ -692,6 +692,82 @@ export const seReposer = (p: Partie): { pv: number; pa: number } => {
   return { pv: soigner(p, c.pv), pa: ea(p) - avant };
 };
 
+// --- Faire une pause dans un donjon --------------------------------------------------------
+// Pour ne pas devoir remonter à la taverne à chaque égratignure (choix de Sedy, valeurs maison) :
+// - casser la croûte (il faut de quoi manger) : 30 minutes, +3 PV et +3 PA pour tout le groupe, une fois toutes les 3 heures ;
+// - se reposer une heure : +1 PV et +2 PA (repos inconfortable, règles V4 5.2) ;
+// - camper jusqu'à l'aube, comme un bivouac : seulement dans une salle calme et sûre, loin des monstres.
+
+/** De quoi manger : rations, boudins et autres denrées qui rendent des PV. */
+export const estNourriture = (id: string) => /ration/.test(id) || (objet(id).type === 'materiel' && !!objet(id).soin);
+
+/** Le premier en-cas du sac (le moins cher). */
+export const encas = (p: Partie) => [...p.sac].filter(estNourriture).sort((a, b) => objet(a).prix - objet(b).prix)[0];
+
+export const DELAI_CASSE_CROUTE = 3;
+
+const maintenant = (p: Partie) => p.jour * 24 + p.heure;
+
+/** La salle est-elle calme (rien à régler ici) ? */
+export const salleCalme = (e: EtatDonjon, s: Salle, p: Partie) => {
+  const c = contenuIci(s, p).contenu;
+  return !c || reglee(e, s, p) || c.type === 'repos' || c.type === 'taverne' || c.type === 'boutique';
+};
+
+/** Pourquoi on ne peut pas camper ici (null : c'est bon). */
+export const refusCamp = (p: Partie): string | null => {
+  const e = p.donjon!;
+  const d = donjon(e.id);
+  const s = salle(d, e.salle);
+  if (!salleCalme(e, s, p)) return "La salle n'est pas sûre : règle d'abord ce qui s'y trouve.";
+  if (/couloir|escalier|puits|passage|corridor|échelle|pont|trappe/i.test(s.nom)) return "Pas de quoi s'installer dans un lieu de passage : il faut une vraie salle.";
+  const proches = s.vers.filter((v) => {
+    const x = salle(d, v);
+    const c = contenuIci(x, p).contenu;
+    return c?.type === 'combat' && !reglee(e, x, p);
+  });
+  if (proches.length) return 'Trop près des monstres : on les entend remuer dans une salle voisine.';
+  return null;
+};
+
+export interface Pause {
+  type: 'croute' | 'heure' | 'camp';
+  texte: string;
+}
+
+const reposGroupe = (p: Partie, pv: number, pa: number) => {
+  for (const c of p.compagnons ?? []) {
+    c.ev = Math.min(c.evMax, c.ev + pv);
+    if (c.ea !== undefined) c.ea += pa;
+  }
+};
+
+/** Casser la croûte : un en-cas, 30 minutes, +3 PV et +3 PA pour tout le monde. */
+export const casserCroute = (p: Partie): string => {
+  const id = encas(p);
+  if (!id) return "Rien à manger dans le sac : il faudrait des rations, un boudin…";
+  const depuis = p.casseCroute === undefined ? Infinity : maintenant(p) - p.casseCroute;
+  if (depuis < DELAI_CASSE_CROUTE) return `Vous avez mangé il y a moins de ${DELAI_CASSE_CROUTE} heures : personne n'a faim.`;
+  p.sac.splice(p.sac.indexOf(id), 1);
+  p.casseCroute = maintenant(p);
+  passerTemps(p, 0.5);
+  const pv = soigner(p, 3);
+  const avant = ea(p);
+  if (eaMax(p)) p.ea = Math.min(eaMax(p), avant + 3);
+  reposGroupe(p, 3, 3);
+  return `Assis sur une pierre, vous partagez ${objet(id).nom.toLowerCase()}. Tu récupères ${pv} PV${eaMax(p) ? ` et ${ea(p) - avant} PA` : ''} ; les compagnons, 3 PV chacun.`;
+};
+
+/** Se poser une heure, l'oreille tendue. */
+export const reposUneHeure = (p: Partie): string => {
+  passerTemps(p, 1);
+  const pv = soigner(p, 1);
+  const avant = ea(p);
+  if (eaMax(p)) p.ea = Math.min(eaMax(p), avant + 2);
+  reposGroupe(p, 1, 2);
+  return `Une heure assis contre le mur, à écouter les bruits du donjon. Tu récupères ${pv} PV${eaMax(p) ? ` et ${ea(p) - avant} PA` : ''}.`;
+};
+
 export const fouiller = (p: Partie): Salle['tresor'] | null => {
   const e = p.donjon!;
   const s = salle(donjon(e.id), e.salle);

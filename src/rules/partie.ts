@@ -1,5 +1,5 @@
 import type { Morceau } from './monde';
-import { calculerFiche, cleCompetence, type Fiche, type Personnage } from './creation';
+import { calculerFiche, cleCompetence, type Fiche, type Personnage, type Progression } from './creation';
 import type { BlessureGrave } from './critiques';
 import { dateCourte } from './calendrier';
 import { lancer, type Rng } from './des';
@@ -89,6 +89,12 @@ export interface EtatCompagnon {
   soinRefuse?: number;
   /** Énergie astrale d'un compagnon mage (absente : réservoir plein). */
   ea?: number;
+  /** Son expérience, et ce qu'il a gagné à chaque niveau (comme le héros). */
+  xp?: number;
+  progression?: Progression;
+  /** Son équipement et son sac, s'ils ont changé depuis son arrivée (le héros lui a donné ou repris des objets). */
+  equipe?: Equipement;
+  sac?: string[];
 }
 
 /** Les compagnons se reposent en même temps que le héros (jamais au-delà de leur maximum, et au moins 1 PV). */
@@ -158,6 +164,8 @@ export interface Partie {
   talents?: Record<string, number>;
   /** Bivouac de qualité monté ce soir (compétences de camping) : +2 PV et +4 PA à la nuit. */
   campQualite?: boolean;
+  /** Heure (jour × 24 + heure) du dernier casse-croûte en donjon. */
+  casseCroute?: number;
   /** Blessures graves (tables des critiques) : `jusqua` est le jour où elles guérissent, absent si permanentes. */
   blessures?: (BlessureGrave & { jusqua?: number; soignee?: boolean })[];
   /** Donjon en cours d'exploration. */
@@ -562,18 +570,29 @@ export const noter = (p: Partie, texte: string) => {
  * sans couverture, basse ; avec la couverture d'aventurier, normale. Le matelas de camping ajoute
  * 1 PV par heure de sommeil. Sans ration, on dort le ventre vide et on récupère moitié moins.
  */
-export const bivouaquer = (p: Partie): { rendu: number; confort: 'mauvais' | 'normal'; mange: boolean; matelas: boolean } => {
+export const bivouaquer = (p: Partie): { rendu: number; confort: 'mauvais' | 'normal'; mange: boolean; matelas: boolean; detail: string } => {
   const confort = p.sac.includes('couverture') ? 'normal' : 'mauvais';
   const matelas = p.sac.includes('matelas');
   const i = p.sac.indexOf('rations');
   const mange = i >= 0;
   if (mange) p.sac.splice(i, 1);
   let points = { mauvais: 2, normal: 4 }[confort] + (matelas ? 8 : 0);
-  if (!mange) points = Math.floor(points / 2);
+  const detail = [confort === 'normal' ? 'couverture 4' : 'sol nu 2'];
+  if (matelas) detail.push('matelas +8');
+  if (!mange) {
+    points = Math.floor(points / 2);
+    detail.push('ventre vide ÷2');
+  }
   // Compétences : Cuistot (+1 PV au repas), camping réussi (PV doublés, +4 PA ; choix de Sedy).
-  if (mange && aCompetence(calculerFiche(p.perso), 'Cuistot')) points += 1;
+  if (mange && aCompetence(calculerFiche(p.perso), 'Cuistot')) {
+    points += 1;
+    detail.push('Cuistot +1');
+  }
   const qualite = !!p.campQualite;
-  if (qualite) points *= 2;
+  if (qualite) {
+    points *= 2;
+    detail.push('camp de qualité ×2');
+  }
   p.campQualite = undefined;
   if (p.heure >= 6) p.jour += 1;
   p.heure = 6;
@@ -583,5 +602,5 @@ export const bivouaquer = (p: Partie): { rendu: number; confort: 'mauvais' | 'no
     if (max) p.ea = Math.min(max, (p.ea ?? max) + 4);
   }
   reposCompagnons(p, points);
-  return { rendu: soigner(p, points), confort, mange, matelas };
+  return { rendu: soigner(p, points), confort, mange, matelas, detail: `${detail.join(', ')} = ${points} PV` };
 };

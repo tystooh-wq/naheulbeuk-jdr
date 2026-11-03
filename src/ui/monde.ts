@@ -664,7 +664,7 @@ export const ecranMonde = (app: HTMLElement, p: Partie, s: Sorties) => {
     const confort = b.confort === 'normal' ? 'Bien emmitouflé dans ta couverture' : 'Recroquevillé sur le sol froid';
     fenetre = {
       type: 'nuit',
-      resultat: `${confort}${b.matelas ? ', sur ton matelas de camping' : ''}, tu dors ${b.mange ? 'après un repas frugal' : 'le ventre vide'}. À l'aube du ${dateLongue(p.jour)}, ${b.rendu ? `tu as récupéré <b>${b.rendu} PV</b>` : 'tu te lèves en pleine forme'}.${plaintes}`,
+      resultat: `${confort}${b.matelas ? ', sur ton matelas de camping' : ''}, tu dors ${b.mange ? 'après un repas frugal' : 'le ventre vide'}. À l'aube du ${dateLongue(p.jour)}, ${b.rendu ? `tu as récupéré <b>${b.rendu} PV</b>` : 'tu te lèves en pleine forme'}. <span class="note">(${b.detail})</span>${plaintes}`,
     };
     sauver();
     render();

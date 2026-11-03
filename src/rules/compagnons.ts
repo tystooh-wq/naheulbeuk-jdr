@@ -1,9 +1,9 @@
 import { lancer, type Rng } from './des';
-import { calculerFiche, type Fiche, type Personnage } from './creation';
+import { calculerFiche, type Fiche, type Personnage, type Progression } from './creation';
 import { objet } from './objets';
 import { arrondirOr } from './monnaie';
 import { degatsSort, sortsConnus, valeurSort } from './magie';
-import { noter, valeursCombat, type Equipement, type EtatCompagnon, type Partie } from './partie';
+import { emplacementDe, equiper, niveauPour, noter, type CleEquipement, type GainNiveau, valeursCombat, type Equipement, type EtatCompagnon, type Partie } from './partie';
 
 // Les compagnons : des personnages complets (origine, métier, caractéristiques, compétences, équipement),
 // créés avec les mêmes règles que le héros. Ils suivent le héros, se battent à ses côtés (leurs dés
@@ -299,10 +299,25 @@ export const compagnon = (id: string): DefCompagnon => {
   return c;
 };
 
-export const ficheCompagnon = (id: string): Fiche => calculerFiche(compagnon(id).perso);
+/** Sa feuille de personnage, avec ce qu'il a gagné en montant de niveau (et la spécialité ou le dieu choisis). */
+export const persoDe = (e: EtatCompagnon): Personnage => {
+  const d = compagnon(e.id).perso;
+  return e.progression ? { ...d, progression: e.progression } : d;
+};
+
+/** Son équipement porté : celui de départ, ou ce que le héros lui a donné depuis. */
+export const equipeDe = (e: EtatCompagnon): Equipement => (e.equipe ??= { ...compagnon(e.id).equipe });
+
+/** Son sac. */
+export const sacDe = (e: EtatCompagnon): string[] => (e.sac ??= [...compagnon(e.id).sac]);
+
+export const ficheCompagnon = (id: string, e?: EtatCompagnon): Fiche => calculerFiche(e ? persoDe(e) : compagnon(id).perso);
+
+/** Son niveau (comme le héros : 1D6 en EV, ou en EA pour qui manie la magie, à chaque palier d'XP). */
+export const niveauCompagnon = (e: EtatCompagnon) => e.progression?.niveau ?? 1;
 
 /** Une partie vue depuis le compagnon (sa fiche, son équipement, ses PV), pour réutiliser les règles du héros. */
-export const vueCompagnon = (p: Partie, e: EtatCompagnon): Partie => ({ ...p, perso: compagnon(e.id).perso, equipe: compagnon(e.id).equipe, ev: e.ev, talents: {}, blessures: blessuresCompagnon(p, e) });
+export const vueCompagnon = (p: Partie, e: EtatCompagnon): Partie => ({ ...p, perso: persoDe(e), equipe: equipeDe(e), sac: sacDe(e), xp: e.xp ?? 0, ev: e.ev, ea: e.ea, talents: {}, blessures: blessuresCompagnon(p, e) });
 
 /** Ses blessures graves encore actives (celles qui sont guéries disparaissent). */
 export const blessuresCompagnon = (p: Partie, e: EtatCompagnon) => {
@@ -317,7 +332,7 @@ export const bourseDe = (e: EtatCompagnon) => (e.bourse ??= Math.round((compagno
 export const valeursCompagnon = (p: Partie, e: EtatCompagnon) => valeursCombat(vueCompagnon(p, e));
 
 /** Son énergie astrale maximale (0 s'il ne pratique pas la magie). */
-export const eaMaxCompagnon = (e: EtatCompagnon) => ficheCompagnon(e.id).ea;
+export const eaMaxCompagnon = (e: EtatCompagnon) => ficheCompagnon(e.id, e).ea;
 
 /** Un compagnon mage : son énergie astrale et ses sorts de combat, calculés avec ses caractéristiques. */
 export const sortsCompagnon = (p: Partie, e: EtatCompagnon) => {
@@ -333,10 +348,90 @@ export const sortsCompagnon = (p: Partie, e: EtatCompagnon) => {
 
 /** Son arme à distance, s'il en a une : il tire tant que personne n'est à son contact (flèches non comptées). */
 export const tirCompagnon = (p: Partie, e: EtatCompagnon) => {
-  const id = compagnon(e.id).equipe.distance;
+  const id = equipeDe(e).distance;
   if (!id) return undefined;
   return { ad: valeursCompagnon(p, e).ad, degats: objet(id).degats ?? '1D', arme: objet(id).nom, recharge: objet(id).tir?.recharge ?? 2 };
 };
+
+// --- Équipement donné par le héros -------------------------------------------------------
+
+/** Le héros donne un objet de son sac : le compagnon l'équipe s'il peut (son ancien objet va dans son sac), sinon il le porte. */
+export const donnerObjet = (p: Partie, e: EtatCompagnon, id: string): string => {
+  const i = p.sac.indexOf(id);
+  if (i < 0) return "Tu n'as pas cet objet.";
+  if (objet(id).quete) return "Un objet de quête, tu le gardes sur toi.";
+  p.sac.splice(i, 1);
+  sacDe(e).push(id);
+  const nom = objet(id).nom;
+  if (!emplacementDe(objet(id))) return `${prenom(e.id)} range ${nom} dans son sac.`;
+  const refus = equiper(vueCompagnon(p, e), id);
+  return refus ? `${prenom(e.id)} prend ${nom}, mais ne peut pas s'en servir : ${refus.replace(/^Tu /, 'Il ')}` : `${prenom(e.id)} s'équipe : ${nom}.`;
+};
+
+/** Le héros reprend un objet porté (emplacement) ou rangé dans le sac du compagnon. */
+export const reprendreObjet = (p: Partie, e: EtatCompagnon, id: string, emplacement?: CleEquipement): string => {
+  if (emplacement) {
+    if (equipeDe(e)[emplacement] !== id) return '';
+    equipeDe(e)[emplacement] = undefined;
+  } else {
+    const i = sacDe(e).indexOf(id);
+    if (i < 0) return '';
+    sacDe(e).splice(i, 1);
+  }
+  p.sac.push(id);
+  return `Tu reprends ${objet(id).nom} à ${prenom(e.id)}.`;
+};
+
+// --- Expérience et niveaux ----------------------------------------------------------------
+// Chaque compagnon gagne l'XP du combat ou de la quête comme le héros (s'il était là), et monte de niveau aux mêmes
+// paliers. Ses dés roulent tout seuls : 1D6 d'énergie vitale pour les combattants, 1D6 d'énergie astrale pour qui
+// manie la magie ; un point de caractéristique aux niveaux pairs, d'AT ou de PRD aux impairs (règles V4, 15).
+
+/** Ce qu'il augmente : la caractéristique de son métier, et l'AT ou la PRD (la plus basse). */
+const gainCompagnon = (e: EtatCompagnon, prog: Progression): GainNiveau => {
+  const pair = (prog.niveau + 1) % 2 === 0;
+  const f = ficheCompagnon(e.id, e);
+  if (!pair) return prog.at <= prog.prd ? 'AT' : 'PRD';
+  if (f.ea) return 'INT';
+  if (equipeDe(e).distance) return 'AD';
+  return 'FO';
+};
+
+/** Il gagne de l'expérience ; renvoie les récits de ses passages de niveau. */
+export const xpCompagnon = (p: Partie, e: EtatCompagnon, xp: number, rng?: Rng): string[] => {
+  if (xp <= 0) return [];
+  e.xp = (e.xp ?? 0) + xp;
+  const recits: string[] = [];
+  while (niveauPour(e.xp) > niveauCompagnon(e)) {
+    const prog: Progression = e.progression ?? { niveau: 1, ev: 0, caracs: {}, at: 0, prd: 0 };
+    const gain = gainCompagnon(e, prog);
+    const de = lancer(6, rng);
+    const magie = ficheCompagnon(e.id, e).ea > 0;
+    prog.niveau += 1;
+    if (magie) {
+      prog.ea = (prog.ea ?? 0) + de;
+      if (e.ea !== undefined) e.ea += de;
+    } else {
+      prog.ev += de;
+      e.evMax += de;
+      e.ev += de;
+    }
+    if (gain === 'AT') prog.at += 1;
+    else if (gain === 'PRD') prog.prd += 1;
+    else prog.caracs[gain] = (prog.caracs[gain] ?? 0) + 1;
+    e.progression = prog;
+    const texte = `${prenom(e.id)} passe au niveau ${prog.niveau} : D6 = ${de}, +${de} ${magie ? "PA d'énergie astrale" : "PV d'énergie vitale"}, et +1 ${gain === 'AT' ? 'en attaque' : gain === 'PRD' ? 'en parade' : `en ${gain}`}.`;
+    noter(p, texte);
+    recits.push(texte);
+  }
+  return recits;
+};
+
+/** Tout le groupe présent gagne cette expérience. */
+export const xpGroupe = (p: Partie, xp: number, presents?: string[], rng?: Rng): string[] =>
+  groupe(p)
+    .filter((e) => !presents || presents.includes(e.id))
+    .flatMap((e) => xpCompagnon(p, e, xp, rng));
 
 export const groupe = (p: Partie) => p.compagnons ?? [];
 export const dansGroupe = (p: Partie, id: string) => groupe(p).some((c) => c.id === id);
@@ -588,7 +683,26 @@ export const ORDRES: Record<Ordre, string> = {
   distance: 'Reste en arrière !',
 };
 
-/** Il obéit sur un D20 inférieur ou égal au Charisme du héros plus son appréciation (1 : toujours, 20 : jamais). */
-export const valeurObeissance = (p: Partie, e: EtatCompagnon) => Math.max(1, Math.min(19, valeursCombat(p).cha + appreciation(e)));
+/**
+ * Sa volonté propre face à un ordre : sa fidélité aide, et ses valeurs comptent (choix maison) — le glorieux
+ * déteste rester en arrière, le prudent n'aime pas faire bouclier, l'homme d'honneur protège volontiers,
+ * le cupide traîne des pieds si on lui doit encore sa part.
+ */
+export const volonte = (e: EtatCompagnon, ordre?: Ordre): { modif: number; raisons: string[] } => {
+  const d = compagnon(e.id);
+  const r: [number, string][] = [];
+  if (d.fidelite) r.push([d.fidelite, 'fidèle']);
+  const v = d.valeurs;
+  if (ordre === 'distance' && v.includes('gloire')) r.push([-4, 'rester derrière, très peu pour lui']);
+  if (ordre === 'cible' && v.includes('gloire')) r.push([2, 'il aime foncer']);
+  if (ordre === 'distance' && v.includes('prudence')) r.push([3, 'prudent']);
+  if (ordre === 'proteger' && v.includes('prudence')) r.push([-2, 'prudent']);
+  if (ordre === 'proteger' && v.includes('honneur')) r.push([2, "question d'honneur"]);
+  if (v.includes('cupide') && (e.du ?? 0) > 0) r.push([-3, 'tu lui dois sa part']);
+  return { modif: r.reduce((s, [m]) => s + m, 0), raisons: r.map(([m, t]) => `${m > 0 ? '+' : ''}${m} ${t}`) };
+};
 
-export const obeit = (p: Partie, e: EtatCompagnon, de: number) => de === 1 || (de !== 20 && de <= valeurObeissance(p, e));
+/** Il obéit sur un D20 inférieur ou égal au Charisme du héros, plus son appréciation et sa volonté (1 : toujours, 20 : jamais). */
+export const valeurObeissance = (p: Partie, e: EtatCompagnon, ordre?: Ordre) => Math.max(1, Math.min(19, valeursCombat(p).cha + appreciation(e) + volonte(e, ordre).modif));
+
+export const obeit = (p: Partie, e: EtatCompagnon, de: number, ordre?: Ordre) => de === 1 || (de !== 20 && de <= valeurObeissance(p, e, ordre));

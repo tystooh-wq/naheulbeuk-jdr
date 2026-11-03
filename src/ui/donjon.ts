@@ -1,4 +1,4 @@
-import { eaMax } from '../rules/magie';
+import { ea, eaMax } from '../rules/magie';
 import { avecDe, lancer, type Rng } from '../rules/des';
 import {
   accessibles,
@@ -31,6 +31,12 @@ import {
   repondreSerrure,
   salle,
   seReposer,
+  salleCalme,
+  refusCamp,
+  casserCroute,
+  reposUneHeure,
+  encas,
+  DELAI_CASSE_CROUTE,
   termine,
   trouvee,
   valeurCrochetage,
@@ -66,10 +72,11 @@ import { formatOr } from '../rules/monnaie';
 import { dateLongue } from '../rules/calendrier';
 import { ajouterButin } from '../rules/compagnons';
 import { objet } from '../rules/objets';
-import { acheter, formatHeure, noter, passerTemps, soigner, type Partie } from '../rules/partie';
+import { acheter, bivouaquer, evMax, formatHeure, noter, passerTemps, soigner, type Partie } from '../rules/partie';
 import { donjonTermine, progresserQuetes } from '../rules/quetes';
 import type { LigneRencontre, Rencontre } from '../rules/rencontres';
 import { bandeau, lierSac, lierVitesse, panneauGroupe, panneauJournal, panneauSac } from './commun';
+import { partageDuSoir } from './groupe';
 import { ecranCombat, pertes, vengeTexte, type BilanCombat } from './combat';
 import { boutonAutrement, lierIdeesLieu, panneauIdeesLieu } from './idees';
 import { animerDes, de, echapper } from './outils';
@@ -276,6 +283,9 @@ export const ecranDonjon = (app: HTMLElement, p: Partie, s: SortiesDonjon) => {
   let epreuveQuete: string | undefined;
   /** L'étage affiché sur le plan (par défaut, celui où l'on est). */
   let etageVu: string | undefined;
+  /** La fenêtre « Faire une pause » est ouverte (et son dernier résultat). */
+  let pauseOuverte = false;
+  let resultatPause: string | undefined;
   const d = () => donjon(p.donjon!.id);
   const ddn = () => p.donjon?.id === ID_DDN;
   const sauver = () => sauvegarderPartie(p);
@@ -470,6 +480,7 @@ export const ecranDonjon = (app: HTMLElement, p: Partie, s: SortiesDonjon) => {
             : '<button class="secondaire" id="chercher">🔍 Chercher des passages secrets (10 min)</button>'
         : '';
     const fouille = peutFouiller(e, sa, p) ? '<button class="secondaire" id="fouiller">Fouiller la salle</button>' : '';
+    const pause = !bloque && salleCalme(e, sa, p) ? '<button class="secondaire" id="pause">☕ Faire une pause</button>' : '';
     const affaires = !bloque && sa.id === BUREAU_GEOLIERS && e.confisque ? '<button id="affaires">🎒 Récupérer tes affaires</button>' : '';
 
     // Une scène qui tourne à la bagarre retient le héros jusqu'au combat.
@@ -482,7 +493,7 @@ export const ecranDonjon = (app: HTMLElement, p: Partie, s: SortiesDonjon) => {
       ${action}
       ${quetes}
       ${serrures}
-      ${recherche || fouille || affaires ? `<p class="actions-lieu">${affaires}${fouille}${recherche}</p>` : ''}
+      ${recherche || fouille || affaires || pause ? `<p class="actions-lieu">${affaires}${fouille}${recherche}${pause}</p>` : ''}
       <p class="actions-lieu">${sorties
         .map((id) => {
           const autre = dj.niveaux && salle(dj, id).niveau !== sa.niveau;
@@ -525,6 +536,28 @@ export const ecranDonjon = (app: HTMLElement, p: Partie, s: SortiesDonjon) => {
       ${ddn() ? panneauHautsFaits() : ''}`;
   };
 
+  /** La fenêtre de pause : casser la croûte, souffler une heure, ou camper jusqu'à l'aube. */
+  const popupPause = () => {
+    const id = encas(p);
+    const depuis = p.casseCroute === undefined ? Infinity : p.jour * 24 + p.heure - p.casseCroute;
+    const refusCroute = !id ? 'Rien à manger dans le sac.' : depuis < DELAI_CASSE_CROUTE ? `Personne n'a faim : vous avez mangé il y a moins de ${DELAI_CASSE_CROUTE} h.` : '';
+    const refus = refusCamp(p);
+    const mage = eaMax(p) > 0 || (p.compagnons ?? []).some((c) => c.ea !== undefined);
+    const option = (idb: string, titre: string, detail: string, non: string) =>
+      `<div class="option-pause"><button id="${idb}" ${non ? 'disabled' : ''}>${titre}</button> <span class="note">${non ? `<b>${echapper(non)}</b>` : detail}</span></div>`;
+    return `<div class="popup-quete popup-pause" id="popup-pause" role="dialog" aria-label="Faire une pause">
+      <div class="panneau parchemin-ouvert">
+        <div class="barre-fermer"><button class="secondaire petit fermer" id="fermer-pause" aria-label="Fermer">✕</button></div>
+        <h3>☕ Faire une pause</h3>
+        <p class="note">Il est ${formatHeure(p.heure)}. Tu as ${p.ev}/${evMax(p)} PV${eaMax(p) ? `, ${ea(p)}/${eaMax(p)} PA` : ''}.</p>
+        ${resultatPause ? `<div class="recit">${resultatPause}</div>` : ''}
+        ${option('croute', '🥖 Taper la croûte (30 min)', `+3 PV${mage ? ' et +3 PA' : ''} pour tout le groupe ; mange ${id ? echapper(objet(id).nom.toLowerCase()) : 'un en-cas'}.`, refusCroute)}
+        ${option('repos-heure', '⏳ Se reposer une heure', `+1 PV${mage ? ' et +2 PA' : ''} pour tout le groupe.`, '')}
+        ${option('camper-donjon', '⛺ Camper jusqu\'à l\'aube', `Comme un bivouac : couverture, rations, matelas comptent.`, refus ?? '')}
+      </div>
+    </div>`;
+  };
+
   const render = () => {
     const dj = d();
     if (p.donjon && dj.niveaux) purger(p.donjon, p.jour);
@@ -533,12 +566,14 @@ export const ecranDonjon = (app: HTMLElement, p: Partie, s: SortiesDonjon) => {
       ${bandeau(p, vue, 'Donjon')}
       <h1 class="titre-donjon">${echapper(dj.nom)}</h1>
       ${vue === 'lieu' ? `<div class="donjon-colonnes"><div class="donjon-carte">${carte()}</div><div class="donjon-salle">${panneau}</div></div>` : panneau}
-    </div>`;
+    </div>${vue === 'lieu' && pauseOuverte ? popupPause() : ''}`;
     lier();
   };
 
   const dire = (html?: string) => {
-    message = (html ?? '') + nouvelles() || undefined;
+    // Le donjon vient d'être bouclé (combat final, ou scène finale comme la libération des otages) : la quête avance.
+    const fin = p.donjon ? finSiTermine() : '';
+    message = (html ?? '') + fin + nouvelles() || undefined;
     if (p.ev <= 0) return mourir();
     sauver();
     render();
@@ -806,6 +841,40 @@ export const ecranDonjon = (app: HTMLElement, p: Partie, s: SortiesDonjon) => {
         dire(`« ${echapper(reponse)} » : un déclic, et la pierre pivote !${h ? ` ${echapper(h)}.` : ''}`);
       }),
     );
+    sur('#pause', () => {
+      pauseOuverte = true;
+      resultatPause = undefined;
+      render();
+    });
+    sur('#fermer-pause', () => {
+      pauseOuverte = false;
+      render();
+    });
+    app.querySelector('#popup-pause')?.addEventListener('click', (ev) => {
+      if (ev.target === ev.currentTarget) {
+        pauseOuverte = false;
+        render();
+      }
+    });
+    sur('#croute', () => {
+      resultatPause = echapper(casserCroute(p));
+      sauver();
+      render();
+    });
+    sur('#repos-heure', () => {
+      resultatPause = echapper(reposUneHeure(p));
+      sauver();
+      render();
+    });
+    sur('#camper-donjon', () => {
+      if (refusCamp(p)) return;
+      const plaintes = partageDuSoir(p);
+      const b = bivouaquer(p);
+      noter(p, `campe dans ${salle(d(), p.donjon!.salle).nom} et récupère ${b.rendu} PV.`);
+      resultatPause = `Vous calez la porte, roulez les couvertures et dormez à tour de rôle. À l'aube, tu as récupéré <b>${b.rendu} PV</b>. <span class="note">(${echapper(b.detail)})</span>${plaintes}`;
+      sauver();
+      render();
+    });
     sur('#chercher', () => {
       deEnCours = { type: 'chercher' };
       render();

@@ -41,7 +41,7 @@ import { arrondirOr, formatOr } from '../rules/monnaie';
 import { boutonAutrement, lierIdeesLieu, panneauIdeesLieu } from './idees';
 import { sauvegarderPartie } from './sauvegarde';
 import { occupation, vivreEnVille } from '../rules/vie-en-ville';
-import { appelsQuetes } from '../rules/quetes';
+import { appelsQuetes, progresserQuetes } from '../rules/quetes';
 import { compagnon, groupe, prenom } from '../rules/compagnons';
 import { lierGroupe, panneauEmbauche, panneauPartage, partageDuSoir } from './groupe';
 import { discuterPeage, fixerPeage, payerPeage, peageDu, personnes, reconnuJusqua, totalPeage, type Peage } from '../rules/peage';
@@ -410,7 +410,8 @@ export const ecranVille = (app: HTMLElement, p: Partie, sorties: SortiesVille, a
   let vieLignes: string[] = [];
   // Grande ville : les compagnons blessés filent chez le guérisseur (ou font passer le chapeau).
   const soins = p.arrive ? soinsEnVille(p, c) : { lignes: [], demandes: [] };
-  vieLignes = soins.lignes;
+  // Les étapes qui avancent toutes seules (le château libéré, même avant ce correctif…).
+  vieLignes = [...soins.lignes, ...progresserQuetes(p)];
   let demandesSoin: DemandeSoin[] = soins.demandes;
   const panneauDemandesSoin = () =>
     demandesSoin.length

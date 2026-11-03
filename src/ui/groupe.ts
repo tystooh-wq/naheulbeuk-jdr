@@ -13,6 +13,11 @@ import {
   destinCompagnon,
   discuter,
   ficheCompagnon,
+  equipeDe,
+  sacDe,
+  niveauCompagnon,
+  donnerObjet,
+  reprendreObjet,
   garderButin,
   groupe,
   humeur,
@@ -34,25 +39,33 @@ import { dateCourte } from '../rules/calendrier';
 import { cite } from '../rules/cites';
 import { occupation } from '../rules/vie-en-ville';
 import { objet } from '../rules/objets';
-import { blessuresActives, evMax, formatHeure, type EtatCompagnon, type Partie } from '../rules/partie';
+import { blessuresActives, evMax, formatHeure, type CleEquipement, type EtatCompagnon, type Partie } from '../rules/partie';
 import { echapper } from './outils';
 
 // Le groupe du héros : la fiche de chaque compagnon (onglet « Groupe »), et l'embauche des mercenaires.
 
 const ficheHtml = (p: Partie, id: string, e?: EtatCompagnon) => {
   const d = compagnon(id);
-  const f = ficheCompagnon(id);
+  const f = ficheCompagnon(id, e);
   const etat = e ?? { id, ev: f.ev, evMax: f.ev };
   const v = valeursCompagnon(p, etat);
   const t = tirCompagnon(p, etat);
   const comp = [...f.competences.naissance, ...f.competences.heritees, ...f.competences.choisies];
-  const equipement = Object.values(d.equipe)
-    .filter((x): x is string => !!x)
-    .map((x) => objet(x).nom);
-  return `<p class="note">${echapper(f.origine.nom)}, ${echapper(f.metier.nom)} · ${echapper(d.titre)}</p>
+  const equipe = e ? equipeDe(e) : d.equipe;
+  const sac = e ? sacDe(e) : d.sac;
+  const porte = (Object.entries(equipe) as [CleEquipement, string | undefined][]).filter((x): x is [CleEquipement, string] => !!x[1]);
+  const compte = (l: string[]) => [...new Set(l)].map((x) => [x, l.filter((y) => y === x).length] as const);
+  // Dans le groupe : on peut lui reprendre un objet, ou lui en donner un de son sac.
+  const equipementHtml = e
+    ? `<p class="note"><b>Équipement :</b> ${porte.length ? porte.map(([k, o]) => `${echapper(objet(o).nom)} <button class="lien" data-reprendre="${e.id}" data-objet="${o}" data-emplacement="${k}" title="Reprendre">↩</button>`).join(' · ') : 'rien'}
+        ${sac.length ? `<br><b>Sac :</b> ${compte(sac).map(([o, n]) => `${echapper(objet(o).nom)}${n > 1 ? ` ×${n}` : ''} <button class="lien" data-reprendre="${e.id}" data-objet="${o}" title="Reprendre">↩</button>`).join(' · ')}` : ''}</p>
+      ${p.sac.length ? `<p class="donner"><select data-choix-don="${e.id}">${compte(p.sac.filter((o) => !objet(o).quete)).map(([o, n]) => `<option value="${o}">${echapper(objet(o).nom)}${n > 1 ? ` (×${n})` : ''}</option>`).join('')}</select> <button class="secondaire petit" data-donner="${e.id}">Lui donner</button></p>` : ''}`
+    : `<p class="note"><b>Équipement :</b> ${echapper(porte.map(([, o]) => objet(o).nom).join(', '))}${sac.length ? ` · <b>Sac :</b> ${echapper(compte(sac).map(([o, n]) => `${objet(o).nom}${n > 1 ? ` ×${n}` : ''}`).join(', '))}` : ''}</p>`;
+  return `<p class="note">${echapper(f.origine.nom)}, ${echapper(f.metier.nom)} · ${echapper(d.titre)} · niveau ${e ? niveauCompagnon(e) : 1}${e ? ` (${e.xp ?? 0} XP)` : ''}</p>
     <p>${echapper(d.description)}</p>
     <div class="valeurs">
       <div><b>${etat.ev}/${etat.evMax}</b><span>Énergie vitale</span></div>
+      ${f.ea ? `<div><b>${e ? Math.min(f.ea, e.ea ?? f.ea) : f.ea}/${f.ea}</b><span>Énergie astrale</span></div>` : ''}
       <div><b>${v.at}</b><span>Attaque</span></div>
       <div><b>${v.prd}</b><span>Parade</span></div>
       <div><b>${echapper(v.degats)}</b><span>Dégâts</span></div>
@@ -61,7 +74,7 @@ const ficheHtml = (p: Partie, id: string, e?: EtatCompagnon) => {
       ${e ? `<div><b>${destinCompagnon(e)}</b><span>Destin</span></div>` : ''}
     </div>
     <p class="note">COU ${f.caracs.COU} · INT ${f.caracs.INT} · CHA ${f.caracs.CHA} · AD ${f.caracs.AD} · FO ${f.caracs.FO}</p>
-    <p class="note"><b>Équipement :</b> ${echapper(equipement.join(', '))}${d.sac.length ? ` · <b>Sac :</b> ${echapper([...new Set(d.sac)].map((x) => `${objet(x).nom}${d.sac.filter((y) => y === x).length > 1 ? ` ×${d.sac.filter((y) => y === x).length}` : ''}`).join(', '))}` : ''}</p>
+    ${equipementHtml}
     <p class="note"><b>Compétences :</b> ${echapper(comp.join(', '))}</p>`;
 };
 
@@ -268,6 +281,19 @@ export const lierGroupe = (app: HTMLElement, p: Partie, message: (html: string) 
   // Le partage peut s'afficher deux fois (lieu et fenêtre de quête) : chaque bouton répond.
   app.querySelectorAll('[data-partager]').forEach((b) => b.addEventListener('click', () => partage(`Tu comptes les pièces devant tout le monde.${liste(partagerButin(p))}`)));
   app.querySelectorAll('[data-garder]').forEach((b) => b.addEventListener('click', () => partage(`Tu fourres tout dans ta bourse.${liste(garderButin(p, 'tu as gardé sa part pour toi'))}`)));
+  app.querySelectorAll<HTMLElement>('[data-donner]').forEach((b) =>
+    b.addEventListener('click', () => {
+      const e = etat(b.dataset.donner!);
+      const choix = app.querySelector<HTMLSelectElement>(`[data-choix-don="${e.id}"]`)?.value;
+      if (choix) message(liste([donnerObjet(p, e, choix)]));
+    }),
+  );
+  app.querySelectorAll<HTMLElement>('[data-reprendre]').forEach((b) =>
+    b.addEventListener('click', () => {
+      const e = etat(b.dataset.reprendre!);
+      message(liste([reprendreObjet(p, e, b.dataset.objet!, b.dataset.emplacement as CleEquipement | undefined)]));
+    }),
+  );
   app.querySelectorAll<HTMLElement>('[data-renvoyer]').forEach((b) =>
     b.addEventListener('click', () => {
       const nom = compagnon(b.dataset.renvoyer!).perso.nom;

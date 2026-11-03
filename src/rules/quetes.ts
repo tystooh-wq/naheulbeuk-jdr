@@ -1,5 +1,5 @@
 import type { Situation } from './talents';
-import { ajouterButin, reagir, recruter } from './compagnons';
+import { ajouterButin, reagir, recruter, xpGroupe } from './compagnons';
 import { changerReputation, quetesRefusees, reputation, villeDe } from './reputation';
 import { MV } from './chateau-valtordu';
 import { calculerFiche } from './creation';
@@ -216,6 +216,8 @@ export const QUETES: Quete[] = [
         action: 'Entrer dans le château',
         recit: 'Le château est libéré, les enfants du seigneur sont saufs.',
         donjon: 'chateau-valtordu',
+        // Les enfants ramenés (scène finale), la quête avance même si on était déjà ressorti avant ce correctif.
+        auto: (p) => !!p.marques?.includes('cv:enfants'),
       },
       {
         ou: 'ville:valtordu:chateau',
@@ -390,6 +392,7 @@ export const validerEtape = (p: Partie, id: string): IssueEtape => {
   ajouterButin(p, q.recompense.or);
   p.or = arrondirOr(p.or + q.recompense.or);
   p.xp = (p.xp ?? 0) + q.recompense.xp;
+  reactions.push(...xpGroupe(p, q.recompense.xp));
   p.sac.push(...(q.recompense.objets ?? []));
   if (q.recompense.compagnon) recruter(p, q.recompense.compagnon);
   noter(p, `termine la quête « ${q.titre} » (${q.recompense.texte}, +${q.recompense.xp} XP).`);

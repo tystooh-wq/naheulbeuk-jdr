@@ -1,3 +1,4 @@
+import { xpGroupe } from './compagnons';
 import { lancer, type Rng } from './des';
 import { ajouterBlessure, epreuve, niveauPour, noter, passerTemps, type Equipement, type Partie } from './partie';
 import { valeurEpreuve, type CaracQuete } from './epreuves';
@@ -28,6 +29,7 @@ export const reussit = (p: Partie, carac: CaracQuete, modif = 0, rng?: Rng, situ
 
 export const xp = (p: Partie, points: number) => {
   p.xp = (p.xp ?? 0) + points;
+  xpGroupe(p, points);
 };
 
 /** Un malus passager (odeur tenace, puces…), rangé avec les blessures : il s'efface tout seul. Sans durée : permanent. */

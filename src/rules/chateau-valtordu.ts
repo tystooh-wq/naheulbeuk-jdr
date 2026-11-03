@@ -1,7 +1,8 @@
 import { combat, E, marquer, reussit, valeur, xp } from './ddn';
 import type { CaracQuete } from './epreuves';
 import { aMarque, malConduire, type Choix, type Evenement } from './evenements';
-import { soigner } from './partie';
+import { soigner, type Partie } from './partie';
+import { lancer } from './des';
 import { changerReputation } from './reputation';
 import type { LigneRencontre } from './rencontres';
 import type { Contenu, Donjon, Salle } from './donjons';
@@ -195,8 +196,10 @@ const sceneOtages = sc(
           malConduire(p, 'cv:pris-au-coffre');
           return { texte: "Les mains dans le coffre, tu entends : « Papa ! Le monsieur prend nos sous ! » Le seigneur, qui arrive à cet instant, te regarde d'un air glacial. Les gardes, réveillés de leur cauchemar, ramènent tout le monde à la lumière." };
         }
-        p.or += 30;
-        return { texte: "Trente pièces d'or disparaissent dans ta bourse avant que le seigneur n'arrive, suivi de gardes qui se frottent les yeux comme au sortir d'un long cauchemar. Il veut rendre les impôts aux villageois. Toi, tu as déjà prélevé ta commission." };
+        // Le coffre des impôts de tout un village : ce qu'on rafle en quelques secondes (2D6 × 10 PO, choix maison).
+        const pris = (lancer(6, rng) + lancer(6, rng)) * 10;
+        p.or += pris;
+        return { texte: `${pris} pièces d'or et une poignée de bijoux de famille disparaissent dans ta bourse avant que le seigneur n'arrive, suivi de gardes qui se frottent les yeux comme au sortir d'un long cauchemar. Il veut rendre les impôts aux villageois. Toi, tu as déjà prélevé ta commission.` };
       },
     },
   ],
@@ -639,6 +642,19 @@ const SOUTERRAINS: Salle[] = [
     contenu: { type: 'scene', scene: sceneOtages },
   },
 ];
+
+// Les chapichapos morts, le sortilège de Suprématie s'évanouit : les gardes redeviennent normaux et ne se battent plus.
+const libere = (p: Partie) => aMarque(p, 'cv:chapichapos');
+const APRES: Record<string, string> = {
+  'cv-bureau': "Le bureau est vide : le seigneur est auprès de ses enfants. Il t'attend à la porte du château pour te remercier.",
+  'cv-hall': 'Des gardes encore hagards te saluent bien bas en passant. « Merci, l\'ami. On a fait un drôle de rêve. »',
+  'cv-gardes': 'Les gardes ont rangé les cartes et se passent une cruche d\'eau fraîche en se tenant la tête.',
+  'cv1-palier': "Le chef des gardes, la clé à la ceinture, se confond en excuses : « Je ne sais pas ce qui m'a pris. »",
+  'cvs-couloir': 'Un garde fait les cent pas, mais cette fois il te salue.',
+  'cvs-gardes': "Le garde de la couchette ronfle comme un bienheureux. On ne le réveille pas.",
+};
+for (const sa of [...RDC, ...ETAGE, ...SOUTERRAINS])
+  if (APRES[sa.id]) sa.variantes = [{ si: libere, description: APRES[sa.id] }, ...(sa.variantes ?? [])];
 
 export const CHATEAU_VALTORDU: Donjon = {
   id: ID_CHATEAU,
