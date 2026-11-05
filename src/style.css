@@ -2651,3 +2651,26 @@ button.sort-ligne { text-align: left; text-transform: none; font-variant: normal
 button.sort-ligne .note { display: block; font-size: 0.85rem; }
 .ecole-sorts summary { cursor: pointer; font-weight: 600; margin: 0.3rem 0; }
 .ecole-sorts ul.sorts details summary { font-weight: normal; }
+
+/* Boutiques : onglets Acheter / Vendre */
+.onglets-boutique { display: flex; gap: 6px; margin: 12px 0 4px; }
+
+/* Bulle flottante (achat, vente, soin) : ne déplace rien, laisse passer les clics */
+.annonce-jeu {
+  position: fixed;
+  left: 50%;
+  bottom: 16px;
+  transform: translate(-50%, 12px);
+  max-width: min(520px, calc(100vw - 32px));
+  padding: 10px 14px;
+  background: var(--carte);
+  color: var(--encre);
+  border: 2px solid var(--bordure);
+  border-radius: 8px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s, transform 0.2s;
+  z-index: 1000;
+}
+.annonce-jeu.visible { opacity: 1; transform: translate(-50%, 0); }

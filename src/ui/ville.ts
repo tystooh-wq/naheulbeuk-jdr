@@ -29,7 +29,7 @@ import {
 import { cite, lieuCite, longueurCite, pointCite, trajetCite } from '../rules/cites';
 import type { Lieu, TypeLieu } from '../rules/waldorg';
 import type { Rencontre } from '../rules/rencontres';
-import { bandeau, jaugeReputation, lierSac, lierVitesse, ligneObjet, panneauGroupe, panneauJournal, panneauSac, vitesse } from './commun';
+import { afficherAnnonce, bandeau, jaugeReputation, lierSac, lierVitesse, ligneObjet, panneauGroupe, panneauJournal, panneauSac, vitesse } from './commun';
 import { ecranCombat, pertes, vengeTexte } from './combat';
 import { ecranMort } from './mort';
 import { aTalent, bonusSituation, texteBonus } from '../rules/talents';
@@ -77,6 +77,8 @@ interface Visite {
   marchandage?: Marchandage;
   /** Le joueur a choisi de marchander et doit lancer son dé. */
   marchandageEnCours?: boolean;
+  /** L'onglet ouvert dans une boutique qui rachète : acheter ou vendre. */
+  ongletBoutique?: 'acheter' | 'vendre';
   message?: string;
 }
 
@@ -209,7 +211,33 @@ export const ecranVille = (app: HTMLElement, p: Partie, sorties: SortiesVille, a
     const b = l.boutique!;
     const aVendre = [...new Set(p.sac)].filter((id) => b.rachete?.includes(objet(id).type));
     const fp = facteurPrix(reputation(p, c.id));
-    return `
+    const onglet = b.rachat ? (visite.ongletBoutique ?? 'acheter') : 'acheter';
+    const onglets = b.rachat
+      ? `<div class="onglets-boutique" role="tablist">${(
+          [
+            ['acheter', 'Acheter'],
+            ['vendre', `Vendre${aVendre.length ? ` (${aVendre.length})` : ''}`],
+          ] as const
+        )
+          .map(([id, nom]) => `<button class="petit ${id === onglet ? '' : 'secondaire'}" role="tab" aria-selected="${id === onglet}" data-onglet-boutique="${id}">${nom}</button>`)
+          .join('')}</div>`
+      : '';
+    if (onglet === 'vendre')
+      return `${onglets}
+      <h3>Le marchand rachète</h3>
+      ${
+        aVendre.length
+          ? aVendre
+              .map((id) => {
+                const o = objet(id);
+                const prix = prixVente(o, b.rachat! * (arnaque() ? 1.1 : 1));
+                const nb = p.sac.filter((x) => x === id).length;
+                return ligneObjet(p, o, `<span class="pastille">×${nb}</span> <button class="secondaire petit vendre" data-id="${id}" data-prix="${prix}">Vendre ${formatOr(prix)}</button>`);
+              })
+              .join('')
+          : '<p class="note">Rien dans ton sac ne l\'intéresse. (Pour vendre ton arme ou ton armure, retire-la d\'abord dans « Sac et équipement ».)</p>'
+      }`;
+    return `${onglets}
       <h3>À vendre</h3>
       ${fp !== 1 ? `<p class="note">Ta réputation ici (${rangReputation(reputation(p, c.id)).nom}) : prix ${fp > 1 ? '+' : '−'}${Math.round(Math.abs(fp - 1) * 100)} %.</p>` : ''}
       ${
@@ -228,23 +256,7 @@ export const ecranVille = (app: HTMLElement, p: Partie, sorties: SortiesVille, a
           const prix = prixAchat(o, l);
           return ligneObjet(p, o, `<button class="petit acheter" data-id="${id}" data-prix="${prix}" ${p.or < prix ? 'disabled' : ''}>${formatOr(prix)}</button>`);
         })
-        .join('')}
-      ${
-        b.rachat
-          ? `<h3>Le marchand rachète</h3>${
-              aVendre.length
-                ? aVendre
-                    .map((id) => {
-                      const o = objet(id);
-                      const prix = prixVente(o, b.rachat! * (arnaque() ? 1.1 : 1));
-                      const nb = p.sac.filter((x) => x === id).length;
-                      return ligneObjet(p, o, `<span class="pastille">×${nb}</span> <button class="secondaire petit vendre" data-id="${id}" data-prix="${prix}">Vendre ${formatOr(prix)}</button>`);
-                    })
-                    .join('')
-                : '<p class="note">Rien dans ton sac ne l\'intéresse. (Pour vendre ton arme ou ton armure, retire-la d\'abord dans « Sac et équipement ».)</p>'
-            }`
-          : ''
-      }`;
+        .join('')}`;
   };
 
   const actionsLieu = (l: Lieu): string => {
@@ -432,6 +444,9 @@ export const ecranVille = (app: HTMLElement, p: Partie, sorties: SortiesVille, a
     if (!p.arrive) return ecranArrivee();
     vieLignes = [...vieLignes, ...vivreEnVille(p, c)].slice(-4);
     const ouvert = vue === 'lieu' && popup;
+    // Garder la position de défilement : acheter, vendre ou se soigner ne doit pas faire sauter la fenêtre.
+    const defilement = ['#panneau', '#popup'].map((sel) => [sel, app.querySelector(sel)?.scrollTop ?? 0] as const);
+    const fenetre = window.scrollY;
     const panneau = vue === 'sac' ? panneauSac(p, visite.message) : vue === 'groupe' ? panneauGroupe(p, visite.message) : vue === 'journal' ? panneauJournal(p) : vue === 'quetes' ? panneauJournalQuetes(p) : '';
     app.innerHTML = `<div class="page page-ville">
       ${bandeau(p, vue, c.nom)}
@@ -451,6 +466,11 @@ export const ecranVille = (app: HTMLElement, p: Partie, sorties: SortiesVille, a
       ${enregistre ? '' : '<p class="alerte">Ce navigateur ne permet pas de sauvegarder : ta partie sera perdue si tu fermes la page.</p>'}
       <div class="actions"><button class="secondaire" id="accueil">Accueil</button></div>
     </div>`;
+    for (const [sel, y] of defilement) {
+      const el = app.querySelector(sel);
+      if (el && y) el.scrollTop = y;
+    }
+    if (window.scrollY !== fenetre) window.scrollTo({ top: fenetre });
     lier();
   };
 
@@ -458,6 +478,13 @@ export const ecranVille = (app: HTMLElement, p: Partie, sorties: SortiesVille, a
     visite.message = html;
     sauver();
     render();
+  };
+
+  /** Le résultat d'un achat, d'une vente ou d'un soin : une bulle flottante, pour que les boutons ne bougent pas. */
+  const annonce = (html: string) => {
+    sauver();
+    render();
+    afficherAnnonce(html);
   };
 
   /** Le résultat d'une quête : dans la fenêtre de la quête si elle est ouverte (récompense, partage, Continuer). */
@@ -637,10 +664,14 @@ export const ecranVille = (app: HTMLElement, p: Partie, sorties: SortiesVille, a
         }, 350),
       );
     });
+    sur('[data-onglet-boutique]', (el) => {
+      visite.ongletBoutique = el.dataset.ongletBoutique as Visite['ongletBoutique'];
+      render();
+    });
     sur('.acheter', (el) => {
       const o = objet(el.dataset.id!);
       const refus = acheter(p, o.id, Number(el.dataset.prix));
-      if (refus) return message(echapper(refus));
+      if (refus) return annonce(echapper(refus));
       noter(p, `achète ${o.nom} pour ${formatOr(Number(el.dataset.prix))}.`);
       let texte = `Tu achètes <b>${echapper(o.nom)}</b> pour ${formatOr(Number(el.dataset.prix))}. Il est dans ton sac.`;
       const m = visite.marchandage;
@@ -651,13 +682,13 @@ export const ecranVille = (app: HTMLElement, p: Partie, sorties: SortiesVille, a
         texte += ` En prime, le marchand te glisse <b>${echapper(c.nom)}</b> avec un clin d'œil.`;
         m.cadeau = undefined;
       }
-      message(texte);
+      annonce(texte);
     });
     sur('.vendre', (el) => {
       const o = objet(el.dataset.id!);
       const refus = vendre(p, o.id, Number(el.dataset.prix));
       if (!refus) noter(p, `vend ${o.nom} pour ${formatOr(Number(el.dataset.prix))}.`);
-      message(refus ? echapper(refus) : `Tu vends <b>${echapper(o.nom)}</b> pour ${formatOr(Number(el.dataset.prix))}.`);
+      annonce(refus ? echapper(refus) : `Tu vends <b>${echapper(o.nom)}</b> pour ${formatOr(Number(el.dataset.prix))}.`);
     });
 
     // Bars, auberges, soins
@@ -689,12 +720,12 @@ export const ecranVille = (app: HTMLElement, p: Partie, sorties: SortiesVille, a
       p.or -= n * l.prixSoin!;
       soigner(p, n);
       noter(p, `se fait soigner (${l.nom}, ${n} PV).`);
-      message(`Le soigneur marmonne une formule et applique un onguent qui pique. Tu récupères <b>${n} PV</b>.`);
+      annonce(`Le soigneur marmonne une formule et applique un onguent qui pique. Tu récupères <b>${n} PV</b>.`);
     });
     sur('[data-soin-grave]', (el) => {
       const l = lieu(p.lieu);
       const s = soinsGraves(p, `${c.id}:${l.id}`, l.prixSoin!).possibles.find((g) => g.index === Number(el.dataset.soinGrave));
-      if (s) message(echapper(soignerGrave(p, s)));
+      if (s) annonce(echapper(soignerGrave(p, s)));
     });
     sur('#action-lieu', () => message(echapper(lieu(p.lieu).action!.texte)));
 

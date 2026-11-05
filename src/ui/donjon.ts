@@ -75,7 +75,7 @@ import { objet } from '../rules/objets';
 import { acheter, bivouaquer, evMax, formatHeure, noter, passerTemps, soigner, type Partie } from '../rules/partie';
 import { donjonTermine, progresserQuetes } from '../rules/quetes';
 import type { LigneRencontre, Rencontre } from '../rules/rencontres';
-import { bandeau, lierSac, lierVitesse, panneauGroupe, panneauJournal, panneauSac } from './commun';
+import { afficherAnnonce, bandeau, lierSac, lierVitesse, panneauGroupe, panneauJournal, panneauSac } from './commun';
 import { partageDuSoir } from './groupe';
 import { ecranCombat, pertes, vengeTexte, type BilanCombat } from './combat';
 import { boutonAutrement, lierIdeesLieu, panneauIdeesLieu } from './idees';
@@ -902,7 +902,10 @@ export const ecranDonjon = (app: HTMLElement, p: Partie, s: SortiesDonjon) => {
       const id = el.dataset.acheter!;
       const refus = acheter(p, id, objet(id).prix);
       if (!refus) noter(p, `achète ${objet(id).nom} au donjon.`);
-      dire(refus ? echapper(refus) : `Tu achètes : <b>${echapper(objet(id).nom)}</b>.`);
+      // Une bulle flottante plutôt qu'un message : le bouton reste en place pour acheter encore.
+      sauver();
+      render();
+      afficherAnnonce(refus ? echapper(refus) : `Tu achètes : <b>${echapper(objet(id).nom)}</b>.`);
     });
     sur('#ragots', () => {
       const c = contenuIci(salle(d(), p.donjon!.salle), p).contenu;

@@ -484,3 +484,23 @@ const ouvrirNiveau = (p: Partie, fini: (texte: string) => void) => {
   document.body.append(fenetre);
   document.body.classList.add('ency-ouverte');
 };
+
+let minuterieAnnonce: ReturnType<typeof setTimeout> | undefined;
+/** Une bulle flottante en bas de l'écran (achat, vente, soin) : elle ne pousse aucun bouton, et les clics passent au travers. */
+export const afficherAnnonce = (html: string) => {
+  let el = document.getElementById('annonce-jeu');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'annonce-jeu';
+    el.className = 'annonce-jeu';
+    el.setAttribute('role', 'status');
+    el.setAttribute('aria-live', 'polite');
+    document.body.appendChild(el);
+  }
+  el.innerHTML = html;
+  el.classList.remove('visible');
+  void el.offsetWidth;
+  el.classList.add('visible');
+  clearTimeout(minuterieAnnonce);
+  minuterieAnnonce = setTimeout(() => el!.classList.remove('visible'), 4000);
+};
